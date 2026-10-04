@@ -1,0 +1,19 @@
+{
+  "name": "@gdslimmer/build-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.8",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
