@@ -8,7 +8,7 @@ async function exists(path: string) {
   try { await stat(path); return true; } catch { return false; }
 }
 
-export async function ensureGodotSource(versionId: GodotVersionId): Promise<string> {
+export async function ensureGodotSource(versionId: GodotVersionId, onVerifying: () => Promise<void> = async () => undefined): Promise<string> {
   const version = SUPPORTED_GODOT_VERSIONS[versionId];
   const versionDir = join(env.godotCacheDir, version.id);
   const sourceDir = join(versionDir, "source");
@@ -25,6 +25,7 @@ export async function ensureGodotSource(versionId: GodotVersionId): Promise<stri
 
   const { createHash } = await import("node:crypto");
   const { createReadStream } = await import("node:fs");
+  await onVerifying();
   const digest = await new Promise<string>((resolve, reject) => {
     const hash = createHash("sha256");
     createReadStream(archive).on("data", (chunk) => hash.update(chunk)).on("error", reject).on("end", () => resolve(hash.digest("hex")));

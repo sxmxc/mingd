@@ -19,7 +19,8 @@ export async function POST(request: Request) {
   }
 
   const configHash = hashBuildConfig(config);
-  const { data: artifact } = await admin.from("artifacts").select("id").eq("config_hash", configHash).maybeSingle();
+  // Dry-run diagnostics are deliberately never handed out as export templates.
+  const { data: artifact } = await admin.from("artifacts").select("id").eq("config_hash", configHash).eq("is_dry_run", false).maybeSingle();
 
   if (artifact) {
     const { data: build, error } = await admin.from("builds").insert({

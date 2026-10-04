@@ -4,13 +4,12 @@
 
 gdslimmer is a bootstrap for a hosted custom Godot export-template builder. Users choose an official Godot version, target platform, optimization level, and removable engine features. gdslimmer turns that configuration into a reproducible Godot source build, caches identical artifacts, and stores the resulting `.tpz` in Supabase Storage.
 
-This repository intentionally starts with a narrow, credible MVP:
+This repository intentionally starts with a narrow, credible real-build milestone:
 
 - Godot 4.7.2 stable is pinned to the official release source archive and SHA-256.
-- Windows x86_64 and Linux x86_64 export templates.
-- Bootstrap Windows policy keeps Vulkan/OpenGL but disables D3D12, AccessKit, WinRT, and ANGLE until their SDK dependency installers are integrated.
-- `template_release`, `template_debug`, or both.
-- Size optimization, LTO, 2D/3D removal, physics toggles, selected module toggles, and text-server choice.
+- Linux x86_64 `template_release` only.
+- Standard (least-stripped) feature configuration, `optimize=size`, and LTO disabled.
+- Windows and Lean 2D remain unavailable until the Linux Standard template has passed the packaging and smoke-test procedure below.
 - Supabase Auth, Postgres, Row Level Security, and private Storage.
 - Redis + BullMQ for build jobs.
 - Dockerized Linux builder with GCC, MinGW-w64 (POSIX thread model), SCons, and ccache.
@@ -124,8 +123,8 @@ Supabase's CLI development stack is not intended to be internet-facing productio
 5. Builder rechecks the artifact hash to avoid duplicate races.
 6. Builder verifies/caches the exact official Godot source archive.
 7. Builder generates only server-owned SCons options from the validated config.
-8. SCons builds the requested templates.
-9. Builder packages canonical Godot template filenames plus `version.txt` into a `.tpz`.
+8. SCons builds the Linux release template with only generated, allowlisted arguments.
+9. Builder checks the compiled file is a non-empty x86_64 ELF executable, packages the canonical Godot filename (`linux_release.x86_64`), `version.txt`, and a README, then tests the ZIP before upload.
 10. Artifact is uploaded to the private `build-artifacts` Supabase bucket.
 11. Artifact metadata and final build status are written to Postgres.
 12. The download route checks ownership and generates a short-lived signed Storage URL.
@@ -133,7 +132,7 @@ Supabase's CLI development stack is not intended to be internet-facing productio
 
 ### Cache invalidation
 
-`packages/build-config/src/recipe.ts` contains `BUILD_RECIPE_VERSION`. Bump it whenever the worker toolchain, compiler policy, packaging layout, or SCons mapping changes enough that existing artifacts should not be reused.
+`packages/build-config/src/recipe.ts` contains `BUILD_RECIPE_VERSION`. The cache identity includes this version, canonical normalized configuration, and the pinned official source URL/checksum. Bump it whenever the worker toolchain, compiler policy, packaging layout, or SCons mapping changes enough that existing artifacts should not be reused.
 
 ## Current pinned Godot source
 
@@ -158,6 +157,17 @@ Add versions deliberately. Every supported version should have an exact source U
 ## Dry-run mode
 
 Set `BUILDER_DRY_RUN=true` to test queue and database plumbing without compiling Godot. The worker will emit a small diagnostic `.tpz` describing the requested build. Never expose dry-run artifacts as real templates in production.
+
+## Real-template smoke test
+
+`tests/fixtures/smoke-project` is the repository-owned fixture for validating a completed real artifact. It has a small 2D scene using Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer, and GDScript.
+
+1. Set `BUILDER_DRY_RUN=false`, submit the fixed Linux Standard profile, and download the completed `.tpz`.
+2. In Godot 4.7.2, install the package through **Editor > Manage Export Templates**.
+3. Import `tests/fixtures/smoke-project`, create a Linux/X11 export preset, and export it.
+4. Run the exported executable. A 640×360 window showing `GDSlimmer smoke test passed` is a pass.
+
+The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
 
 ## Suggested next milestones
 

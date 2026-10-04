@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { BuildConfig, TemplateKind } from "@gdslimmer/build-config";
 import { SUPPORTED_GODOT_VERSIONS } from "@gdslimmer/build-config";
@@ -18,7 +18,16 @@ function findCompiledBinary(files: string[], config: BuildConfig, kind: Template
   return candidates.find((name) => !name.endsWith(".txt"));
 }
 
-export async function packageArtifact(sourceDir: string, outputDir: string, config: BuildConfig): Promise<string> {
+function validateLinuxBinaryHeader(header: Buffer, path: string) {
+  if (header.length < 20 || header.subarray(0, 4).compare(Buffer.from([0x7f, 0x45, 0x4c, 0x46])) !== 0) {
+    throw new Error(`Compiled template is not an ELF executable: ${path}`);
+  }
+  if (header[4] !== 2 || header.readUInt16LE(18) !== 62) {
+    throw new Error(`Compiled template is not a 64-bit x86_64 ELF executable: ${path}`);
+  }
+}
+
+export async function packageArtifact(sourceDir: string, outputDir: string, config: BuildConfig): Promise<{ artifactPath: string; binarySizeBytes: number }> {
   const binDir = join(sourceDir, "bin");
   const files = await readdir(binDir);
   const packageDir = join(outputDir, "package");
@@ -29,7 +38,11 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     if (!built) throw new Error(`Could not locate compiled ${config.platform} ${kind} binary in ${binDir}. Found: ${files.join(", ")}`);
 
     if (config.platform === "linux") {
-      await copyFile(join(binDir, built), join(packageDir, `linux_${kind}.${config.architecture}`));
+      const sourcePath = join(binDir, built);
+      const binary = await readFile(sourcePath);
+      validateLinuxBinaryHeader(binary.subarray(0, 64), sourcePath);
+      if (binary.length === 0) throw new Error(`Compiled template is empty: ${sourcePath}`);
+      await copyFile(sourcePath, join(packageDir, `linux_${kind}.${config.architecture}`));
     } else {
       await copyFile(join(binDir, built), join(packageDir, `windows_${kind}_${config.architecture}.exe`));
       const consoleBuilt = findCompiledBinary(files, config, kind, true);
@@ -39,10 +52,25 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
 
   const version = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
   await writeFile(join(packageDir, "version.txt"), `${version.versionIdentifier}\n`);
+  await writeFile(join(packageDir, "README-gdslimmer.txt"), [
+    "GDSlimmer custom Godot export template", "",
+    `Godot: ${version.versionIdentifier}`,
+    `Target: ${config.platform} ${config.architecture} template_${config.templateKinds.join(", template_")}`,
+    "Install this TPZ with Godot's Export template manager, then export normally.",
+  ].join("\n"));
 
   const artifact = join(outputDir, `gdslimmer-${config.godotVersion}-${config.platform}-${config.architecture}.tpz`);
   await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
-  return artifact;
+  await runProcess("unzip", ["-tqq", artifact]);
+  const required = ["version.txt", "README-gdslimmer.txt", ...config.templateKinds.map((kind) => expectedPackageFilename(config, kind))];
+  const names = (await readdir(packageDir)).sort();
+  for (const name of required) if (!names.includes(name)) throw new Error(`Template package is missing required entry: ${name}`);
+  const binaryPath = join(packageDir, expectedPackageFilename(config, config.templateKinds[0]));
+  return { artifactPath: artifact, binarySizeBytes: (await stat(binaryPath)).size };
+}
+
+function expectedPackageFilename(config: BuildConfig, kind: TemplateKind) {
+  return config.platform === "linux" ? `linux_${kind}.${config.architecture}` : `windows_${kind}_${config.architecture}.exe`;
 }
 
 export function artifactName(path: string) {

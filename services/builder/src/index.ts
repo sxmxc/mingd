@@ -4,7 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { Worker, type Job } from "bullmq";
 import { createClient } from "@supabase/supabase-js";
-import { canonicalBuildCacheInput, normalizeBuildConfig } from "@gdslimmer/build-config";
+import { BUILD_RECIPE_VERSION, canonicalBuildCacheInput, normalizeBuildConfig, SUPPORTED_GODOT_VERSIONS } from "@gdslimmer/build-config";
 import { env } from "./env.js";
 import { compileBuild } from "./compiler.js";
 
@@ -60,26 +60,37 @@ async function processBuild(job: Job<BuildJob>) {
     throw new Error("Build configuration hash does not match the queued payload.");
   }
   const logFile = `${env.workDir}/${buildId}.log`;
+  // A diagnostic archive must never occupy the real-template cache key or path.
+  const artifactHash = env.dryRun ? createHash("sha256").update(`dry-run\n${configHash}`).digest("hex") : configHash;
 
-  const { data: existing } = await supabase.from("artifacts").select("id").eq("config_hash", configHash).maybeSingle();
+  const { data: existing } = await supabase.from("artifacts").select("id").eq("config_hash", artifactHash).eq("is_dry_run", env.dryRun).maybeSingle();
   if (existing) {
     await updateBuild(buildId, { artifact_id: existing.id, status: "complete", stage: "Cached artifact", progress: 100, completed_at: new Date().toISOString() });
     return;
   }
 
   try {
-    await updateBuild(buildId, { status: "preparing", stage: "Preparing verified Godot source", progress: 8, started_at: new Date().toISOString() });
-    await job.updateProgress(8);
-
-    await updateBuild(buildId, { status: "compiling", stage: env.dryRun ? "Dry-run build" : "Compiling export template", progress: 20 });
-    const { artifactPath } = await compileBuild(buildId, config, logFile);
+    const updateStage = async (stage: import("./compiler.js").BuildStage) => {
+      const details: Record<typeof stage, { progress: number; status: string; label: string }> = {
+        preparing_source: { progress: 5, status: "preparing_source", label: "Preparing source cache" },
+        verifying_source: { progress: 12, status: "verifying_source", label: "Verifying official source checksum" },
+        preparing_workspace: { progress: 18, status: "preparing_workspace", label: "Preparing isolated workspace" },
+        compiling: { progress: 25, status: "compiling", label: env.dryRun ? "Creating dry-run diagnostic" : "Compiling export template" },
+        validating: { progress: 78, status: "validating", label: "Validating compiled template" },
+        packaging: { progress: 84, status: "packaging", label: "Packaging Godot template" },
+      };
+      const current = details[stage];
+      await updateBuild(buildId, { status: current.status, stage: current.label, progress: current.progress, ...(stage === "preparing_source" ? { started_at: new Date().toISOString() } : {}) });
+      await job.updateProgress(current.progress);
+    };
+    const { artifactPath, binarySizeBytes } = await compileBuild(buildId, config, logFile, updateStage);
     await job.updateProgress(78);
 
-    await updateBuild(buildId, { status: "packaging", stage: "Hashing packaged template", progress: 82, log_tail: await tail(logFile) });
+    await updateBuild(buildId, { status: "packaging", stage: "Hashing packaged template", progress: 87, log_tail: await tail(logFile) });
     const digest = await sha256(artifactPath);
     const size = (await stat(artifactPath)).size;
 
-    const storagePath = `${config.godotVersion}/${config.platform}/${configHash}/${basename(artifactPath)}`;
+    const storagePath = `${config.godotVersion}/${config.platform}/${artifactHash}/${basename(artifactPath)}`;
     await updateBuild(buildId, { status: "uploading", stage: "Uploading artifact", progress: 92 });
     const bytes = await readFile(artifactPath);
     const { error: uploadError } = await supabase.storage.from(env.artifactBucket).upload(storagePath, bytes, {
@@ -92,7 +103,7 @@ async function processBuild(job: Job<BuildJob>) {
     }
 
     const { data: artifact, error: artifactError } = await supabase.from("artifacts").upsert({
-      config_hash: configHash,
+      config_hash: artifactHash,
       storage_path: storagePath,
       sha256: digest,
       size_bytes: size,
@@ -100,6 +111,11 @@ async function processBuild(job: Job<BuildJob>) {
       platform: config.platform,
       architecture: config.architecture,
       template_kinds: config.templateKinds,
+      normalized_config: config,
+      source_sha256: SUPPORTED_GODOT_VERSIONS[config.godotVersion].sourceSha256,
+      build_recipe_version: BUILD_RECIPE_VERSION,
+      binary_size_bytes: binarySizeBytes,
+      is_dry_run: env.dryRun,
     }, { onConflict: "config_hash", ignoreDuplicates: false }).select("id").single();
     if (artifactError) throw new Error(`Artifact metadata write failed: ${artifactError.message}`);
 

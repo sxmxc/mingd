@@ -16,4 +16,5 @@ export const env = {
   workDir: process.env.GODOT_WORK_DIR ?? "/work/jobs",
   ccacheDir: process.env.CCACHE_DIR ?? "/cache/ccache",
   sconsJobs: Math.max(1, Number(process.env.SCONS_JOBS ?? "4")),
+  compileTimeoutMs: Math.max(60_000, Number(process.env.BUILDER_COMPILE_TIMEOUT_MS ?? String(2 * 60 * 60 * 1000))),
 };

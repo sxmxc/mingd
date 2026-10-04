@@ -27,11 +27,11 @@ export const DEFAULT_FEATURES: BuildFeatures = {
 
 export const DEFAULT_BUILD_CONFIG: BuildConfig = {
   godotVersion: "4.7.2",
-  platform: "windows",
+  platform: "linux",
   architecture: "x86_64",
   templateKinds: ["release"],
   optimization: "size",
-  lto: true,
+  lto: false,
   features: DEFAULT_FEATURES,
 };
 

@@ -1,17 +1,27 @@
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@gdslimmer/build-config";
+import { assertRealBuildSupported, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@gdslimmer/build-config";
 import { env } from "./env.js";
 import { ensureGodotSource } from "./source-cache.js";
 import { packageArtifact } from "./package-artifact.js";
 import { runProcess } from "./process.js";
 
-export async function compileBuild(buildId: string, rawConfig: unknown, logFile: string): Promise<{ artifactPath: string; config: BuildConfig }> {
+export type BuildStage = "preparing_source" | "verifying_source" | "preparing_workspace" | "compiling" | "validating" | "packaging";
+
+export async function compileBuild(
+  buildId: string,
+  rawConfig: unknown,
+  logFile: string,
+  onStage: (stage: BuildStage) => Promise<void> = async () => undefined,
+): Promise<{ artifactPath: string; binarySizeBytes: number; config: BuildConfig }> {
   const config = normalizeBuildConfig(rawConfig);
-  const sourceCache = await ensureGodotSource(config.godotVersion);
+  if (!env.dryRun) assertRealBuildSupported(config);
+  await onStage("preparing_source");
+  const sourceCache = await ensureGodotSource(config.godotVersion, async () => onStage("verifying_source"));
   const jobDir = join(env.workDir, buildId);
   const sourceDir = join(jobDir, "source");
   const outputDir = join(jobDir, "output");
+  await onStage("preparing_workspace");
   await rm(jobDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
 
@@ -25,7 +35,7 @@ export async function compileBuild(buildId: string, rawConfig: unknown, logFile:
     await writeFile(join(packageDir, "version.txt"), `${config.godotVersion}.stable\n`);
     const artifact = join(outputDir, `gdslimmer-${buildId}-DRY-RUN.tpz`);
     await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
-    return { artifactPath: artifact, config };
+    return { artifactPath: artifact, binarySizeBytes: 0, config };
   }
 
   const processEnv = {
@@ -34,11 +44,15 @@ export async function compileBuild(buildId: string, rawConfig: unknown, logFile:
     PATH: `/usr/lib/ccache:${process.env.PATH ?? ""}`,
   };
 
+  await onStage("compiling");
   for (const kind of config.templateKinds) {
     const args = ["-j", String(env.sconsJobs), ...toSconsArgs(config, kind)];
-    await runProcess("scons", args, { cwd: sourceDir, env: processEnv, logFile });
+    await runProcess("scons", args, { cwd: sourceDir, env: processEnv, logFile, timeoutMs: env.compileTimeoutMs });
   }
 
-  const artifactPath = await packageArtifact(sourceDir, outputDir, config);
-  return { artifactPath, config };
+  await onStage("validating");
+  // packageArtifact verifies the ELF header before it creates the archive.
+  await onStage("packaging");
+  const packaged = await packageArtifact(sourceDir, outputDir, config);
+  return { artifactPath: packaged.artifactPath, binarySizeBytes: packaged.binarySizeBytes, config };
 }
