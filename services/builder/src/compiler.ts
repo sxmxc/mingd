@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertRealBuildSupported, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
 import { env } from "./env.js";
@@ -7,6 +7,7 @@ import { packageArtifact } from "./package-artifact.js";
 import { runProcess } from "./process.js";
 import { BuildPerformance, LinkObserver } from "./performance.js";
 import { collectCacheDiagnostics, compilerCacheEnvironment } from "./cache-diagnostics.js";
+import { writeZip } from "./zip.js";
 
 export type BuildStage = "preparing_source" | "verifying_source" | "preparing_workspace" | "compiling" | "linking" | "validating" | "packaging";
 
@@ -40,7 +41,11 @@ export async function compileBuild(
     await writeFile(join(packageDir, "version.txt"), `${config.godotVersion}.stable\n`);
     const artifact = join(outputDir, `mingd-${buildId}-DRY-RUN.tpz`);
     await onStage("packaging");
-    await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
+    const packageFiles = await readdir(packageDir);
+    await writeZip(artifact, await Promise.all(packageFiles.map(async (name) => ({
+      name,
+      contents: await readFile(join(packageDir, name)),
+    }))));
     return { artifactPath: artifact, binarySizeBytes: 0, config };
   }
 

@@ -94,7 +94,7 @@ Copy the local API URL, publishable/anon key, and secret/service-role key into `
 4. Apply the migration if your local CLI did not do so automatically.
 
 ```bash
-npx supabase db reset
+npm run db:local:reset
 ```
 
 5. Start Redis.
@@ -120,6 +120,30 @@ Open `http://localhost:3000`.
 ## Production Supabase
 
 Supabase's CLI development stack is not intended to be internet-facing production infrastructure. For self-hosting, deploy the official Supabase Docker setup, configure backups and SMTP, and point min.gd at its public API endpoint. See `infra/self-hosted-supabase.md`.
+
+Set the server-only `SUPABASE_DB_URL` in `.env` or the deployment environment
+to the percent-encoded Postgres connection URI for the self-hosted database.
+The database scripts load the repository-root `.env`; an already-exported
+deployment value takes precedence. Review pending migrations before applying
+them:
+
+```bash
+npm run db:status
+npm run db:migrate:check
+npm run db:migrate
+```
+
+`db:migrate` only uses that explicit connection URI; it does not require or
+attempt to link a Supabase Cloud project. Do not use `db:local:reset` against
+production: it recreates the target database.
+
+Common operational commands:
+
+```bash
+npm run compose:ps
+npm run compose:logs
+npm run compose:down
+```
 
 ## Build lifecycle
 

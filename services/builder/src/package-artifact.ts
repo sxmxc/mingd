@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@mingd/build-config";
 import { SUPPORTED_GODOT_VERSIONS, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
 import { runProcess } from "./process.js";
+import { writeZip } from "./zip.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -69,7 +70,11 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   ].join("\n"));
 
   const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
-  await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
+  const packageFiles = await readdir(packageDir);
+  await writeZip(artifact, await Promise.all(packageFiles.map(async (name) => ({
+    name,
+    contents: await readFile(join(packageDir, name)),
+  }))));
   await runProcess("unzip", ["-tqq", artifact]);
   const required = ["version.txt", "README-mingd.txt", ...config.templateKinds.flatMap((kind) => [
     expectedTemplateFilename(config, kind),
