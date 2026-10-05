@@ -26,6 +26,23 @@ Operational responsibilities when self-hosting include database backups, Storage
 
 ## Applying application migrations
 
+The frontend is provided by the Compose `web` service using a non-root Next.js
+standalone image. Set browser-safe Supabase URL/key values in the root `.env`
+before building. The API URL must be reachable both from the browser and inside
+the container. Rebuild after changing `NEXT_PUBLIC_*` values; the privileged key
+is runtime-only. Use `WEB_PORT` to change the host port.
+
+Apply pending migrations (including `20261005064025_build_matrix.sql`) before
+starting expanded workers, then run:
+
+```bash
+docker compose --profile builder --profile web-builder up -d --build
+```
+
+The `builder` profile enables desktop compilation; `web-builder` enables the
+separate Emscripten worker and Web queue. See the root README for queue variables
+and service commands.
+
 The application migrations in `supabase/migrations/` can target a self-hosted
 database directly. Set `SUPABASE_DB_URL` in the repository-root `.env`,
 deployment shell, or secret manager to a percent-encoded Postgres connection

@@ -1,7 +1,8 @@
 import { Queue } from "bullmq";
 import { env } from "@/lib/env";
+import type { Platform } from "@mingd/build-config";
 
-let queue: Queue | undefined;
+const queues = new Map<string, Queue>();
 
 function redisConnectionFromUrl(urlString: string) {
   const url = new URL(urlString);
@@ -15,9 +16,11 @@ function redisConnectionFromUrl(urlString: string) {
   };
 }
 
-export function getBuildQueue() {
+export function getBuildQueue(platform: Platform = "linux") {
+  const name = platform === "web" ? env.webQueueName() : env.queueName();
+  let queue = queues.get(name);
   if (!queue) {
-    queue = new Queue(env.queueName(), {
+    queue = new Queue(name, {
       connection: redisConnectionFromUrl(env.redisUrl()),
       defaultJobOptions: {
         attempts: 2,
@@ -26,6 +29,7 @@ export function getBuildQueue() {
         removeOnFail: 1000,
       },
     });
+    queues.set(name, queue);
   }
   return queue;
 }

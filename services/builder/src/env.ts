@@ -9,6 +9,7 @@ export const env = {
   supabaseSecretKey: required("SUPABASE_SECRET_KEY"),
   redisUrl: required("REDIS_URL"),
   queueName: process.env.BUILDER_QUEUE_NAME ?? "godot-builds",
+  target: process.env.BUILDER_TARGET ?? "desktop",
   artifactBucket: process.env.ARTIFACT_BUCKET ?? "build-artifacts",
   concurrency: Math.max(1, Number(process.env.BUILDER_CONCURRENCY ?? "1")),
   dryRun: process.env.BUILDER_DRY_RUN === "true",

@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { GODOT_VERSION_IDS } from "./versions.ts";
 
 export const TemplateKindSchema = z.enum(["release", "debug"]);
-export const PlatformSchema = z.enum(["windows", "linux"]);
-export const ArchitectureSchema = z.literal("x86_64");
+export const PlatformSchema = z.enum(["windows", "linux", "web"]);
+export const ArchitectureSchema = z.enum(["x86_64", "wasm32"]);
 export const OptimizationSchema = z.enum(["size", "size_extra"]);
 export const TextServerSchema = z.enum(["advanced", "fallback"]);
 
@@ -32,7 +33,7 @@ export const BuildFeaturesSchema = z.object({
 });
 
 export const BuildConfigSchema = z.object({
-  godotVersion: z.literal("4.7.2"),
+  godotVersion: z.enum(GODOT_VERSION_IDS),
   platform: PlatformSchema,
   architecture: ArchitectureSchema,
   templateKinds: z
@@ -42,7 +43,10 @@ export const BuildConfigSchema = z.object({
     .transform((items) => [...new Set(items)].sort()),
   optimization: OptimizationSchema,
   lto: z.boolean(),
+  webThreads: z.boolean().default(false),
   features: BuildFeaturesSchema,
+}).refine(config => config.architecture === (config.platform === "web" ? "wasm32" : "x86_64"), {
+  message: "Web requires wasm32; desktop targets require x86_64.", path: ["architecture"],
 });
 
 export type BuildConfig = z.infer<typeof BuildConfigSchema>;

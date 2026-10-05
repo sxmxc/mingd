@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   try {
-    await getBuildQueue().add("compile-template", {
+    await getBuildQueue(config.platform).add("compile-template", {
       buildId: build.id,
       userId: auth.user.id,
       configHash,

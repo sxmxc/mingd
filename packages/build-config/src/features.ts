@@ -9,7 +9,7 @@ export const FEATURE_GROUPS: { label: string; options: FeatureOption[] }[] = [
     { key: "gltf", label: "Runtime glTF", requires: "engine3d", consequence: "Required for runtime glTF loading; editor-imported scenes are a separate workflow." },
     { key: "csg", label: "CSG", requires: "engine3d", consequence: "Required for CSG nodes in exported scenes." },
     { key: "gridmap", label: "GridMap", requires: "engine3d", consequence: "Required for GridMap-based levels." },
-    { key: "tilemap", label: "TileMap (always included)", locked: true, consequence: "Part of the core scene build; no supported TileMap-only switch in 4.7.2." },
+    { key: "tilemap", label: "TileMap (always included)", locked: true, consequence: "Part of the core scene build; supported releases have no TileMap-only switch." },
   ] },
   { label: "Physics & navigation", options: [
     { key: "physics2d", label: "2D physics", consequence: "Required for 2D physics bodies, areas and collision queries." },

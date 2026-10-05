@@ -41,7 +41,7 @@ export class LinkObserver {
   constructor(private readonly onLink: () => void) {}
   record(chunk: Buffer) {
     this.buffer = (this.buffer + chunk.toString()).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
-    if (!this.observed && /Linking Program\s+.*godot\.(?:windows|linuxbsd)\.template_(?:release|debug)\.[a-z0-9_]+(?:\.exe)?(?=[\s"'])/.test(this.buffer)) {
+    if (!this.observed && /Linking Program\s+.*godot\.(?:windows|linuxbsd|web)\.template_(?:release|debug)\.[a-z0-9_]+(?:\.nothreads)?(?:\.exe|\.js)?(?=[\s"'])/.test(this.buffer)) {
       this.observed = true;
       this.onLink();
     }

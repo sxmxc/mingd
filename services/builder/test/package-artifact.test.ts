@@ -4,8 +4,9 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import test from "node:test";
-import { DEFAULT_BUILD_CONFIG, PRESETS } from "@mingd/build-config";
+import { DEFAULT_BUILD_CONFIG, PRESETS, normalizeBuildConfig, compiledTemplateFilename } from "@mingd/build-config";
 import { packageArtifact, validateWindowsBinary } from "../src/package-artifact.js";
+import { writeZip } from "../src/zip.js";
 
 function pe(console = false) {
   const binary = Buffer.alloc(512);
@@ -26,6 +27,56 @@ test("Windows validation rejects wrong architecture, truncated files and wrong s
   wrongArch.writeUInt16LE(0x14c, 68);
   assert.throws(() => validateWindowsBinary(wrongArch, "test.exe"));
   assert.throws(() => validateWindowsBinary(pe(true), "test.exe"));
+});
+
+test("debug and release Windows binaries and wrappers stay distinct in one package", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "mingd-debug-package-"));
+  try {
+    const source = join(dir, "source");
+    const output = join(dir, "output");
+    await mkdir(join(source, "bin"), { recursive: true });
+    await mkdir(output);
+    const config = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, godotVersion: "4.6.3", platform: "windows", templateKinds: ["release", "debug"] });
+    for (const kind of config.templateKinds) for (const console of [false, true]) {
+      await writeFile(join(source, "bin", compiledTemplateFilename(config, kind, console)), pe(console));
+    }
+    const result = await packageArtifact(source, output, config);
+    const names = execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).trim().split("\n");
+    for (const kind of config.templateKinds) {
+      assert.ok(names.includes(`windows_${kind}_x86_64.exe`));
+      assert.ok(names.includes(`windows_${kind}_x86_64_console.exe`));
+    }
+    assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.6.3.stable\n");
+    assert.equal(result.binarySizeBytes, 1024);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("Web TPZ preserves nested template ZIPs and rejects missing or invalid WASM", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "mingd-web-package-"));
+  try {
+    const source = join(dir, "source");
+    const output = join(dir, "output");
+    await mkdir(join(source, "bin"), { recursive: true });
+    await mkdir(output);
+    const config = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, platform: "web", architecture: "wasm32", templateKinds: ["release", "debug"] });
+    const wasm = Buffer.from([0, 97, 115, 109, 1, 0, 0, 0, 0, 1, 0]);
+    const entries = ["godot.js", "godot.html", "godot.audio.worklet.js", "godot.audio.position.worklet.js", "godot.service.worker.js", "godot.offline.html"].map(name => ({ name, contents: Buffer.from("fixture") }));
+    for (const kind of config.templateKinds) {
+      await writeZip(join(source, "bin", compiledTemplateFilename(config, kind)), [...entries, { name: "godot.wasm", contents: wasm }]);
+    }
+    const result = await packageArtifact(source, output, config);
+    assert.equal(result.binarySizeBytes, wasm.length * 2);
+    for (const kind of config.templateKinds) {
+      assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, `web_nothreads_${kind}.zip`]), await readFile(join(source, "bin", compiledTemplateFilename(config, kind))));
+    }
+    const path = join(source, "bin", compiledTemplateFilename(config, "debug"));
+    await writeZip(path, entries);
+    await assert.rejects(packageArtifact(source, output, config), /missing godot.wasm/);
+    await writeZip(path, [...entries, { name: "godot.wasm", contents: Buffer.alloc(16) }]);
+    await assert.rejects(packageArtifact(source, output, config), /invalid WebAssembly/);
+    await writeZip(path, [...entries, { name: "../godot.wasm", contents: wasm }]);
+    await assert.rejects(packageArtifact(source, output, config), /flat filenames/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test("Linux Lean 2D packages original ELF bytes and reports packaging after validation", async () => {

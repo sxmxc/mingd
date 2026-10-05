@@ -1,21 +1,47 @@
 # Build profiles
 
-All profiles and editable custom recipes are available on Linux and Windows. They use official Godot 4.7.2 source, x86_64, `template_release`, `optimize=size`, and `lto=none`. Linux Standard remains the default.
+All profiles and editable custom recipes are available for Godot 4.7.2 and 4.6.3.
+Linux/Windows use x86_64; Web uses wasm32. Release, debug or both template kinds
+are selectable with `optimize=size` and `lto=none`. Linux Standard release on
+4.7.2 remains the default. Source URLs/checksums are allowlisted centrally.
+
+The owner confirmed the existing desktop preset smoke tests pass.
+New debug/version/Web combinations require separate
+acceptance. Structural packaging checks and SCons dry-runs are not runtime tests.
+
+## Expanded build matrix
+
+Web runs in a separate worker/queue with Emscripten 4.0.11 pinned by image digest.
+Choose single-threaded (default) or threaded, and match Thread Support in the
+Godot export preset. Use Compatibility/WebGL 2. Threaded hosting needs
+cross-origin isolation: `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`. Web normalization removes native
+OpenXR and UDP/ENet. GDExtensions are disabled (`dlink_enabled=no`). WebRTC and
+WebSocket remain available unless removed by the recipe.
+
+Web templates are nested ZIPs in the TPZ: `web_nothreads_release.zip` /
+`web_nothreads_debug.zip` for single-threaded, `web_release.zip` /
+`web_debug.zip` for threaded. The worker checks ZIP integrity, required HTML/JS
+support files and WASM magic/version before packaging. Custom Template fields
+take the nested ZIP, not the extracted WASM. Desktop debug entries use
+`linux_debug.x86_64`, `windows_debug_x86_64.exe` and the matching console wrapper.
+For both kinds, binary-size metadata sums main executable/WASM bytes across
+kinds; Windows wrappers and archive overhead are excluded.
 
 | Profile | Compiler | Package entries | Acceptance status |
 | --- | --- | --- | --- |
 | Linux Standard | GCC 12, Debian Bookworm, glibc 2.36 baseline | `linux_release.x86_64` | Build, download, Godot install, fixture export and launch confirmed by the project owner |
-| Windows Standard | MinGW-w64 with POSIX threads, cross-compiled in the Linux builder | `windows_release_x86_64.exe`, `windows_release_x86_64_console.exe` | Compilation confirmed by owner; native export/launch not separately recorded |
-| Linux Lean 2D | Same GCC toolchain | `linux_release.x86_64` | Enabled; real compile/export/native launch pending |
-| Windows Lean 2D | Same MinGW toolchain | GUI + console executable filenames above | Enabled; real compile/export/native launch pending |
-| Linux Offline 2D | Same GCC toolchain | `linux_release.x86_64` | Enabled; real compile/export/native launch pending |
-| Windows Offline 2D | Same MinGW toolchain | GUI + console executable filenames above | Enabled; real compile/export/native launch pending |
-| Linux Lean 3D | Same GCC toolchain | `linux_release.x86_64` | Enabled; real compile/export/native launch pending |
-| Windows Lean 3D | Same MinGW toolchain | GUI + console executable filenames above | Enabled; real compile/export/native launch pending |
+| Windows Standard | MinGW-w64 with POSIX threads, cross-compiled in the Linux builder | `windows_release_x86_64.exe`, `windows_release_x86_64_console.exe` | Desktop release smoke passed, owner confirmed |
+| Linux Lean 2D | Same GCC toolchain | `linux_release.x86_64` | Desktop release smoke passed, owner confirmed |
+| Windows Lean 2D | Same MinGW toolchain | GUI + console executable filenames above | Desktop release smoke passed, owner confirmed |
+| Linux Offline 2D | Same GCC toolchain | `linux_release.x86_64` | Desktop release smoke passed, owner confirmed |
+| Windows Offline 2D | Same MinGW toolchain | GUI + console executable filenames above | Desktop release smoke passed, owner confirmed |
+| Linux Lean 3D | Same GCC toolchain | `linux_release.x86_64` | Desktop release smoke passed, owner confirmed |
+| Windows Lean 3D | Same MinGW toolchain | GUI + console executable filenames above | Desktop release smoke passed, owner confirmed |
 
 Lean 2D retains 2D physics/navigation, GUI, audio and networking. It removes the 3D engine, 3D physics/navigation, Jolt, OpenXR, glTF, CSG and GridMap. Projects depending on removed systems are incompatible.
 
-Offline 2D starts from Lean 2D and removes scene multiplayer, ENet, WebSocket and WebRTC. It is **not networkless**: core HTTP/TCP functionality remains. Lean 3D retains the 3D engine, physics/navigation and glTF but removes OpenXR, CSG and GridMap. Both additional profiles are enabled on both targets; native compile/export/launch acceptance remains pending.
+Offline 2D starts from Lean 2D and removes scene multiplayer, ENet, WebSocket and WebRTC. It is **not networkless**: core HTTP/TCP functionality remains on desktop. Lean 3D retains the 3D engine, physics/navigation and glTF but removes OpenXR, CSG and GridMap.
 
 Presets are starting points, not a separate build implementation. Editing features produces a Custom recipe unless it exactly matches another preset. Controls cover 3D, physics, navigation, multiplayer transports, advanced GUI, SVG, audio/video codecs, ZIP and the text server. Dependency normalization removes children when a parent is disabled: 3D removes 3D-only systems and glTF; multiplayer removes its transports; Ogg/Vorbis removes Theora. Restoring a parent does not silently restore children. Fallback text omits complex-script shaping and advanced text layout. TileMap remains locked on because this Godot release has no supported TileMap-only build flag. Arbitrary compiler flags, patches and modules remain prohibited.
 
@@ -27,15 +53,20 @@ Every TPZ includes `version.txt` (`4.7.2.stable`) and `README-mingd.txt`. The wo
 
 ## Cache and recipe
 
-Recipe version **7** introduces the `mingd` archive/README names and min.gd brand. It retains recipe-6 build semantics: editable features, glTF/Theora dependencies, explicit physics-module flags, removal of the nonexistent TileMap-module flag, explicit ccache launchers and release-specific archive filenames. Hash input includes recipe version, official source URL and SHA-256, and normalized configuration. Equivalent normalized recipes share artifacts regardless of the selected starting preset. Different targets/features never share a key; dry-run diagnostics use a separate namespace. Previous recipe artifacts are not reused; existing downloads remain accessible.
+Recipe version **8** adds version/debug/Web selection, Web thread normalization,
+the pinned Emscripten toolchain and multi-kind size/packaging semantics. Hash
+input includes recipe version, exact official source URL/checksum, normalized
+features, target/architecture, template kinds and Web thread support. Equivalent
+normalized recipes share artifacts; different versions/kinds/thread modes do
+not. Previous artifacts remain downloadable but are not reused for new requests.
 
 Changes affecting binary output, toolchains, generated flags or package semantics require a recipe bump. The current container uses the existing Bookworm/MinGW toolchain; its dependencies are not fully pinned, so cache recipe discipline is still required when rebuilding with changed toolchain versions.
 
 ## Acceptance tracking
 
-Run the smoke procedure for all eight platform/preset combinations, record actual sizes, and compare against recipe-7 Standard builds. Custom recipes need a project that does not reference removed classes or resource formats. Compilation, packaging and native runtime acceptance are separate checks.
+Run the smoke procedure for the expanded version/platform/kind matrix and compare sizes against Standard builds using the same recipe/toolchain. Custom recipes need a project that does not reference removed classes or resource formats. Compilation, packaging and native runtime acceptance are separate checks.
 
-Debug templates, other architectures/optimizations and LTO remain rejected by submission and real-build guards. Filename helpers nevertheless distinguish release/debug correctly; no debug binary is mislabeled as release.
+Other architectures/optimizations and LTO remain rejected by submission and real-build guards.
 
 ## Template names
 
@@ -46,9 +77,17 @@ The archive is `mingd-4.7.2-<platform>-x86_64-release.tpz`. Its ZIP entries use 
 | Linux | `linux_release.x86_64` | None |
 | Windows | `windows_release_x86_64.exe` | `windows_release_x86_64_console.exe` |
 
-Debug names would be `linux_debug.x86_64` and `windows_debug_x86_64.exe`, with `windows_debug_x86_64_console.exe`, but debug builds are not offered yet. Source output names (`godot.*.template_release.*`) are mapped centrally to installation names. Downloads explicitly request the stored TPZ basename. Install the TPZ through Manage Export Templates; Custom Template > Release instead takes an extracted executable. Never just rename a debug executable to release.
+Debug names are `linux_debug.x86_64` and `windows_debug_x86_64.exe`, with `windows_debug_x86_64_console.exe`. Source output names are mapped centrally to installation names. Downloads explicitly request the stored TPZ basename. Install the TPZ through Manage Export Templates; desktop Custom Template fields instead take an extracted executable. Never rename a debug executable to release.
 
 ## Developer validation
+
+For the focused compiler audit, run `node --import tsx scripts/audit-build-matrix.mjs`
+inside the Web worker image with `GODOT_CACHE_DIR` pointing at a disposable cache
+and the repository mounted read-only at `/app`. It downloads and verifies both
+official sources, then checks each target/kind/Web-thread mode using three
+concurrent SCons dry-runs. It never compiles or publishes an artifact. Dummy
+`SUPABASE_URL`, `SUPABASE_SECRET_KEY` and `REDIS_URL` satisfy worker configuration;
+no database or queue connection is made. Pure tests separately cover every preset.
 
 Run `npm run typecheck` and `npm test` from the repository root. Builder packaging tests require `zip` and `unzip`, both already present in the worker image. When the host lacks them, run the test suite in a temporary builder container with the repository mounted read-only (replace the absolute path with your checkout):
 

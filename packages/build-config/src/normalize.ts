@@ -3,6 +3,11 @@ import { BuildConfigSchema, type BuildConfig } from "./schema.ts";
 export function normalizeBuildConfig(input: unknown): BuildConfig {
   const parsed = BuildConfigSchema.parse(input);
   const features = { ...parsed.features };
+  // Browsers provide neither native OpenXR nor UDP/ENet sockets.
+  if (parsed.platform === "web") {
+    features.openxr = false;
+    features.enet = false;
+  }
 
   if (!features.engine3d) {
     features.physics3d = false;
@@ -30,6 +35,7 @@ export function normalizeBuildConfig(input: unknown): BuildConfig {
   return BuildConfigSchema.parse({
     ...parsed,
     templateKinds: [...parsed.templateKinds].sort(),
+    webThreads: parsed.platform === "web" && parsed.webThreads,
     features,
   });
 }

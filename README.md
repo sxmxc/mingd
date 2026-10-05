@@ -6,10 +6,11 @@ min.gd is a bootstrap for a hosted custom Godot export-template builder. Users c
 
 This repository intentionally starts with a narrow, credible real-build milestone:
 
-- Godot 4.7.2 stable is pinned to the official release source archive and SHA-256.
-- Linux and Windows x86_64 `template_release`.
-- Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on both platforms.
-- Linux Standard smoke test and Windows Standard compilation were confirmed by the owner. Lean 2D is enabled on both targets; native acceptance remains to be recorded.
+- Godot version selection: 4.7.2 and 4.6.3, each with pinned official source integrity metadata.
+- Linux and Windows x86_64 release/debug templates, separately or together.
+- Web wasm32 release/debug templates with single-threaded or threaded exports in a dedicated Emscripten 4.0.11 worker.
+- Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on all targets.
+- The owner confirmed desktop preset smoke tests pass. Newly added versions, debug templates and Web targets need their own acceptance checks.
 - Tool-focused workbench with searchable build history, live compiler output, stage timing and worker heartbeats.
 - Windows retains Vulkan/OpenGL but omits D3D12, ANGLE, AccessKit and WinRT SDK integrations. See [build profiles](docs/build-profiles.md) for compatibility details.
 - Supabase Auth, Postgres, Row Level Security, and private Storage.
@@ -18,7 +19,7 @@ This repository intentionally starts with a narrow, credible real-build mileston
   The Debian Bookworm toolchain uses GCC 12 and glibc 2.36; Linux templates target that glibc baseline or newer.
 - Build-result deduplication by canonical configuration hash.
 
-Web, Android, macOS/iOS, .NET, custom modules, arbitrary `custom.py`, and arbitrary source patches are deliberately out of scope for the bootstrap.
+Android, macOS/iOS, .NET, Web GDExtensions, custom modules, arbitrary `custom.py`, and arbitrary source patches remain out of scope.
 
 ## Architecture
 
@@ -75,6 +76,7 @@ For production self-hosting, use Supabase's maintained self-hosted Docker distri
 
 ```bash
 cp .env.example .env
+cp .env.example apps/web/.env.local
 ```
 
 2. Install workspace dependencies.
@@ -89,7 +91,11 @@ npm install
 npx supabase start
 ```
 
-Copy the local API URL, publishable/anon key, and secret/service-role key into `.env`. The names displayed by your Supabase CLI may differ from the newer publishable/secret terminology; use the client-safe key for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and the server-only privileged key for `SUPABASE_SECRET_KEY`.
+Copy the local API URL, publishable/anon key, and secret/service-role key into
+both `.env` (Compose) and `apps/web/.env.local` (direct Next development). The
+names displayed by your Supabase CLI may differ from the newer publishable/secret
+terminology; use the client-safe key for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+and the server-only privileged key for `SUPABASE_SECRET_KEY`.
 
 4. Apply the migration if your local CLI did not do so automatically.
 
@@ -117,7 +123,36 @@ docker compose --profile builder up --build builder
 
 Open `http://localhost:3000`.
 
-## Production Supabase
+## Docker application services
+
+The `web` service builds `apps/web/Dockerfile` into a non-root Next.js standalone
+runtime on `${WEB_PORT:-3000}`. Compose loads the root `.env`; direct `next dev`
+uses `apps/web/.env.local`. Configure the public Supabase API URL so it is
+reachable by both the browser and the web container. Container loopback is not
+the host's loopback. Browser-safe `NEXT_PUBLIC_*` values are embedded at image
+build time, so rebuild the web image when changing them. The privileged key is
+passed only at runtime and is never a Docker build argument.
+
+Let existing jobs finish on the old workers before deploying recipe 8. Deploy
+the web app and workers together so queued hashes use matching recipe semantics.
+Apply pending migrations before starting the expanded workers, including
+`20261005064025_build_matrix.sql`. Then run:
+
+```bash
+npm run db:migrate:check
+npm run db:migrate
+docker compose --profile builder --profile web-builder up -d --build
+```
+
+`web` and Redis are default services. The `builder` and `web-builder` profiles
+enable the desktop and Emscripten workers respectively. Desktop jobs use
+`BUILDER_QUEUE_NAME`; Web jobs use `WEB_BUILDER_QUEUE_NAME` (default
+`godot-web-builds`). The Web worker has separate source, compiler-cache and job
+volumes. Start only the frontend with `npm run compose:web`, or only the Web
+worker with `npm run compose:web-builder:build`. A `/login` HTTP health check
+checks frontend readiness without requiring an authenticated session.
+
+## Production Supabase configuration
 
 Supabase's CLI development stack is not intended to be internet-facing production infrastructure. For self-hosting, deploy the official Supabase Docker setup, configure backups and SMTP, and point min.gd at its public API endpoint. See `infra/self-hosted-supabase.md`.
 
@@ -199,14 +234,11 @@ The worker records the package SHA-256 and size, compiled-template size, Godot/v
 
 ## Suggested next milestones
 
-1. Finish auth UX and email configuration.
-2. Add build quotas/rate limits.
-3. Add per-build log streaming/tailing.
-4. Record native acceptance for all presets on both platforms and representative custom recipes; pin compiler/toolchain versions.
-5. Compare artifact size to official templates and show savings in the UI.
-6. Add `.gdbuild` import after validating its format and threat model.
-7. Add Web builds in a dedicated Emscripten worker image.
-8. Add billing only after build-cost measurements exist.
+1. Validate the expanded version/debug/Web build matrix and browser exports.
+2. Finish auth UX and email configuration, then add build quotas/rate limits.
+3. Compare measured artifact sizes to official templates and show savings.
+4. Add `.gdbuild` import after validating its format and threat model.
+5. Add billing only after build-cost measurements exist.
 
 ## License
 

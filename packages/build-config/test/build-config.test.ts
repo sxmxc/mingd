@@ -14,6 +14,8 @@ import {
   compiledTemplateFilename,
   expectedConsoleTemplateFilename,
   FEATURE_GROUPS,
+  GODOT_VERSION_IDS,
+  SUPPORTED_GODOT_VERSIONS,
 } from "../src/index.ts";
 
 test("normalization removes 3D dependents when 3D is disabled", () => {
@@ -58,7 +60,7 @@ test("SCons arguments are generated from allowlisted values", () => {
 
 test("cache input includes the build recipe", () => {
   const value = canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG);
-  assert.match(value, /^7\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
+  assert.match(value, /^8\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
   assert.match(value, /a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/);
 });
 
@@ -69,7 +71,55 @@ test("real-build guard accepts custom features but rejects unsupported target co
   assert.equal(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, engine3d: false } }).features.gltf, false);
   assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, tilemap: false } }), /TileMap/);
   assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, architecture: "arm64" }));
-  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, templateKinds: ["debug"] }), /template_release/);
+  assert.deepEqual(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, templateKinds: ["debug"] }).templateKinds, ["debug"]);
+});
+
+test("version, platform, kinds and Web threading have distinct validated cache recipes", () => {
+  const hashes = new Set<string>();
+  for (const godotVersion of GODOT_VERSION_IDS) {
+    const source = SUPPORTED_GODOT_VERSIONS[godotVersion];
+    assert.match(source.sourceSha256, /^[a-f0-9]{64}$/);
+    assert.ok(source.sourceUrl.endsWith(`godot-${godotVersion}-stable.tar.xz`));
+    for (const platform of ["linux", "windows", "web"] as const) {
+      for (const templateKinds of [["release"], ["debug"], ["release", "debug"]] as const) {
+        for (const webThreads of platform === "web" ? [false, true] : [false]) {
+          const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, godotVersion, platform, architecture: platform === "web" ? "wasm32" : "x86_64", templateKinds, webThreads });
+          assert.deepEqual(normalizeBuildConfig(config), config);
+          const hash = canonicalBuildCacheInput(config);
+          assert.equal(hashes.has(hash), false);
+          hashes.add(hash);
+          assert.equal(hash, canonicalBuildCacheInput({ ...config, templateKinds: [...config.templateKinds].reverse() }));
+          for (const kind of config.templateKinds) {
+            const args = toSconsArgs(config, kind);
+            assert.ok(args.includes(`target=template_${kind}`));
+            assert.equal(args.includes("production=yes"), kind === "release");
+          }
+        }
+      }
+    }
+  }
+  assert.equal(hashes.size, GODOT_VERSION_IDS.length * 12);
+  assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, godotVersion: "4.6.99" }));
+  assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, platform: "web" }));
+  assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, architecture: "wasm32" }));
+  assert.equal(canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, webThreads: true }), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG));
+});
+
+test("Web presets normalize browser limitations and use exact Godot ZIP names", () => {
+  for (const id of SUPPORTED_PRESET_IDS) for (const webThreads of [false, true]) {
+    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform: "web", architecture: "wasm32", features: PRESETS[id].features, webThreads, templateKinds: ["debug", "release"] });
+    assert.equal(config.features.enet, false);
+    assert.equal(config.features.openxr, false);
+    assert.equal(buildPresetId(config), id);
+    const args = toSconsArgs(config, "debug");
+    for (const arg of ["platform=web", "arch=wasm32", "dlink_enabled=no", "vulkan=no", `threads=${webThreads ? "yes" : "no"}`]) assert.ok(args.includes(arg));
+    assert.equal(args.includes("use_static_cpp=yes"), false);
+    for (const kind of config.templateKinds) {
+      assert.equal(compiledTemplateFilename(config, kind), `godot.web.template_${kind}.wasm32${webThreads ? "" : ".nothreads"}.zip`);
+      assert.equal(expectedTemplateFilename(config, kind), `web${webThreads ? "" : "_nothreads"}_${kind}.zip`);
+    }
+    assert.throws(() => toSconsArgs({ ...config, templateKinds: ["release"] }, "debug"));
+  }
 });
 
 test("Windows Standard generates the conservative MinGW recipe and a distinct cache identity", () => {

@@ -10,6 +10,7 @@ export const env = {
   supabaseSecretKey: () => required("SUPABASE_SECRET_KEY"),
   redisUrl: () => required("REDIS_URL"),
   queueName: () => process.env.BUILDER_QUEUE_NAME ?? "godot-builds",
+  webQueueName: () => process.env.WEB_BUILDER_QUEUE_NAME ?? "godot-web-builds",
   artifactBucket: () => process.env.ARTIFACT_BUCKET ?? "build-artifacts",
   signedDownloadTtl: () => Number(process.env.SIGNED_DOWNLOAD_TTL_SECONDS ?? "900"),
 };

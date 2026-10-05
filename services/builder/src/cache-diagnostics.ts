@@ -6,7 +6,7 @@ import type { BuildMeasurements } from "./performance.js";
 const exec = promisify(execFile);
 
 export function compilerForPlatform(platform: Platform) {
-  return platform === "windows" ? "x86_64-w64-mingw32-g++" : "g++";
+  return platform === "web" ? "em++" : platform === "windows" ? "x86_64-w64-mingw32-g++" : "g++";
 }
 
 export function compilerCacheEnvironment(sourceDir: string, cacheDir: string, statsLog: string): NodeJS.ProcessEnv {

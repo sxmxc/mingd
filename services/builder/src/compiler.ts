@@ -21,6 +21,9 @@ export async function compileBuild(
 ): Promise<{ artifactPath: string; binarySizeBytes: number; config: BuildConfig }> {
   const config = normalizeBuildConfig(rawConfig);
   if (!env.dryRun) assertRealBuildSupported(config);
+  if ((config.platform === "web") !== (env.target === "web")) {
+    throw new Error(`The ${env.target} worker cannot compile ${config.platform} jobs.`);
+  }
   await onStage("preparing_source");
   const sourceCache = await ensureGodotSource(config.godotVersion, async () => onStage("verifying_source"));
   const jobDir = join(env.workDir, buildId);
@@ -52,15 +55,18 @@ export async function compileBuild(
   const statsLog = join(outputDir, "ccache-stats.log");
   const processEnv = compilerCacheEnvironment(sourceDir, env.ccacheDir, statsLog);
 
-  await onStage("compiling");
   let linkingStage: Promise<void> | null = null;
   let linkingError: unknown;
-  const links = new LinkObserver(() => {
-    measurements.markLinking();
-    linkingStage = onStage("linking").catch(error => { linkingError = error; });
-  });
   try {
     for (const kind of config.templateKinds) {
+      // Each template invocation has its own compile/link interval.
+      await linkingStage;
+      if (linkingError) throw linkingError;
+      await onStage("compiling");
+      const links = new LinkObserver(() => {
+        measurements.markLinking();
+        linkingStage = onStage("linking").catch(error => { linkingError = error; });
+      });
       const args = ["-j", String(env.sconsJobs), ...toSconsArgs(config, kind)];
       await runProcess("scons", args, {
         cwd: sourceDir, env: processEnv, logFile, timeoutMs: env.compileTimeoutMs,

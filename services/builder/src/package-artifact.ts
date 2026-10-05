@@ -32,17 +32,39 @@ function validateLinuxBinaryHeader(header: Buffer, path: string) {
   }
 }
 
+/** Validate the compiler-owned nested template without extracting its paths. */
+async function validateWebTemplate(path: string): Promise<number> {
+  await runProcess("unzip", ["-tqq", path], { timeoutMs: 30000 });
+  const listing = await execFileAsync("unzip", ["-Z1", path], { timeout: 30000, maxBuffer: 16 * 1024 });
+  const names = listing.stdout.trim().split("\n");
+  if (names.some(name => name.includes("/") || name.includes("\\") || name === "..") || new Set(names).size !== names.length) {
+    throw new Error("Web template must contain unique flat filenames.");
+  }
+  for (const name of ["godot.wasm", "godot.js", "godot.html", "godot.audio.worklet.js", "godot.audio.position.worklet.js", "godot.service.worker.js", "godot.offline.html"]) {
+    if (!names.includes(name)) throw new Error(`Web template is missing ${name}.`);
+  }
+  const wasm = await execFileAsync("unzip", ["-p", path, "godot.wasm"], { encoding: "buffer", timeout: 30000, maxBuffer: 512 * 1024 * 1024 });
+  if (wasm.stdout.length <= 8 || !wasm.stdout.subarray(0, 8).equals(Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]))) {
+    throw new Error("Web template contains an invalid WebAssembly module.");
+  }
+  return wasm.stdout.length;
+}
+
 export async function packageArtifact(sourceDir: string, outputDir: string, config: BuildConfig, onPackaging: () => Promise<void> = async () => undefined): Promise<{ artifactPath: string; binarySizeBytes: number }> {
   const binDir = join(sourceDir, "bin");
   const files = await readdir(binDir);
   const packageDir = join(outputDir, "package");
   await mkdir(packageDir, { recursive: true });
+  let binarySizeBytes = 0;
 
   for (const kind of config.templateKinds) {
     const built = findCompiledBinary(files, config, kind);
     if (!built) throw new Error(`Could not locate compiled ${config.platform} ${kind} binary in ${binDir}. Found: ${files.join(", ")}`);
 
-    if (config.platform === "linux") {
+    if (config.platform === "web") {
+      binarySizeBytes += await validateWebTemplate(join(binDir, built));
+      await copyFile(join(binDir, built), join(packageDir, expectedTemplateFilename(config, kind)));
+    } else if (config.platform === "linux") {
       const sourcePath = join(binDir, built);
       const binary = await readFile(sourcePath);
       validateLinuxBinaryHeader(binary.subarray(0, 64), sourcePath);
@@ -56,6 +78,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
       validateWindowsBinary(await readFile(join(binDir, consoleBuilt)), consoleBuilt, true);
       await copyFile(join(binDir, consoleBuilt), join(packageDir, expectedConsoleTemplateFilename(config, kind)));
     }
+    if (config.platform !== "web") binarySizeBytes += (await stat(join(binDir, built))).size;
   }
 
   await onPackaging();
@@ -65,8 +88,13 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     "min.gd custom Godot export template", "",
     `Godot: ${version.versionIdentifier}`,
     `Target: ${config.platform} ${config.architecture} template_${config.templateKinds.join(", template_")}`,
-    "Install this TPZ with Godot's Export template manager, or extract and select the release executable in the preset's Custom Template > Release field.",
-    "This package contains release templates only. Disable Export With Debug. Keep the Windows console wrapper beside its main executable.",
+    "Install this TPZ with Godot's Export template manager, or extract and select the template in Custom Template > Release/Debug.",
+    `Included template kinds: ${config.templateKinds.join(", ")}. Match Export With Debug to an included template.`,
+    ...(config.platform === "web" ? [
+      `Web: ${config.webThreads ? "threaded" : "single-threaded"}, WebGL 2 / Compatibility renderer, no GDExtension support.`,
+      "Custom Template fields take the nested ZIP, not its extracted WebAssembly file. Match the export preset's Thread Support option.",
+      ...(config.webThreads ? ["Hosting requires cross-origin isolation (COOP: same-origin, COEP: require-corp)."] : []),
+    ] : ["Keep the Windows console wrapper beside its main executable."]),
   ].join("\n"));
 
   const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
@@ -85,8 +113,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   for (const name of required) if (!names.includes(name)) throw new Error(`Template package is missing required entry: ${name}`);
   const archivedVersion = await execFileAsync("unzip", ["-p", artifact, "version.txt"], { maxBuffer: 1024 });
   if (archivedVersion.stdout.trim() !== version.versionIdentifier) throw new Error("Template package version.txt does not match the requested Godot version.");
-  const binaryPath = join(packageDir, expectedTemplateFilename(config, config.templateKinds[0]));
-  return { artifactPath: artifact, binarySizeBytes: (await stat(binaryPath)).size };
+  return { artifactPath: artifact, binarySizeBytes };
 }
 
 export function artifactName(path: string) {

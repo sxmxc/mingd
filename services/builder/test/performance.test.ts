@@ -30,6 +30,11 @@ test("link detection handles split output and ignores static libraries", () => {
   let largeChunkObserved = false;
   new LinkObserver(() => { largeChunkObserved = true; }).record(Buffer.from(`Linking Program bin/godot.linuxbsd.template_release.x86_64 ${" ".repeat(8192)}`));
   assert.equal(largeChunkObserved, true);
+  for (const suffix of ["wasm32", "wasm32.nothreads"]) {
+    let webObserved = false;
+    new LinkObserver(() => { webObserved = true; }).record(Buffer.from(`Linking Program bin/godot.web.template_debug.${suffix}.js ...`));
+    assert.equal(webObserved, true);
+  }
 });
 test("cache counters distinguish verified compilation from link-only invocations", () => {
   assert.deepEqual(parseCacheLog("# comment\ndirect_cache_hit\npreprocessed_cache_hit\ncache_miss\nlocal_storage_hit\n"),
@@ -37,7 +42,7 @@ test("cache counters distinguish verified compilation from link-only invocations
   assert.equal(parseCacheLog("called_for_link\n").usageVerified, false);
 });
 
-for (const platform of ["linux", "windows"] as const) test(`${platform} compiler caches identical source across isolated workspaces`, async t => {
+for (const platform of ["linux", "windows", "web"] as const) test(`${platform} compiler caches identical source across isolated workspaces`, async t => {
   const compiler = compilerForPlatform(platform);
   try { execFileSync("ccache", ["--version"]); execFileSync(compiler, ["--version"]); }
   catch { return t.skip("Requires the builder's ccache and GCC/MinGW toolchains"); }

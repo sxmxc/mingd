@@ -1,6 +1,26 @@
 # Template smoke tests
 
-Use the Godot **4.7.2 standard editor** and the repository fixture at `tests/fixtures/smoke-project`. The fixture contains Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer and GDScript. It checks scene/type registration and script startup; the empty sprite and audio player do not test texture decoding or audio playback.
+Use the standard editor matching the selected **4.7.2 or 4.6.3** template version
+and the repository fixture at `tests/fixtures/smoke-project`. The owner confirms
+the previous desktop release smoke tests pass. Repeat acceptance for the new
+version/debug/Web combinations. The fixture checks scene registration and
+GDScript startup; empty sprite/audio nodes do not test decoding or playback.
+
+## Debug and Web acceptance
+
+For each version, select release, debug or both. A debug export requires a debug
+template; a release export requires a release template. Both must stay distinct
+inside the TPZ. Verify debug exports connect to the editor's debugger.
+
+For Web, start the dedicated worker (`npm run compose:web-builder:build`), install
+the TPZ and add a Web preset using Compatibility. Match Thread Support to the
+build selection; leave Extensions Support disabled. If using Custom Template,
+select the nested Web ZIP. Export and serve over HTTP rather than `file://`.
+For threaded exports configure COOP/COEP headers and verify
+`crossOriginIsolated === true`. Test startup, displayed success message, console
+errors and normal shutdown in an actual browser. Repeat with single-threaded
+and threaded release/debug builds. Confirm cache reuse and separation across
+versions, platforms, template kinds and thread settings.
 
 ## Build and download
 
@@ -10,7 +30,7 @@ After updating the application, rebuild the worker:
 docker compose --profile builder up -d --build builder
 ```
 
-Apply all pending migrations, including build performance, first using [the workbench rollout](workbench.md), then restart the web process. No new environment variable is required. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
+Apply all pending migrations, including build performance and build matrix, first using the root README's rollout commands, then restart the web process. Configure `WEB_BUILDER_QUEUE_NAME` consistently in both processes if overriding its default. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
 
 Run this procedure for all eight combinations: Linux and Windows with Standard, Lean 2D, Offline 2D and Lean 3D. Select target and profile, wait for completion and download through the authenticated route. Record the build ID, SHA-256, artifact sizes and performance measurements from the inspector. Compare reduced profiles against Standard built with the same recipe/toolchain; do not claim a reduction before measuring it.
 
@@ -20,10 +40,10 @@ Submit the same profile again and confirm it completes as a cached artifact. A b
 
 ## Install and export
 
-1. In Godot 4.7.2, use **Editor > Manage Export Templates > Install from File** and choose the TPZ. It installs the platform's release template under `4.7.2.stable`; this can replace an existing release template for that platform.
+1. In the matching Godot editor version, use **Editor > Manage Export Templates > Install from File** and choose the TPZ. It installs the selected kinds under that editor's version directory and can replace existing templates.
 2. Import the fixture's `project.godot` and let the editor import its resources.
 3. Add an export preset for **Linux** or **Windows Desktop**, matching the built template, with architecture **x86_64**. The fixture uses Compatibility/OpenGL.
-4. Export to a separate output directory and **uncheck Export With Debug**: these packages include release templates only.
+4. Export to a separate output directory and match **Export With Debug** to the requested template kind.
 5. On Windows, set **Export Console Wrapper** to **Debug and Release** to exercise the packaged wrapper. If resource modification requires an unavailable tool, disable **Application > Modify Resources** for this smoke test.
 
 For explicit custom-template selection instead of installation, extract the package and set the preset's **Custom Template > Release** to `linux_release.x86_64` or `windows_release_x86_64.exe`. For Windows keep `windows_release_x86_64_console.exe` beside the main executable.
@@ -42,4 +62,4 @@ Linux: make the exported executable executable if needed and run it. Windows: co
 
 The smoke test passes when a 640×360 window displays **min.gd smoke test passed**, the export/startup logs contain no errors, and the application closes normally. Compilation or ZIP validation alone does not satisfy this gate.
 
-Record compilation, archive validation, authenticated download, Godot template acceptance, release export, and native launch separately. Include build ID, recipe version, editor version, target OS, artifact SHA-256, main binary/package sizes and any errors. Linux acceptance was confirmed by the project owner; Windows native acceptance remains pending until these steps are completed.
+Record compilation, archive validation, authenticated download, Godot template acceptance, export and native/browser launch separately. Include build ID, recipe version, editor version, target, template kind, Web thread mode, artifact SHA-256, binary/package sizes and any errors. The owner confirmed existing desktop release acceptance; the expanded matrix requires its own records.

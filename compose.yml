@@ -1,4 +1,38 @@
 services:
+  web:
+    image: mingd/web
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL in .env}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env}
+    environment:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+      REDIS_URL: redis://redis:6379
+      BUILDER_QUEUE_NAME: ${BUILDER_QUEUE_NAME:-godot-builds}
+      WEB_BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+      ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
+      SIGNED_DOWNLOAD_TTL_SECONDS: ${SIGNED_DOWNLOAD_TTL_SECONDS:-900}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login', {signal: AbortSignal.timeout(5000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      start_period: 20s
+      retries: 3
+
   redis:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -18,11 +52,13 @@ services:
     build:
       context: .
       dockerfile: services/builder/Dockerfile
+      target: desktop
     env_file:
       - .env
     environment:
       REDIS_URL: redis://redis:6379
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      BUILDER_TARGET: desktop
     depends_on:
       redis:
         condition: service_healthy
@@ -33,8 +69,35 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  web-builder:
+    image: mingd/web-builder
+    profiles: ["web-builder"]
+    build:
+      context: .
+      dockerfile: services/builder/Dockerfile
+      target: web
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      BUILDER_TARGET: web
+      BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - web-godot-source-cache:/cache/godot
+      - web-ccache:/cache/ccache
+      - web-builder-work:/work/jobs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   redis-data:
   godot-source-cache:
   ccache:
   builder-work:
+  web-godot-source-cache:
+  web-ccache:
+  web-builder-work:

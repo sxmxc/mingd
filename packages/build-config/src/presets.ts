@@ -1,4 +1,5 @@
 import type { BuildConfig, BuildFeatures } from "./schema.ts";
+import { normalizeBuildConfig } from "./normalize.ts";
 
 export const DEFAULT_FEATURES: BuildFeatures = {
   engine3d: true,
@@ -32,6 +33,7 @@ export const DEFAULT_BUILD_CONFIG: BuildConfig = {
   templateKinds: ["release"],
   optimization: "size",
   lto: false,
+  webThreads: false,
   features: DEFAULT_FEATURES,
 };
 
@@ -88,7 +90,8 @@ export type SupportedPresetId = PresetId;
 export const SUPPORTED_PRESET_IDS: SupportedPresetId[] = ["standard", "lean2d", "offline2d", "lean3d"];
 
 export function buildPresetId(config: BuildConfig): SupportedPresetId | null {
-  return SUPPORTED_PRESET_IDS.find((id) => Object.entries(config.features).every(([key, value]) =>
-    value === PRESETS[id].features[key as keyof BuildFeatures],
-  )) ?? null;
+  return SUPPORTED_PRESET_IDS.find((id) => {
+    const features = normalizeBuildConfig({ ...config, features: PRESETS[id].features }).features;
+    return Object.entries(config.features).every(([key, value]) => value === features[key as keyof BuildFeatures]);
+  }) ?? null;
 }

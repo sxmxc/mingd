@@ -17,13 +17,12 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
 
   const f = config.features;
   const args = [
-    `platform=${config.platform === "linux" ? "linuxbsd" : "windows"}`,
+    `platform=${config.platform === "linux" ? "linuxbsd" : config.platform}`,
     `target=template_${kind}`,
     `arch=${config.architecture}`,
     `optimize=${config.optimization}`,
     `lto=${config.lto && kind === "release" ? "full" : "none"}`,
     "debug_symbols=no",
-    "use_static_cpp=yes",
     "c_compiler_launcher=ccache",
     "cpp_compiler_launcher=ccache",
     "import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG",
@@ -57,6 +56,12 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     `module_text_server_fb_enabled=${yn(f.textServer === "fallback")}`,
   ];
 
+  if (config.platform === "web") {
+    args.push(`threads=${yn(config.webThreads)}`, "dlink_enabled=no", "proxy_to_pthread=no", "use_closure_compiler=no", "vulkan=no", "opengl3=yes");
+  } else {
+    args.push("use_static_cpp=yes");
+  }
+
   if (config.platform === "windows") {
     // Bootstrap policy: keep the Linux cross-compiler image self-contained.
     // Vulkan/OpenGL remain available; SDK-backed Windows extras can be added later.
@@ -75,13 +80,11 @@ export function assertRealBuildSupported(input: unknown): BuildConfig {
   const config = normalizeBuildConfig(input);
 
   if (
-    config.godotVersion !== "4.7.2" || config.architecture !== "x86_64" ||
-    config.templateKinds.length !== 1 || config.templateKinds[0] !== "release" ||
     config.optimization !== "size" || config.lto
   ) {
-    throw new Error("Real builds support Godot 4.7.2 Linux or Windows x86_64 template_release with optimize=size and LTO disabled.");
+    throw new Error("Real builds require optimize=size and LTO disabled.");
   }
-  if (!config.features.tilemap) throw new Error("TileMap must remain enabled: Godot 4.7.2 has no supported TileMap-only build flag.");
+  if (!config.features.tilemap) throw new Error("TileMap must remain enabled: supported Godot releases have no TileMap-only build flag.");
   return config;
 }
 
@@ -92,6 +95,7 @@ export function expectedConsoleTemplateFilename(config: BuildConfig, kind: Templ
 
 export function compiledTemplateFilename(config: BuildConfig, kind: TemplateKind, console = false): string {
   if (console && config.platform !== "windows") throw new Error("Console wrappers are Windows-only.");
+  if (config.platform === "web") return `godot.web.template_${kind}.wasm32${config.webThreads ? "" : ".nothreads"}.zip`;
   return `godot.${config.platform === "linux" ? "linuxbsd" : "windows"}.template_${kind}.${config.architecture}${config.platform === "windows" ? (console ? ".console.exe" : ".exe") : ""}`;
 }
 
@@ -99,6 +103,7 @@ export function expectedTemplateFilename(
   config: BuildConfig,
   kind: TemplateKind,
 ): string {
+  if (config.platform === "web") return `web${config.webThreads ? "" : "_nothreads"}_${kind}.zip`;
   if (config.platform === "linux") {
     return `linux_${kind}.${config.architecture}`;
   }
