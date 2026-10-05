@@ -1,21 +1,26 @@
 import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@gdslimmer/build-config";
-import { SUPPORTED_GODOT_VERSIONS } from "@gdslimmer/build-config";
+import { SUPPORTED_GODOT_VERSIONS, expectedTemplateFilename } from "@gdslimmer/build-config";
 import { runProcess } from "./process.js";
+
+const execFileAsync = promisify(execFile);
 
 function findCompiledBinary(files: string[], config: BuildConfig, kind: TemplateKind, console = false): string | undefined {
   const platform = config.platform === "linux" ? "linuxbsd" : "windows";
-  const needle = `${platform}.template_${kind}.${config.architecture}`;
-  const candidates = files.filter((name) => name.includes(needle));
+  const expected = `godot.${platform}.template_${kind}.${config.architecture}${config.platform === "windows" ? (console ? ".console.exe" : ".exe") : ""}`;
+  return files.includes(expected) ? expected : undefined;
+}
 
-  if (config.platform === "windows") {
-    const consoleCandidate = candidates.find((name) => name.includes("console") && name.endsWith(".exe"));
-    if (console) return consoleCandidate;
-    return candidates.find((name) => !name.includes("console") && name.endsWith(".exe"));
-  }
-
-  return candidates.find((name) => !name.endsWith(".txt"));
+export function validateWindowsBinary(binary: Buffer, path: string, console = false) {
+  const invalid = () => new Error(`Compiled template is not a valid x86_64 PE32+ ${console ? "console" : "GUI"} executable: ${path}`);
+  if (binary.length < 64 || binary.toString("ascii", 0, 2) !== "MZ") throw invalid();
+  const offset = binary.readUInt32LE(0x3c);
+  if (offset < 64 || offset + 94 > binary.length || binary.toString("ascii", offset, offset + 4) !== "PE\u0000\u0000") throw invalid();
+  if (binary.readUInt16LE(offset + 4) !== 0x8664 || binary.readUInt16LE(offset + 24) !== 0x20b ||
+      binary.readUInt16LE(offset + 92) !== (console ? 3 : 2)) throw invalid();
 }
 
 function validateLinuxBinaryHeader(header: Buffer, path: string) {
@@ -44,9 +49,12 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
       if (binary.length === 0) throw new Error(`Compiled template is empty: ${sourcePath}`);
       await copyFile(sourcePath, join(packageDir, `linux_${kind}.${config.architecture}`));
     } else {
+      validateWindowsBinary(await readFile(join(binDir, built)), built);
       await copyFile(join(binDir, built), join(packageDir, `windows_${kind}_${config.architecture}.exe`));
       const consoleBuilt = findCompiledBinary(files, config, kind, true);
-      if (consoleBuilt) await copyFile(join(binDir, consoleBuilt), join(packageDir, `windows_${kind}_${config.architecture}_console.exe`));
+      if (!consoleBuilt) throw new Error(`Could not locate compiled Windows ${kind} console wrapper.`);
+      validateWindowsBinary(await readFile(join(binDir, consoleBuilt)), consoleBuilt, true);
+      await copyFile(join(binDir, consoleBuilt), join(packageDir, `windows_${kind}_${config.architecture}_console.exe`));
     }
   }
 
@@ -62,15 +70,17 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   const artifact = join(outputDir, `gdslimmer-${config.godotVersion}-${config.platform}-${config.architecture}.tpz`);
   await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
   await runProcess("unzip", ["-tqq", artifact]);
-  const required = ["version.txt", "README-gdslimmer.txt", ...config.templateKinds.map((kind) => expectedPackageFilename(config, kind))];
-  const names = (await readdir(packageDir)).sort();
+  const required = ["version.txt", "README-gdslimmer.txt", ...config.templateKinds.flatMap((kind) => [
+    expectedTemplateFilename(config, kind),
+    ...(config.platform === "windows" ? [`windows_${kind}_${config.architecture}_console.exe`] : []),
+  ])];
+  const listing = await execFileAsync("unzip", ["-Z1", artifact], { maxBuffer: 16 * 1024 });
+  const names = listing.stdout.trim().split("\n").sort();
   for (const name of required) if (!names.includes(name)) throw new Error(`Template package is missing required entry: ${name}`);
-  const binaryPath = join(packageDir, expectedPackageFilename(config, config.templateKinds[0]));
+  const archivedVersion = await execFileAsync("unzip", ["-p", artifact, "version.txt"], { maxBuffer: 1024 });
+  if (archivedVersion.stdout.trim() !== version.versionIdentifier) throw new Error("Template package version.txt does not match the requested Godot version.");
+  const binaryPath = join(packageDir, expectedTemplateFilename(config, config.templateKinds[0]));
   return { artifactPath: artifact, binarySizeBytes: (await stat(binaryPath)).size };
-}
-
-function expectedPackageFilename(config: BuildConfig, kind: TemplateKind) {
-  return config.platform === "linux" ? `linux_${kind}.${config.architecture}` : `windows_${kind}_${config.architecture}.exe`;
 }
 
 export function artifactName(path: string) {

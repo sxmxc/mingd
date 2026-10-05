@@ -1,12 +1,6 @@
 import type { BuildConfig, TemplateKind } from "./schema.ts";
 import { normalizeBuildConfig } from "./normalize.ts";
-
-const DEFAULT_STANDARD_FEATURES = {
-  engine3d: true, advancedGui: true, physics2d: true, physics3d: true, jolt: true,
-  navigation2d: true, navigation3d: true, multiplayer: true, enet: true, websocket: true,
-  webrtc: true, openxr: true, gltf: true, csg: true, gridmap: true, tilemap: true,
-  svg: true, oggVorbis: true, mp3: true, theora: true, zip: true, textServer: "advanced",
-} as const;
+import { DEFAULT_FEATURES } from "./presets.ts";
 
 function yn(value: boolean): "yes" | "no" {
   return value ? "yes" : "no";
@@ -60,7 +54,7 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
   if (config.platform === "windows") {
     // Bootstrap policy: keep the Linux cross-compiler image self-contained.
     // Vulkan/OpenGL remain available; SDK-backed Windows extras can be added later.
-    args.push("d3d12=no", "accesskit=no", "winrt=no", "angle=no");
+    args.push("d3d12=no", "accesskit=no", "winrt=no", "angle=no", "windows_subsystem=gui");
   }
 
   if (kind === "release") {
@@ -70,19 +64,19 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
   return args;
 }
 
-/** The first real-build milestone deliberately supports only this recipe. */
+/** Standard desktop profiles; stripped profiles remain gated by smoke testing. */
 export function assertRealBuildSupported(input: unknown): BuildConfig {
   const config = normalizeBuildConfig(input);
   const standardFeatures = Object.entries(config.features).every(([key, value]) =>
-    value === (DEFAULT_STANDARD_FEATURES as Record<string, unknown>)[key],
+    value === DEFAULT_FEATURES[key as keyof typeof DEFAULT_FEATURES],
   );
 
   if (
-    config.godotVersion !== "4.7.2" || config.platform !== "linux" || config.architecture !== "x86_64" ||
+    config.godotVersion !== "4.7.2" || config.architecture !== "x86_64" ||
     config.templateKinds.length !== 1 || config.templateKinds[0] !== "release" ||
     config.optimization !== "size" || config.lto || !standardFeatures
   ) {
-    throw new Error("Real builds currently support only Godot 4.7.2 Linux x86_64 Standard template_release with optimize=size and LTO disabled.");
+    throw new Error("Real builds currently support only Godot 4.7.2 Linux or Windows x86_64 Standard template_release with optimize=size and LTO disabled.");
   }
   return config;
 }

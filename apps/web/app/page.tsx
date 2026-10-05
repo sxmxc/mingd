@@ -25,10 +25,10 @@ export default function HomePage() {
             {[
               ["Godot", "4.7.2 stable"],
               ["Target", "Windows x86_64"],
-              ["Optimize", "size + LTO"],
-              ["3D engine", "removed"],
-              ["3D physics", "removed"],
-              ["OpenXR", "removed"],
+              ["Optimize", "size, LTO disabled"],
+              ["Profile", "Standard"],
+              ["3D engine", "enabled"],
+              ["Validation", "Windows smoke test pending"],
               ["Artifact", "custom .tpz"],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between gap-6 border-b border-[#202831] pb-3 last:border-0 last:pb-0">

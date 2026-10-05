@@ -7,9 +7,10 @@ gdslimmer is a bootstrap for a hosted custom Godot export-template builder. User
 This repository intentionally starts with a narrow, credible real-build milestone:
 
 - Godot 4.7.2 stable is pinned to the official release source archive and SHA-256.
-- Linux x86_64 `template_release` only.
+- Linux and Windows x86_64 `template_release`.
 - Standard (least-stripped) feature configuration, `optimize=size`, and LTO disabled.
-- Windows and Lean 2D remain unavailable until the Linux Standard template has passed the packaging and smoke-test procedure below.
+- Linux Standard has passed the smoke test (confirmed by the project owner); Windows Standard is the next validation target. Lean 2D remains gated.
+- Windows retains Vulkan/OpenGL but omits D3D12, ANGLE, AccessKit and WinRT SDK integrations. See [build profiles](docs/build-profiles.md) for compatibility details.
 - Supabase Auth, Postgres, Row Level Security, and private Storage.
 - Redis + BullMQ for build jobs.
 - Dockerized Linux builder with GCC, MinGW-w64 (POSIX thread model), SCons, and ccache.
@@ -19,6 +20,8 @@ This repository intentionally starts with a narrow, credible real-build mileston
 Web, Android, macOS/iOS, .NET, custom modules, arbitrary `custom.py`, and arbitrary source patches are deliberately out of scope for the bootstrap.
 
 ## Architecture
+
+Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md).
 
 ```text
 Browser
@@ -49,6 +52,7 @@ packages/build-config/    shared schemas, presets, feature dependencies, SCons m
 services/builder/         BullMQ worker and Godot compiler orchestration
 supabase/                 local config + migrations
 infra/                    deployment notes
+docs/                     build profiles, acceptance status and validation procedures
 compose.yml               Redis and optional builder container
 AGENTS.md                  repository guardrails for coding agents
 ```
@@ -123,8 +127,8 @@ Supabase's CLI development stack is not intended to be internet-facing productio
 5. Builder rechecks the artifact hash to avoid duplicate races.
 6. Builder verifies/caches the exact official Godot source archive.
 7. Builder generates only server-owned SCons options from the validated config.
-8. SCons builds the Linux release template with only generated, allowlisted arguments.
-9. Builder checks the compiled file is a non-empty x86_64 ELF executable, packages the canonical Godot filename (`linux_release.x86_64`), `version.txt`, and a README, then tests the ZIP before upload.
+8. SCons builds the selected desktop release template with only generated, allowlisted arguments.
+9. Builder validates Linux ELF or Windows PE32+ output (including the Windows console wrapper), packages Godot filenames, `version.txt`, and a README, then tests ZIP integrity before upload.
 10. Artifact is uploaded to the private `build-artifacts` Supabase bucket.
 11. Artifact metadata and final build status are written to Postgres.
 12. The download route checks ownership and generates a short-lived signed Storage URL.
@@ -162,10 +166,7 @@ Set `BUILDER_DRY_RUN=true` to test queue and database plumbing without compiling
 
 `tests/fixtures/smoke-project` is the repository-owned fixture for validating a completed real artifact. It has a small 2D scene using Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer, and GDScript.
 
-1. Set `BUILDER_DRY_RUN=false`, submit the fixed Linux Standard profile, and download the completed `.tpz`.
-2. In Godot 4.7.2, install the package through **Editor > Manage Export Templates**.
-3. Import `tests/fixtures/smoke-project`, create a Linux/X11 export preset, and export it.
-4. Run the exported executable. A 640×360 window showing `GDSlimmer smoke test passed` is a pass.
+Follow [the smoke-test procedure](docs/smoke-tests.md) for Linux or Windows. Windows support requires rebuilding the worker and restarting the web application; it requires no additional database migration. Use release export because these packages do not contain debug templates.
 
 The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
 
@@ -174,7 +175,7 @@ The worker records the package SHA-256 and size, compiled-template size, Godot/v
 1. Finish auth UX and email configuration.
 2. Add build quotas/rate limits.
 3. Add per-build log streaming/tailing.
-4. Run real Windows/Linux builds and pin compiler/toolchain versions.
+4. Complete Windows Standard acceptance, then Linux Lean 2D and Windows Lean 2D; pin compiler/toolchain versions.
 5. Compare artifact size to official templates and show savings in the UI.
 6. Add `.gdbuild` import after validating its format and threat model.
 7. Add Web builds in a dedicated Emscripten worker image.

@@ -6,6 +6,7 @@ import {
   canonicalBuildConfigJson,
   normalizeBuildConfig,
   assertRealBuildSupported,
+  expectedTemplateFilename,
   toSconsArgs,
 } from "../src/index.ts";
 
@@ -51,12 +52,22 @@ test("SCons arguments are generated from allowlisted values", () => {
 
 test("cache input includes the build recipe", () => {
   const value = canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG);
-  assert.match(value, /^3\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
+  assert.match(value, /^4\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
   assert.match(value, /a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/);
 });
 
-test("real-build guard accepts only the first supported Linux Standard profile", () => {
+test("real-build guard accepts Standard desktop profiles and rejects stripping", () => {
   assert.deepEqual(assertRealBuildSupported(DEFAULT_BUILD_CONFIG), DEFAULT_BUILD_CONFIG);
   assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, lto: true }), /LTO disabled/);
-  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform: "windows" }), /Linux x86_64/);
+  assert.equal(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform: "windows" }).platform, "windows");
+  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, engine3d: false } }), /Standard/);
+  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, templateKinds: ["debug"] }), /template_release/);
+});
+
+test("Windows Standard generates the conservative MinGW recipe and a distinct cache identity", () => {
+  const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform: "windows" });
+  const args = toSconsArgs(config, "release");
+  for (const arg of ["platform=windows", "lto=none", "optimize=size", "target=template_release", "d3d12=no", "angle=no", "accesskit=no", "winrt=no", "windows_subsystem=gui"]) assert.ok(args.includes(arg));
+  assert.equal(expectedTemplateFilename(config, "release"), "windows_release_x86_64.exe");
+  assert.notEqual(canonicalBuildCacheInput(config), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG));
 });

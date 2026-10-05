@@ -5,7 +5,7 @@ import { SUPPORTED_GODOT_VERSIONS } from "./versions.ts";
  * Bump this whenever compiler/toolchain choices or SCons-generation semantics
  * change in a way that should invalidate cached artifacts.
  */
-export const BUILD_RECIPE_VERSION = "3";
+export const BUILD_RECIPE_VERSION = "4";
 
 export function canonicalBuildCacheInput(input: unknown): string {
   const configJson = canonicalBuildConfigJson(input);
