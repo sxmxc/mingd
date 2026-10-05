@@ -8,6 +8,8 @@ import {
   assertRealBuildSupported,
   expectedTemplateFilename,
   toSconsArgs,
+  PRESETS,
+  buildPresetId,
 } from "../src/index.ts";
 
 test("normalization removes 3D dependents when 3D is disabled", () => {
@@ -52,7 +54,7 @@ test("SCons arguments are generated from allowlisted values", () => {
 
 test("cache input includes the build recipe", () => {
   const value = canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG);
-  assert.match(value, /^4\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
+  assert.match(value, /^5\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
   assert.match(value, /a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/);
 });
 
@@ -70,4 +72,17 @@ test("Windows Standard generates the conservative MinGW recipe and a distinct ca
   for (const arg of ["platform=windows", "lto=none", "optimize=size", "target=template_release", "d3d12=no", "angle=no", "accesskit=no", "winrt=no", "windows_subsystem=gui"]) assert.ok(args.includes(arg));
   assert.equal(expectedTemplateFilename(config, "release"), "windows_release_x86_64.exe");
   assert.notEqual(canonicalBuildCacheInput(config), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG));
+});
+
+test("Lean 2D is supported and deterministic on both desktop targets", () => {
+  for (const platform of ["linux", "windows"] as const) {
+    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform, features: PRESETS.lean2d.features });
+    assert.equal(buildPresetId(config), "lean2d");
+    assert.deepEqual(normalizeBuildConfig(config), config);
+    const args = toSconsArgs(config, "release");
+    for (const flag of ["disable_3d=yes", "disable_physics_3d=yes", "disable_navigation_3d=yes", "disable_navigation_2d=no", "disable_xr=yes", "module_jolt_physics_enabled=no", "module_gltf_enabled=no"]) assert.ok(args.includes(flag), flag);
+    assert.equal(args.some(flag => flag.startsWith("module_jolt_enabled=")), false);
+    assert.notEqual(canonicalBuildCacheInput(config), canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, platform }));
+  }
+  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: PRESETS.offline2d.features }), /Standard/);
 });

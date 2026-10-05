@@ -35,8 +35,9 @@ export default function LoginPage() {
   return (
     <main className="mx-auto max-w-md px-5 py-16">
       <Card className="p-6">
-        <h1 className="text-2xl font-black">Sign in to gdslimmer</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Use Supabase email/password auth for the bootstrap.</p>
+        <p className="section-label">Template workbench / access</p>
+        <h1 className="mt-3 text-2xl font-semibold">Open your workspace</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">Sign in to configure templates and inspect your build artifacts.</p>
         <div className="mt-6 space-y-4">
           <label className="block text-sm"><span className="mb-2 block">Email</span><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
           <label className="block text-sm"><span className="mb-2 block">Password</span><Input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></label>

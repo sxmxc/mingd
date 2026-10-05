@@ -4,7 +4,7 @@ import { createWriteStream } from "node:fs";
 export async function runProcess(
   command: string,
   args: string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv; logFile?: string; timeoutMs?: number } = {},
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; logFile?: string; timeoutMs?: number; onOutput?: (chunk: Buffer) => void } = {},
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -15,8 +15,17 @@ export async function runProcess(
     });
 
     const log = options.logFile ? createWriteStream(options.logFile, { flags: "a" }) : undefined;
-    child.stdout.on("data", (chunk) => { process.stdout.write(chunk); log?.write(chunk); });
-    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); log?.write(chunk); });
+    let loggedBytes = 0;
+    const output = (chunk: Buffer) => {
+      options.onOutput?.(chunk);
+      // Keep local logs bounded too. The activity collector retains the live tail.
+      if (loggedBytes < 2 * 1024 * 1024) {
+        log?.write(chunk.subarray(0, 2 * 1024 * 1024 - loggedBytes));
+        loggedBytes += chunk.length;
+      }
+    };
+    child.stdout.on("data", output);
+    child.stderr.on("data", output);
     let timedOut = false;
     const timeout = options.timeoutMs ? setTimeout(() => {
       timedOut = true;

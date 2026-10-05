@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertRealBuildSupported, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@gdslimmer/build-config";
 import { env } from "./env.js";
@@ -13,6 +13,7 @@ export async function compileBuild(
   rawConfig: unknown,
   logFile: string,
   onStage: (stage: BuildStage) => Promise<void> = async () => undefined,
+  onOutput?: (chunk: Buffer) => void,
 ): Promise<{ artifactPath: string; binarySizeBytes: number; config: BuildConfig }> {
   const config = normalizeBuildConfig(rawConfig);
   if (!env.dryRun) assertRealBuildSupported(config);
@@ -47,12 +48,11 @@ export async function compileBuild(
   await onStage("compiling");
   for (const kind of config.templateKinds) {
     const args = ["-j", String(env.sconsJobs), ...toSconsArgs(config, kind)];
-    await runProcess("scons", args, { cwd: sourceDir, env: processEnv, logFile, timeoutMs: env.compileTimeoutMs });
+    await runProcess("scons", args, { cwd: sourceDir, env: processEnv, logFile, timeoutMs: env.compileTimeoutMs, onOutput });
   }
 
   await onStage("validating");
-  // packageArtifact verifies the ELF header before it creates the archive.
-  await onStage("packaging");
-  const packaged = await packageArtifact(sourceDir, outputDir, config);
+  // Report packaging only after the ELF/PE and wrapper checks succeed.
+  const packaged = await packageArtifact(sourceDir, outputDir, config, () => onStage("packaging"));
   return { artifactPath: packaged.artifactPath, binarySizeBytes: packaged.binarySizeBytes, config };
 }

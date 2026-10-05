@@ -10,7 +10,7 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         <Link href="/" className="flex items-baseline gap-2 font-black tracking-tight">
           <span className="text-xl">gdslimmer</span>
-          <span className="text-xs font-medium text-[var(--muted)]">Godot template builder</span>
+          <span className="hidden text-xs font-mono text-[var(--muted)] sm:inline">/ template workbench</span>
         </Link>
         <nav className="flex items-center gap-4 text-sm">
           {data.user ? (

@@ -10,9 +10,9 @@ After updating the application, rebuild the worker:
 docker compose --profile builder up -d --build builder
 ```
 
-Restart the web process if necessary. No new database migration or environment variable is required for Windows support; the previously applied artifact/stage migration is still required. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
+Apply the build-activity migration first using [the workbench rollout](workbench.md), then restart the web process. No new environment variable is required. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
 
-Select Linux or Windows on the new-build page and submit Standard. Wait for completion and download through the authenticated download route. Record the build ID and artifact SHA-256.
+Run this procedure for all four combinations: Linux Standard, Windows Standard, Linux Lean 2D, and Windows Lean 2D. Select target and profile, wait for completion and download through the authenticated route. Record the build ID, SHA-256 and artifact sizes from the inspector. Compare Lean 2D against a Standard artifact built with the same recipe/toolchain; do not claim a reduction before measuring it.
 
 Submit the same profile again and confirm it completes as a cached artifact. A build for the other platform must have a different cache identity and its own correctly named artifact.
 

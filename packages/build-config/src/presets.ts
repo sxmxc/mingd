@@ -78,3 +78,12 @@ export const PRESETS = {
 } as const;
 
 export type PresetId = keyof typeof PRESETS;
+
+export type SupportedPresetId = "standard" | "lean2d";
+export const SUPPORTED_PRESET_IDS: SupportedPresetId[] = ["standard", "lean2d"];
+
+export function buildPresetId(config: BuildConfig): SupportedPresetId | null {
+  return SUPPORTED_PRESET_IDS.find((id) => Object.entries(config.features).every(([key, value]) =>
+    value === PRESETS[id].features[key as keyof BuildFeatures],
+  )) ?? null;
+}

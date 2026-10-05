@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { DEFAULT_BUILD_CONFIG } from "@gdslimmer/build-config";
+import { DEFAULT_BUILD_CONFIG, PRESETS } from "@gdslimmer/build-config";
 import { packageArtifact, validateWindowsBinary } from "../src/package-artifact.js";
 
 function pe(console = false) {
@@ -26,6 +26,31 @@ test("Windows validation rejects wrong architecture, truncated files and wrong s
   wrongArch.writeUInt16LE(0x14c, 68);
   assert.throws(() => validateWindowsBinary(wrongArch, "test.exe"));
   assert.throws(() => validateWindowsBinary(pe(true), "test.exe"));
+});
+
+test("Linux Lean 2D packages original ELF bytes and reports packaging after validation", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "gdslimmer-linux-package-"));
+  try {
+    const source = join(dir, "source");
+    const output = join(dir, "output");
+    await mkdir(join(source, "bin"), { recursive: true });
+    await mkdir(output);
+    const binary = Buffer.alloc(512);
+    binary.set([0x7f, 0x45, 0x4c, 0x46, 2, 1]);
+    binary.writeUInt16LE(62, 18);
+    const path = join(source, "bin", "godot.linuxbsd.template_release.x86_64");
+    await writeFile(path, binary);
+    let packaging = false;
+    const result = await packageArtifact(source, output, { ...DEFAULT_BUILD_CONFIG, features: PRESETS.lean2d.features }, async () => { packaging = true; });
+    assert.equal(packaging, true);
+    assert.equal(result.binarySizeBytes, 512);
+    assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, "linux_release.x86_64"]), binary);
+    binary.writeUInt16LE(3, 18);
+    await writeFile(path, binary);
+    packaging = false;
+    await assert.rejects(packageArtifact(source, output, DEFAULT_BUILD_CONFIG, async () => { packaging = true; }), /x86_64 ELF/);
+    assert.equal(packaging, false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test("Windows package contains exact release filenames, version and original binaries", async () => {

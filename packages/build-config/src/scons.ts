@@ -1,6 +1,6 @@
 import type { BuildConfig, TemplateKind } from "./schema.ts";
 import { normalizeBuildConfig } from "./normalize.ts";
-import { DEFAULT_FEATURES } from "./presets.ts";
+import { buildPresetId } from "./presets.ts";
 
 function yn(value: boolean): "yes" | "no" {
   return value ? "yes" : "no";
@@ -29,7 +29,10 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     `disable_advanced_gui=${yn(!f.advancedGui)}`,
     `disable_physics_2d=${yn(!f.physics2d)}`,
     `disable_physics_3d=${yn(!f.physics3d)}`,
-    `module_jolt_enabled=${yn(f.jolt)}`,
+    `module_jolt_physics_enabled=${yn(f.jolt)}`,
+    `disable_navigation_2d=${yn(!f.navigation2d)}`,
+    `disable_navigation_3d=${yn(!f.navigation3d)}`,
+    `disable_xr=${yn(!f.openxr)}`,
     `module_navigation_2d_enabled=${yn(f.navigation2d)}`,
     `module_navigation_3d_enabled=${yn(f.navigation3d)}`,
     `module_multiplayer_enabled=${yn(f.multiplayer)}`,
@@ -64,19 +67,16 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
   return args;
 }
 
-/** Standard desktop profiles; stripped profiles remain gated by smoke testing. */
+/** Only exact allowlisted profile configurations can enter real compiler jobs. */
 export function assertRealBuildSupported(input: unknown): BuildConfig {
   const config = normalizeBuildConfig(input);
-  const standardFeatures = Object.entries(config.features).every(([key, value]) =>
-    value === DEFAULT_FEATURES[key as keyof typeof DEFAULT_FEATURES],
-  );
 
   if (
     config.godotVersion !== "4.7.2" || config.architecture !== "x86_64" ||
     config.templateKinds.length !== 1 || config.templateKinds[0] !== "release" ||
-    config.optimization !== "size" || config.lto || !standardFeatures
+    config.optimization !== "size" || config.lto || !buildPresetId(config)
   ) {
-    throw new Error("Real builds currently support only Godot 4.7.2 Linux or Windows x86_64 Standard template_release with optimize=size and LTO disabled.");
+    throw new Error("Real builds support Godot 4.7.2 Linux or Windows x86_64 Standard or Lean 2D template_release with optimize=size and LTO disabled.");
   }
   return config;
 }

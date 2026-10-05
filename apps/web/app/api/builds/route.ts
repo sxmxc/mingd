@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { normalizeBuildConfig } from "@gdslimmer/build-config";
+import { assertRealBuildSupported } from "@gdslimmer/build-config";
 import { createClient } from "@/lib/supabase/server";
 import { getBuildQueue } from "@/lib/queue";
 import { hashBuildConfig } from "@/lib/build-hash";
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   let config;
   try {
-    config = normalizeBuildConfig(await request.json());
+    config = assertRealBuildSupported(await request.json());
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid build configuration" }, { status: 400 });
   }

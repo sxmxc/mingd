@@ -1,8 +1,7 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DEFAULT_BUILD_CONFIG, type Platform } from "@gdslimmer/build-config";
+import { DEFAULT_BUILD_CONFIG, PRESETS, type Platform, type SupportedPresetId } from "@gdslimmer/build-config";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -11,36 +10,25 @@ export function BuildForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [platform, setPlatform] = useState<Platform>("linux");
-
+  const [profile, setProfile] = useState<SupportedPresetId>("standard");
   async function submit() {
-    setBusy(true);
-    setError(null);
-    const response = await fetch("/api/builds", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...DEFAULT_BUILD_CONFIG, platform }),
-    });
-    const body = await response.json().catch(() => ({}));
-    setBusy(false);
-    if (!response.ok) return setError(body.error ?? "Could not create build.");
-    router.push(`/build/${body.id}`);
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch("/api/builds", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...DEFAULT_BUILD_CONFIG, platform, features: PRESETS[profile].features }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Could not create build.");
+      router.push(`/build/${body.id}`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Connection failed. Try again."); }
+    finally { setBusy(false); }
   }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <Card className="p-6">
-        <p className="font-mono text-xs uppercase tracking-[.2em] text-[var(--accent)]">Standard profile</p>
-        <h2 className="mt-2 text-xl font-bold">Desktop export template</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">Keep the standard engine features and optimize for size. Linux has passed the smoke test; Windows is available for validation.</p>
-        <label className="mt-5 block text-sm">Platform<select className="mt-2 block w-full rounded-md border border-[var(--border)] bg-[#0c1014] px-3 py-2" value={platform} onChange={(event) => setPlatform(event.target.value as Platform)} disabled={busy}><option value="linux">Linux x86_64</option><option value="windows">Windows x86_64</option></select></label>
-        {platform === "windows" && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Windows supports Vulkan and OpenGL. Direct3D 12, ANGLE, screen reader integration, and WinRT/OneCore integration are unavailable in this build.</p>}
-        <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-          {[["Godot", "4.7.2 stable"], ["Target", `${platform === "linux" ? "Linux" : "Windows"} x86_64`], ["Template", "template_release"], ["Optimization", "size"], ["LTO", "disabled"], ["Features", "Standard"]].map(([label, value]) => <div key={label} className="rounded-md border border-[var(--border)] bg-[#0c1014] p-3"><dt className="text-[var(--muted)]">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}
-        </dl>
-      </Card>
-      <aside className="lg:sticky lg:top-6 lg:self-start">
-        <Card className="p-5"><p className="font-mono text-xs uppercase tracking-[.2em] text-[var(--accent)]">Build summary</p><p className="mt-4 text-sm leading-6 text-[var(--muted)]">The completed artifact contains a checksum-verified, private Godot template package.</p>{error && <p className="mt-4 text-sm text-[var(--danger)]">{error}</p>}<Button className="mt-6 w-full" onClick={submit} disabled={busy}>{busy ? "Queueing…" : "Build template"}</Button></Card>
-      </aside>
-    </div>
-  );
+  return <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <Card className="p-6 space-y-8">
+      <fieldset disabled={busy}><legend className="section-label">01 / Target platform</legend><div className="choice-grid mt-4">{(["linux", "windows"] as const).map(value => <label key={value} className={`choice ${platform === value ? "selected" : ""}`}><input type="radio" name="platform" checked={platform === value} onChange={() => setPlatform(value)} /><span><strong>{value === "linux" ? "Linux" : "Windows"}</strong><small>x86_64 · {value === "linux" ? "ELF" : "PE / GUI + console"}</small></span></label>)}</div></fieldset>
+      <fieldset disabled={busy}><legend className="section-label">02 / Engine profile</legend><div className="choice-grid mt-4">{(["standard", "lean2d"] as const).map(value => <label key={value} className={`choice ${profile === value ? "selected" : ""}`}><input type="radio" name="profile" checked={profile === value} onChange={() => setProfile(value)} /><span><strong>{PRESETS[value].label}</strong><small>{value === "standard" ? "Full desktop engine feature set" : "2D-focused · remove 3D and XR"}</small></span></label>)}</div></fieldset>
+      <div className="tool-note"><strong>{profile === "lean2d" ? "Check project compatibility" : "General-purpose compatibility"}</strong><p>{profile === "lean2d" ? "Retains 2D rendering, physics, navigation, UI, audio, and networking. Removes 3D, 3D physics/navigation, Jolt, XR, glTF, CSG, and GridMap. Projects relying on removed features cannot use this template. Native smoke validation is still required." : "Retains the desktop engine features for 2D and 3D projects. Use this as your compatibility baseline."}</p></div>
+      {platform === "windows" && <p className="text-sm text-[var(--muted)]">Vulkan and OpenGL supported. Direct3D 12, ANGLE, screen readers, and WinRT/OneCore are not included.</p>}
+      <details><summary>Recipe details</summary><dl className="inspector mt-4"><dt>Source</dt><dd>Godot 4.7.2 · checksum verified</dd><dt>Template</dt><dd>Release only</dd><dt>Optimization</dt><dd>Size · LTO disabled</dd><dt>Inputs</dt><dd>Allowlisted configuration only</dd></dl></details>
+    </Card>
+    <aside className="lg:sticky lg:top-6 lg:self-start"><Card className="p-5"><p className="section-label">Build recipe</p><h2 className="mt-4 text-xl font-semibold">{PRESETS[profile].label}</h2><p className="mt-2 font-mono text-sm text-[var(--muted)]">{platform} / x86_64 / release</p><hr className="my-5 border-[var(--border)]" /><p className="text-sm leading-6 text-[var(--muted)]">Compilation can take a while. Follow worker activity and compiler output in the monitor. Identical recipes reuse an existing artifact.</p><p className="mt-4 text-sm">Output: private <code>.tpz</code> package</p>{error && <p role="alert" className="mt-4 text-sm text-[var(--danger)]">{error}</p>}<Button type="submit" className="mt-6 w-full" disabled={busy}>{busy && <span className="spinner" />}{busy ? "Submitting recipe…" : "Build template →"}</Button></Card></aside>
+  </form>;
 }

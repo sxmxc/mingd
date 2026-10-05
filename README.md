@@ -8,8 +8,9 @@ This repository intentionally starts with a narrow, credible real-build mileston
 
 - Godot 4.7.2 stable is pinned to the official release source archive and SHA-256.
 - Linux and Windows x86_64 `template_release`.
-- Standard (least-stripped) feature configuration, `optimize=size`, and LTO disabled.
-- Linux Standard has passed the smoke test (confirmed by the project owner); Windows Standard is the next validation target. Lean 2D remains gated.
+- Standard and Lean 2D feature profiles, `optimize=size`, and LTO disabled on both platforms.
+- Linux Standard smoke test and Windows Standard compilation were confirmed by the owner. Lean 2D is enabled on both targets; native acceptance remains to be recorded.
+- Tool-focused workbench with searchable build history, live compiler output, stage timing and worker heartbeats.
 - Windows retains Vulkan/OpenGL but omits D3D12, ANGLE, AccessKit and WinRT SDK integrations. See [build profiles](docs/build-profiles.md) for compatibility details.
 - Supabase Auth, Postgres, Row Level Security, and private Storage.
 - Redis + BullMQ for build jobs.
@@ -21,7 +22,7 @@ Web, Android, macOS/iOS, .NET, custom modules, arbitrary `custom.py`, and arbitr
 
 ## Architecture
 
-Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md).
+Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md), [workbench and activity rollout](docs/workbench.md).
 
 ```text
 Browser
@@ -83,7 +84,7 @@ npm install
 3. Start local Supabase.
 
 ```bash
-supabase start
+npx supabase start
 ```
 
 Copy the local API URL, publishable/anon key, and secret/service-role key into `.env`. The names displayed by your Supabase CLI may differ from the newer publishable/secret terminology; use the client-safe key for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and the server-only privileged key for `SUPABASE_SECRET_KEY`.
@@ -91,7 +92,7 @@ Copy the local API URL, publishable/anon key, and secret/service-role key into `
 4. Apply the migration if your local CLI did not do so automatically.
 
 ```bash
-supabase db reset
+npx supabase db reset
 ```
 
 5. Start Redis.
@@ -166,7 +167,7 @@ Set `BUILDER_DRY_RUN=true` to test queue and database plumbing without compiling
 
 `tests/fixtures/smoke-project` is the repository-owned fixture for validating a completed real artifact. It has a small 2D scene using Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer, and GDScript.
 
-Follow [the smoke-test procedure](docs/smoke-tests.md) for Linux or Windows. Windows support requires rebuilding the worker and restarting the web application; it requires no additional database migration. Use release export because these packages do not contain debug templates.
+Follow [the smoke-test procedure](docs/smoke-tests.md) for both platforms and profiles. This workbench release requires applying the new build-activity migration before rebuilding the worker and restarting the web application; see [rollout instructions](docs/workbench.md). Use release export because these packages do not contain debug templates.
 
 The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
 

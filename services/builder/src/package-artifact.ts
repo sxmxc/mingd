@@ -32,7 +32,7 @@ function validateLinuxBinaryHeader(header: Buffer, path: string) {
   }
 }
 
-export async function packageArtifact(sourceDir: string, outputDir: string, config: BuildConfig): Promise<{ artifactPath: string; binarySizeBytes: number }> {
+export async function packageArtifact(sourceDir: string, outputDir: string, config: BuildConfig, onPackaging: () => Promise<void> = async () => undefined): Promise<{ artifactPath: string; binarySizeBytes: number }> {
   const binDir = join(sourceDir, "bin");
   const files = await readdir(binDir);
   const packageDir = join(outputDir, "package");
@@ -58,6 +58,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     }
   }
 
+  await onPackaging();
   const version = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
   await writeFile(join(packageDir, "version.txt"), `${version.versionIdentifier}\n`);
   await writeFile(join(packageDir, "README-gdslimmer.txt"), [

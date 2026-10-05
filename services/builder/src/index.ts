@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { BUILD_RECIPE_VERSION, canonicalBuildCacheInput, normalizeBuildConfig, SUPPORTED_GODOT_VERSIONS } from "@gdslimmer/build-config";
 import { env } from "./env.js";
 import { compileBuild } from "./compiler.js";
+import { BuildActivity, sanitizeLog } from "./activity.js";
 
 const supabase = createClient(env.supabaseUrl, env.supabaseSecretKey, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -43,15 +44,6 @@ async function sha256(path: string): Promise<string> {
   });
 }
 
-async function tail(path: string, max = 12000) {
-  try {
-    const content = await readFile(path, "utf8");
-    return content.slice(-max);
-  } catch {
-    return null;
-  }
-}
-
 async function processBuild(job: Job<BuildJob>) {
   const { buildId } = job.data;
   const config = normalizeBuildConfig(job.data.config);
@@ -60,6 +52,7 @@ async function processBuild(job: Job<BuildJob>) {
     throw new Error("Build configuration hash does not match the queued payload.");
   }
   const logFile = `${env.workDir}/${buildId}.log`;
+  const activity = new BuildActivity([env.supabaseSecretKey, env.redisUrl]);
   // A diagnostic archive must never occupy the real-template cache key or path.
   const artifactHash = env.dryRun ? createHash("sha256").update(`dry-run\n${configHash}`).digest("hex") : configHash;
 
@@ -69,6 +62,14 @@ async function processBuild(job: Job<BuildJob>) {
     return;
   }
 
+  let pendingHeartbeat: Promise<void> | null = null;
+  const heartbeat = setInterval(() => {
+    if (pendingHeartbeat) return;
+    pendingHeartbeat = Promise.resolve(supabase.from("builds").update(activity.snapshot()).eq("id", buildId)
+      .not("status", "in", "(complete,failed)")).then(({ error }) => {
+        if (error) console.warn(`Build ${buildId}: activity update unavailable.`);
+      }).catch(() => { console.warn(`Build ${buildId}: activity connection unavailable.`); }).finally(() => { pendingHeartbeat = null; });
+  }, 10000);
   try {
     const updateStage = async (stage: import("./compiler.js").BuildStage) => {
       const details: Record<typeof stage, { progress: number; status: string; label: string }> = {
@@ -80,18 +81,17 @@ async function processBuild(job: Job<BuildJob>) {
         packaging: { progress: 84, status: "packaging", label: "Packaging Godot template" },
       };
       const current = details[stage];
-      await updateBuild(buildId, { status: current.status, stage: current.label, progress: current.progress, ...(stage === "preparing_source" ? { started_at: new Date().toISOString() } : {}) });
+      await updateBuild(buildId, { ...activity.snapshot(), status: current.status, stage: current.label, progress: current.progress, stage_started_at: new Date().toISOString(), ...(stage === "preparing_source" ? { started_at: new Date().toISOString() } : {}) });
       await job.updateProgress(current.progress);
     };
-    const { artifactPath, binarySizeBytes } = await compileBuild(buildId, config, logFile, updateStage);
-    await job.updateProgress(78);
+    const { artifactPath, binarySizeBytes } = await compileBuild(buildId, config, logFile, updateStage, (chunk) => activity.record(chunk));
 
-    await updateBuild(buildId, { status: "packaging", stage: "Hashing packaged template", progress: 87, log_tail: await tail(logFile) });
+    await updateBuild(buildId, { ...activity.snapshot(), status: "packaging", stage: "Hashing packaged template", progress: 87 });
     const digest = await sha256(artifactPath);
     const size = (await stat(artifactPath)).size;
 
     const storagePath = `${config.godotVersion}/${config.platform}/${artifactHash}/${basename(artifactPath)}`;
-    await updateBuild(buildId, { status: "uploading", stage: "Uploading artifact", progress: 92 });
+    await updateBuild(buildId, { ...activity.snapshot(), status: "uploading", stage: "Uploading artifact", stage_started_at: new Date().toISOString(), progress: 92 });
     const bytes = await readFile(artifactPath);
     const { error: uploadError } = await supabase.storage.from(env.artifactBucket).upload(storagePath, bytes, {
       contentType: "application/zip",
@@ -119,12 +119,15 @@ async function processBuild(job: Job<BuildJob>) {
     }, { onConflict: "config_hash", ignoreDuplicates: false }).select("id").single();
     if (artifactError) throw new Error(`Artifact metadata write failed: ${artifactError.message}`);
 
-    await updateBuild(buildId, { artifact_id: artifact.id, status: "complete", stage: env.dryRun ? "Dry-run artifact ready" : "Template ready", progress: 100, completed_at: new Date().toISOString(), log_tail: await tail(logFile) });
+    await updateBuild(buildId, { ...activity.snapshot(), artifact_id: artifact.id, status: "complete", stage: env.dryRun ? "Dry-run artifact ready" : "Template ready", progress: 100, completed_at: new Date().toISOString() });
     await job.updateProgress(100);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateBuild(buildId, { status: "failed", stage: "Build failed", error: message, completed_at: new Date().toISOString(), log_tail: await tail(logFile) }).catch(() => undefined);
+    const message = sanitizeLog(error instanceof Error ? error.message : String(error), [env.supabaseSecretKey, env.redisUrl]).slice(-2000);
+    await updateBuild(buildId, { ...activity.snapshot(), status: "failed", stage: "Build failed", error: message, completed_at: new Date().toISOString() }).catch(() => undefined);
     throw error;
+  } finally {
+    clearInterval(heartbeat);
+    await pendingHeartbeat;
   }
 }
 
@@ -135,7 +138,7 @@ const worker = new Worker<BuildJob>(env.queueName, processBuild, {
 
 worker.on("ready", () => console.log(`gdslimmer builder ready. queue=${env.queueName} concurrency=${env.concurrency} dryRun=${env.dryRun}`));
 worker.on("completed", (job) => console.log(`Build ${job.id} completed.`));
-worker.on("failed", (job, error) => console.error(`Build ${job?.id ?? "unknown"} failed:`, error));
+worker.on("failed", (job, error) => console.error(`Build ${job?.id ?? "unknown"} failed:`, sanitizeLog(error.message, [env.supabaseSecretKey, env.redisUrl])));
 
 async function shutdown(signal: string) {
   console.log(`Received ${signal}; closing worker.`);

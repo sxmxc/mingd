@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { artifactSummaryForOwnedBuild } from "@/lib/build-artifact";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -9,10 +10,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { data, error } = await supabase
     .from("builds")
-    .select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,completed_at")
+    .select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes")
     .eq("id", id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Build not found" }, { status: 404 });
-  return NextResponse.json(data, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ ...data, artifact: await artifactSummaryForOwnedBuild(data.artifact_id) }, { headers: { "cache-control": "no-store" } });
 }
