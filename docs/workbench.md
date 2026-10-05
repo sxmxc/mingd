@@ -30,6 +30,8 @@ Restart the web development process or rebuild/redeploy it. No environment chang
 
 Build detail polling runs every 2.5 seconds without overlapping requests, stops at terminal states, and aborts on unmount. The active build list refreshes every 10 seconds while visible. Output-follow can be disabled to inspect earlier lines. Keyboard focus and reduced-motion preferences are supported.
 
+Build-history timestamps use an explicit UTC format (`YYYY-MM-DD HH:mm:ss UTC`) so the server and browser render identical text regardless of locale or timezone. Regression tests run with the web workspace's `npm test` command and the root test suite.
+
 Artifact size, main-binary size, SHA-256 and recipe version are exposed only after the user's build ownership is verified; storage paths are not returned.
 
 ## Validation checklist
