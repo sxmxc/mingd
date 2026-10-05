@@ -2,15 +2,14 @@ import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/pro
 import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { BuildConfig, TemplateKind } from "@gdslimmer/build-config";
-import { SUPPORTED_GODOT_VERSIONS, expectedTemplateFilename } from "@gdslimmer/build-config";
+import type { BuildConfig, TemplateKind } from "@mingd/build-config";
+import { SUPPORTED_GODOT_VERSIONS, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
 import { runProcess } from "./process.js";
 
 const execFileAsync = promisify(execFile);
 
 function findCompiledBinary(files: string[], config: BuildConfig, kind: TemplateKind, console = false): string | undefined {
-  const platform = config.platform === "linux" ? "linuxbsd" : "windows";
-  const expected = `godot.${platform}.template_${kind}.${config.architecture}${config.platform === "windows" ? (console ? ".console.exe" : ".exe") : ""}`;
+  const expected = compiledTemplateFilename(config, kind, console);
   return files.includes(expected) ? expected : undefined;
 }
 
@@ -47,33 +46,34 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
       const binary = await readFile(sourcePath);
       validateLinuxBinaryHeader(binary.subarray(0, 64), sourcePath);
       if (binary.length === 0) throw new Error(`Compiled template is empty: ${sourcePath}`);
-      await copyFile(sourcePath, join(packageDir, `linux_${kind}.${config.architecture}`));
+      await copyFile(sourcePath, join(packageDir, expectedTemplateFilename(config, kind)));
     } else {
       validateWindowsBinary(await readFile(join(binDir, built)), built);
-      await copyFile(join(binDir, built), join(packageDir, `windows_${kind}_${config.architecture}.exe`));
+      await copyFile(join(binDir, built), join(packageDir, expectedTemplateFilename(config, kind)));
       const consoleBuilt = findCompiledBinary(files, config, kind, true);
       if (!consoleBuilt) throw new Error(`Could not locate compiled Windows ${kind} console wrapper.`);
       validateWindowsBinary(await readFile(join(binDir, consoleBuilt)), consoleBuilt, true);
-      await copyFile(join(binDir, consoleBuilt), join(packageDir, `windows_${kind}_${config.architecture}_console.exe`));
+      await copyFile(join(binDir, consoleBuilt), join(packageDir, expectedConsoleTemplateFilename(config, kind)));
     }
   }
 
   await onPackaging();
   const version = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
   await writeFile(join(packageDir, "version.txt"), `${version.versionIdentifier}\n`);
-  await writeFile(join(packageDir, "README-gdslimmer.txt"), [
-    "GDSlimmer custom Godot export template", "",
+  await writeFile(join(packageDir, "README-mingd.txt"), [
+    "min.gd custom Godot export template", "",
     `Godot: ${version.versionIdentifier}`,
     `Target: ${config.platform} ${config.architecture} template_${config.templateKinds.join(", template_")}`,
-    "Install this TPZ with Godot's Export template manager, then export normally.",
+    "Install this TPZ with Godot's Export template manager, or extract and select the release executable in the preset's Custom Template > Release field.",
+    "This package contains release templates only. Disable Export With Debug. Keep the Windows console wrapper beside its main executable.",
   ].join("\n"));
 
-  const artifact = join(outputDir, `gdslimmer-${config.godotVersion}-${config.platform}-${config.architecture}.tpz`);
+  const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
   await runProcess("zip", ["-9", "-r", artifact, "."], { cwd: packageDir });
   await runProcess("unzip", ["-tqq", artifact]);
-  const required = ["version.txt", "README-gdslimmer.txt", ...config.templateKinds.flatMap((kind) => [
+  const required = ["version.txt", "README-mingd.txt", ...config.templateKinds.flatMap((kind) => [
     expectedTemplateFilename(config, kind),
-    ...(config.platform === "windows" ? [`windows_${kind}_${config.architecture}_console.exe`] : []),
+    ...(config.platform === "windows" ? [expectedConsoleTemplateFilename(config, kind)] : []),
   ])];
   const listing = await execFileAsync("unzip", ["-Z1", artifact], { maxBuffer: 16 * 1024 });
   const names = listing.stdout.trim().split("\n").sort();

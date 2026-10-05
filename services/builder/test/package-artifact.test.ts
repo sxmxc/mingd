@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import test from "node:test";
-import { DEFAULT_BUILD_CONFIG, PRESETS } from "@gdslimmer/build-config";
+import { DEFAULT_BUILD_CONFIG, PRESETS } from "@mingd/build-config";
 import { packageArtifact, validateWindowsBinary } from "../src/package-artifact.js";
 
 function pe(console = false) {
@@ -29,7 +29,7 @@ test("Windows validation rejects wrong architecture, truncated files and wrong s
 });
 
 test("Linux Lean 2D packages original ELF bytes and reports packaging after validation", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "gdslimmer-linux-package-"));
+  const dir = await mkdtemp(join(tmpdir(), "mingd-linux-package-"));
   try {
     const source = join(dir, "source");
     const output = join(dir, "output");
@@ -44,6 +44,7 @@ test("Linux Lean 2D packages original ELF bytes and reports packaging after vali
     const result = await packageArtifact(source, output, { ...DEFAULT_BUILD_CONFIG, features: PRESETS.lean2d.features }, async () => { packaging = true; });
     assert.equal(packaging, true);
     assert.equal(result.binarySizeBytes, 512);
+    assert.equal(basename(result.artifactPath), "mingd-4.7.2-linux-x86_64-release.tpz");
     assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, "linux_release.x86_64"]), binary);
     binary.writeUInt16LE(3, 18);
     await writeFile(path, binary);
@@ -54,7 +55,7 @@ test("Linux Lean 2D packages original ELF bytes and reports packaging after vali
 });
 
 test("Windows package contains exact release filenames, version and original binaries", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "gdslimmer-package-"));
+  const dir = await mkdtemp(join(tmpdir(), "mingd-package-"));
   try {
     const source = join(dir, "source");
     const output = join(dir, "output");
@@ -66,9 +67,11 @@ test("Windows package contains exact release filenames, version and original bin
     await writeFile(join(source, "bin", "godot.windows.template_release.x86_64.console.exe"), pe(true));
     const result = await packageArtifact(source, output, { ...DEFAULT_BUILD_CONFIG, platform: "windows" });
     assert.equal(result.binarySizeBytes, 512);
+    assert.equal(basename(result.artifactPath), "mingd-4.7.2-windows-x86_64-release.tpz");
     const names = execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).trim().split("\n").sort();
-    assert.deepEqual(names, ["README-gdslimmer.txt", "version.txt", "windows_release_x86_64.exe", "windows_release_x86_64_console.exe"]);
+    assert.deepEqual(names, ["README-mingd.txt", "version.txt", "windows_release_x86_64.exe", "windows_release_x86_64_console.exe"]);
     assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.7.2.stable\n");
+    assert.match(execFileSync("unzip", ["-p", result.artifactPath, "README-mingd.txt"], { encoding: "utf8" }), /min\.gd custom Godot export template/);
     assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, "windows_release_x86_64.exe"]), await readFile(mainPath));
   } finally {
     await rm(dir, { recursive: true, force: true });

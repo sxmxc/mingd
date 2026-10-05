@@ -1,6 +1,6 @@
 import { mkdir, rm, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { SUPPORTED_GODOT_VERSIONS, type GodotVersionId } from "@gdslimmer/build-config";
+import { SUPPORTED_GODOT_VERSIONS, type GodotVersionId } from "@mingd/build-config";
 import { runProcess } from "./process.js";
 import { env } from "./env.js";
 

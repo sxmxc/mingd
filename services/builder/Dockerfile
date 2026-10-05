@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl xz-utils zip unzip git \
-    python3 python3-venv \
+    python3 python3-venv time \
     build-essential pkg-config ccache mingw-w64 \
     libx11-dev libxcursor-dev libxinerama-dev libxi-dev libxrandr-dev \
     libwayland-dev libxkbcommon-dev wayland-protocols \
@@ -30,4 +30,4 @@ ENV GODOT_CACHE_DIR=/cache/godot \
     CCACHE_DIR=/cache/ccache \
     PATH=/opt/scons/bin:$PATH
 
-CMD ["npm", "run", "start", "--workspace", "@gdslimmer/builder"]
+CMD ["npm", "run", "start", "--workspace", "@mingd/builder"]

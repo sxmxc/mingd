@@ -3,7 +3,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "gdslimmer",
+  title: "min.gd",
   description: "Build only the Godot your game needs.",
 };
 

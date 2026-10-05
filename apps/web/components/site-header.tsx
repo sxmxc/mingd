@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import Image from 'next/image'
 
 export async function SiteHeader() {
   const supabase = await createClient();
@@ -8,10 +7,9 @@ export async function SiteHeader() {
 
   return (
     <header className="border-b border-[var(--border)] bg-[#0b0d10cc] backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+      <div className="flex h-14 w-full items-center justify-between px-4 lg:px-6">
         <Link href="/" className="flex items-baseline gap-2 font-black tracking-tight">
-          <Image src="/godot_icon_color.svg" alt="Godot Icon" width={32} height={32} />
-          <span className="text-xl">GDSlimmer</span>
+          <span className="font-mono text-xl" aria-label="min.gd">min<span className="text-[var(--accent)]">.</span>gd</span>
           <span className="hidden text-xs font-mono text-[var(--muted)] sm:inline">/ Export Template Workbench</span>
         </Link>
         <nav className="flex items-center gap-4 text-sm">

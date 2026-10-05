@@ -9,6 +9,7 @@ export function normalizeBuildConfig(input: unknown): BuildConfig {
     features.jolt = false;
     features.navigation3d = false;
     features.openxr = false;
+    features.gltf = false;
     features.csg = false;
     features.gridmap = false;
   }
@@ -22,6 +23,9 @@ export function normalizeBuildConfig(input: unknown): BuildConfig {
     features.websocket = false;
     features.webrtc = false;
   }
+
+  // Theora has required Ogg/Vorbis dependencies in Godot 4.7.2.
+  if (!features.oggVorbis) features.theora = false;
 
   return BuildConfigSchema.parse({
     ...parsed,

@@ -3,4 +3,4 @@ extends Node2D
 @onready var status: Label = $Label
 
 func _ready() -> void:
-	status.text = "GDSlimmer smoke test passed"
+	status.text = "min.gd smoke test passed"

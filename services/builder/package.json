@@ -1,5 +1,5 @@
 {
-  "name": "@gdslimmer/builder",
+  "name": "@mingd/builder",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@gdslimmer/build-config": "*",
+    "@mingd/build-config": "*",
     "@supabase/supabase-js": "^2.117.2",
     "bullmq": "^6.3.10",
     "ioredis": "^6.0.0"

@@ -1,4 +1,4 @@
-# AGENTS.md — gdslimer
+# AGENTS.md — mingd
 
 This file is for coding agents working in this repository. It defines how to inspect, modify, validate, and extend the codebase. Do not treat it as a product brief.
 
@@ -135,7 +135,7 @@ The builder must not define its own independent interpretation of build features
 
 This is an npm-workspaces monorepo. Use the repository's existing npm workspace structure rather than adding another package manager or monorepo framework.
 
-`@gdslimer/build-config` is consumed by both:
+`@mingd/build-config` is consumed by both:
 
 - Next.js/Turbopack in `apps/web`;
 - the Node/tsx builder in `services/builder`.

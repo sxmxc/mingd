@@ -10,6 +10,10 @@ import {
   toSconsArgs,
   PRESETS,
   buildPresetId,
+  SUPPORTED_PRESET_IDS,
+  compiledTemplateFilename,
+  expectedConsoleTemplateFilename,
+  FEATURE_GROUPS,
 } from "../src/index.ts";
 
 test("normalization removes 3D dependents when 3D is disabled", () => {
@@ -54,15 +58,17 @@ test("SCons arguments are generated from allowlisted values", () => {
 
 test("cache input includes the build recipe", () => {
   const value = canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG);
-  assert.match(value, /^5\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
+  assert.match(value, /^7\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
   assert.match(value, /a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/);
 });
 
-test("real-build guard accepts Standard desktop profiles and rejects stripping", () => {
+test("real-build guard accepts custom features but rejects unsupported target contracts", () => {
   assert.deepEqual(assertRealBuildSupported(DEFAULT_BUILD_CONFIG), DEFAULT_BUILD_CONFIG);
   assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, lto: true }), /LTO disabled/);
   assert.equal(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform: "windows" }).platform, "windows");
-  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, engine3d: false } }), /Standard/);
+  assert.equal(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, engine3d: false } }).features.gltf, false);
+  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, tilemap: false } }), /TileMap/);
+  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, architecture: "arm64" }));
   assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, templateKinds: ["debug"] }), /template_release/);
 });
 
@@ -84,5 +90,52 @@ test("Lean 2D is supported and deterministic on both desktop targets", () => {
     assert.equal(args.some(flag => flag.startsWith("module_jolt_enabled=")), false);
     assert.notEqual(canonicalBuildCacheInput(config), canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, platform }));
   }
-  assert.throws(() => assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: PRESETS.offline2d.features }), /Standard/);
+  assert.equal(buildPresetId(assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: PRESETS.offline2d.features })), "offline2d");
+});
+
+test("every preset is normalized, accepted for both targets and has a unique recipe", () => {
+  const hashes = new Set<string>();
+  for (const platform of ["linux", "windows"] as const) for (const id of SUPPORTED_PRESET_IDS) {
+    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform, features: PRESETS[id].features });
+    assert.equal(buildPresetId(config), id);
+    assert.deepEqual(normalizeBuildConfig(config), config);
+    hashes.add(canonicalBuildCacheInput(config));
+  }
+  assert.equal(hashes.size, 8);
+});
+
+test("each editable feature normalizes idempotently and produces a different cache recipe", () => {
+  const keys = FEATURE_GROUPS.flatMap(group => group.options).filter(option => !option.locked).map(option => option.key);
+  assert.equal(new Set(keys).size, keys.length);
+  for (const key of keys) {
+    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, [key]: false } });
+    assert.deepEqual(normalizeBuildConfig(config), config, key);
+    assert.notEqual(canonicalBuildCacheInput(config), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), key);
+    assert.equal(buildPresetId(config), key === "engine3d" ? "lean2d" : null, key);
+  }
+  const noAudio = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, oggVorbis: false } });
+  assert.equal(noAudio.features.theora, false);
+  const fallback = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, features: { ...DEFAULT_BUILD_CONFIG.features, textServer: "fallback" } });
+  assert.ok(toSconsArgs(fallback, "release").includes("module_text_server_fb_enabled=yes"));
+});
+
+test("compiler launchers are explicit and bogus TileMap module flag is absent", () => {
+  const args = toSconsArgs(DEFAULT_BUILD_CONFIG, "release");
+  assert.ok(args.includes("c_compiler_launcher=ccache"));
+  assert.ok(args.includes("cpp_compiler_launcher=ccache"));
+  assert.ok(args.includes("import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG"));
+  assert.equal(args.some(arg => arg.startsWith("module_tilemap_enabled=")), false);
+});
+
+test("template filenames distinguish platforms, architectures, release/debug and wrappers", () => {
+  for (const kind of ["release", "debug"] as const) {
+    const linux = DEFAULT_BUILD_CONFIG;
+    const windows = { ...DEFAULT_BUILD_CONFIG, platform: "windows" as const };
+    assert.equal(expectedTemplateFilename(linux, kind), `linux_${kind}.x86_64`);
+    assert.equal(expectedTemplateFilename(windows, kind), `windows_${kind}_x86_64.exe`);
+    assert.equal(expectedConsoleTemplateFilename(windows, kind), `windows_${kind}_x86_64_console.exe`);
+    assert.equal(compiledTemplateFilename(linux, kind), `godot.linuxbsd.template_${kind}.x86_64`);
+    assert.equal(compiledTemplateFilename(windows, kind, true), `godot.windows.template_${kind}.x86_64.console.exe`);
+    assert.throws(() => expectedConsoleTemplateFilename(linux, kind));
+  }
 });

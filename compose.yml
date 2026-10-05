@@ -13,6 +13,7 @@ services:
       retries: 20
 
   builder:
+    image: mingd/builder
     profiles: ["builder"]
     build:
       context: .

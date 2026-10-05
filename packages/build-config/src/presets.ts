@@ -75,12 +75,17 @@ export const PRESETS = {
       webrtc: false,
     },
   },
+  lean3d: {
+    label: "Lean 3D",
+    description: "Keep 3D rendering, physics and navigation; remove XR, CSG and GridMap.",
+    features: { ...DEFAULT_FEATURES, openxr: false, csg: false, gridmap: false },
+  },
 } as const;
 
 export type PresetId = keyof typeof PRESETS;
 
-export type SupportedPresetId = "standard" | "lean2d";
-export const SUPPORTED_PRESET_IDS: SupportedPresetId[] = ["standard", "lean2d"];
+export type SupportedPresetId = PresetId;
+export const SUPPORTED_PRESET_IDS: SupportedPresetId[] = ["standard", "lean2d", "offline2d", "lean3d"];
 
 export function buildPresetId(config: BuildConfig): SupportedPresetId | null {
   return SUPPORTED_PRESET_IDS.find((id) => Object.entries(config.features).every(([key, value]) =>

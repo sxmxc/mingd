@@ -2,7 +2,7 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@gdslimmer/build-config"],
+  transpilePackages: ["@mingd/build-config"],
 
   turbopack: {
     root: path.resolve(__dirname, "../.."),

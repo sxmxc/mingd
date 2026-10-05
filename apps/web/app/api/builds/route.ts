@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertRealBuildSupported } from "@gdslimmer/build-config";
+import { assertRealBuildSupported, cachedArtifactPerformance } from "@mingd/build-config";
 import { createClient } from "@/lib/supabase/server";
 import { getBuildQueue } from "@/lib/queue";
 import { hashBuildConfig } from "@/lib/build-hash";
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       progress: 100,
       config,
       completed_at: new Date().toISOString(),
+      performance_metrics: cachedArtifactPerformance(),
     }).select("id").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ id: build.id, cached: true });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { basename } from "node:path";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -27,7 +28,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { data: signed, error: signedError } = await admin.storage
     .from(env.artifactBucket())
-    .createSignedUrl(artifact.storage_path, env.signedDownloadTtl());
+    .createSignedUrl(artifact.storage_path, env.signedDownloadTtl(), { download: basename(artifact.storage_path) });
   if (signedError) return NextResponse.json({ error: signedError.message }, { status: 500 });
 
   return NextResponse.redirect(signed.signedUrl);

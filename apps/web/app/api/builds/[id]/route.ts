@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { data, error } = await supabase
     .from("builds")
-    .select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes")
+    .select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes,performance_metrics")
     .eq("id", id)
     .single();
 

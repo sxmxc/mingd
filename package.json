@@ -1,5 +1,5 @@
 {
-  "name": "gdslimmer",
+  "name": "mingd",
   "private": true,
   "version": "0.1.0",
   "description": "Build only the Godot your game needs.",
@@ -9,9 +9,9 @@
     "services/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace @gdslimmer/web",
-    "dev:builder": "npm run dev --workspace @gdslimmer/builder",
-    "build": "npm run build --workspace @gdslimmer/web && npm run build --workspace @gdslimmer/builder",
+    "dev:web": "npm run dev --workspace @mingd/web",
+    "dev:builder": "npm run dev --workspace @mingd/builder",
+    "build": "npm run build --workspace @mingd/web && npm run build --workspace @mingd/builder",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },

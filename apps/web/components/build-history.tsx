@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { buildPresetId, normalizeBuildConfig, PRESETS } from "@gdslimmer/build-config";
+import { buildPresetId, normalizeBuildConfig, PRESETS } from "@mingd/build-config";
 import { formatBuildTime } from "@/lib/format-build-time";
 type Row = { id: string; status: string; stage: string; config: unknown; created_at: string };
 function profile(config: unknown) { try { const id = buildPresetId(normalizeBuildConfig(config)); return id ? PRESETS[id].label : "Custom"; } catch { return "Legacy recipe"; } }

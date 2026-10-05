@@ -1,8 +1,8 @@
-; GDSlimmer template smoke-test fixture.
+; min.gd template smoke-test fixture.
 config_version=5
 
 [application]
-config/name="GDSlimmer Smoke Test"
+config/name="min.gd Smoke Test"
 run/main_scene="res://main.tscn"
 
 [display]

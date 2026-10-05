@@ -1,5 +1,5 @@
 {
-  "name": "@gdslimmer/build-config",
+  "name": "@mingd/build-config",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -1,6 +1,5 @@
 import type { BuildConfig, TemplateKind } from "./schema.ts";
 import { normalizeBuildConfig } from "./normalize.ts";
-import { buildPresetId } from "./presets.ts";
 
 function yn(value: boolean): "yes" | "no" {
   return value ? "yes" : "no";
@@ -25,10 +24,15 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     `lto=${config.lto && kind === "release" ? "full" : "none"}`,
     "debug_symbols=no",
     "use_static_cpp=yes",
+    "c_compiler_launcher=ccache",
+    "cpp_compiler_launcher=ccache",
+    "import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG",
     `disable_3d=${yn(!f.engine3d)}`,
     `disable_advanced_gui=${yn(!f.advancedGui)}`,
     `disable_physics_2d=${yn(!f.physics2d)}`,
     `disable_physics_3d=${yn(!f.physics3d)}`,
+    `module_godot_physics_2d_enabled=${yn(f.physics2d)}`,
+    `module_godot_physics_3d_enabled=${yn(f.physics3d)}`,
     `module_jolt_physics_enabled=${yn(f.jolt)}`,
     `disable_navigation_2d=${yn(!f.navigation2d)}`,
     `disable_navigation_3d=${yn(!f.navigation3d)}`,
@@ -43,7 +47,6 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     `module_gltf_enabled=${yn(f.gltf)}`,
     `module_csg_enabled=${yn(f.csg)}`,
     `module_gridmap_enabled=${yn(f.gridmap)}`,
-    `module_tilemap_enabled=${yn(f.tilemap)}`,
     `module_svg_enabled=${yn(f.svg)}`,
     `module_ogg_enabled=${yn(f.oggVorbis)}`,
     `module_vorbis_enabled=${yn(f.oggVorbis)}`,
@@ -67,18 +70,29 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
   return args;
 }
 
-/** Only exact allowlisted profile configurations can enter real compiler jobs. */
+/** Allow validated feature recipes, keeping the supported target policy fixed. */
 export function assertRealBuildSupported(input: unknown): BuildConfig {
   const config = normalizeBuildConfig(input);
 
   if (
     config.godotVersion !== "4.7.2" || config.architecture !== "x86_64" ||
     config.templateKinds.length !== 1 || config.templateKinds[0] !== "release" ||
-    config.optimization !== "size" || config.lto || !buildPresetId(config)
+    config.optimization !== "size" || config.lto
   ) {
-    throw new Error("Real builds support Godot 4.7.2 Linux or Windows x86_64 Standard or Lean 2D template_release with optimize=size and LTO disabled.");
+    throw new Error("Real builds support Godot 4.7.2 Linux or Windows x86_64 template_release with optimize=size and LTO disabled.");
   }
+  if (!config.features.tilemap) throw new Error("TileMap must remain enabled: Godot 4.7.2 has no supported TileMap-only build flag.");
   return config;
+}
+
+export function expectedConsoleTemplateFilename(config: BuildConfig, kind: TemplateKind): string {
+  if (config.platform !== "windows") throw new Error("Console wrappers are Windows-only.");
+  return `windows_${kind}_${config.architecture}_console.exe`;
+}
+
+export function compiledTemplateFilename(config: BuildConfig, kind: TemplateKind, console = false): string {
+  if (console && config.platform !== "windows") throw new Error("Console wrappers are Windows-only.");
+  return `godot.${config.platform === "linux" ? "linuxbsd" : "windows"}.template_${kind}.${config.architecture}${config.platform === "windows" ? (console ? ".console.exe" : ".exe") : ""}`;
 }
 
 export function expectedTemplateFilename(

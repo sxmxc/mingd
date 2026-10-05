@@ -6,7 +6,7 @@ High-level production shape:
 
 ```text
 Caddy / reverse proxy
-  |-- gdslimmer.example.com       -> Next.js
+  |-- mingd.example.com       -> Next.js
   `-- supabase.example.com       -> Supabase API gateway
 
 Supabase Docker stack
@@ -20,7 +20,7 @@ Redis
 Builder workers
 ```
 
-gdslimmer only requires Auth, Postgres, Storage, and the API gateway. Realtime is optional because the bootstrap polls build status.
+min.gd only requires Auth, Postgres, Storage, and the API gateway. Realtime is optional because the bootstrap polls build status.
 
 Operational responsibilities when self-hosting include database backups, Storage backups, SMTP, TLS, secrets, upgrades, monitoring, and capacity management.
 

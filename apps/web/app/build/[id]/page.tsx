@@ -9,17 +9,18 @@ export default async function BuildPage({ params }: { params: Promise<{ id: stri
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
 
-  const { data: build } = await supabase.from("builds").select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes").eq("id", id).single();
+  const { data: build } = await supabase.from("builds").select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes,performance_metrics").eq("id", id).single();
   if (!build) notFound();
 
   const config = build.config as { godotVersion?: string; platform?: string; architecture?: string; optimization?: string; templateKinds?: string[] };
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
-      <p className="font-mono text-xs uppercase tracking-[.2em] text-[var(--accent)]">Build {build.id.slice(0, 8)}</p>
-      <h1 className="mt-2 text-3xl font-black">Godot {config.godotVersion} · {config.platform} {config.architecture}</h1>
-      <p className="mt-3 text-[var(--muted)]">{config.templateKinds?.join(" + ")} · optimize={config.optimization}</p>
-      <div className="mt-8"><BuildStatus initial={{ ...build, artifact: await artifactSummaryForOwnedBuild(build.artifact_id) }} /></div>
+    <main className="w-full px-4 py-5 lg:px-6">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1"><a href="/dashboard" className="text-xs text-[var(--muted)]">← Builds</a><h1 className="text-lg font-semibold">Godot {config.godotVersion} · {config.platform} {config.architecture}</h1></div>
+        <p className="font-mono text-xs text-[var(--muted)]">{build.id.slice(0, 8)} / {config.templateKinds?.join(" + ")} / optimize={config.optimization}</p>
+      </div>
+      <BuildStatus initial={{ ...build, artifact: await artifactSummaryForOwnedBuild(build.artifact_id) }} />
     </main>
   );
 }

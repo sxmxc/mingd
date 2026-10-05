@@ -1,14 +1,14 @@
-# gdslimmer
+# min.gd
 
 **Build only the Godot your game needs.**
 
-gdslimmer is a bootstrap for a hosted custom Godot export-template builder. Users choose an official Godot version, target platform, optimization level, and removable engine features. gdslimmer turns that configuration into a reproducible Godot source build, caches identical artifacts, and stores the resulting `.tpz` in Supabase Storage.
+min.gd is a bootstrap for a hosted custom Godot export-template builder. Users choose a supported target platform, starting preset, and removable engine features. min.gd turns that configuration into a reproducible Godot source build, caches identical artifacts, and stores the resulting `.tpz` in Supabase Storage.
 
 This repository intentionally starts with a narrow, credible real-build milestone:
 
 - Godot 4.7.2 stable is pinned to the official release source archive and SHA-256.
 - Linux and Windows x86_64 `template_release`.
-- Standard and Lean 2D feature profiles, `optimize=size`, and LTO disabled on both platforms.
+- Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on both platforms.
 - Linux Standard smoke test and Windows Standard compilation were confirmed by the owner. Lean 2D is enabled on both targets; native acceptance remains to be recorded.
 - Tool-focused workbench with searchable build history, live compiler output, stage timing and worker heartbeats.
 - Windows retains Vulkan/OpenGL but omits D3D12, ANGLE, AccessKit and WinRT SDK integrations. See [build profiles](docs/build-profiles.md) for compatibility details.
@@ -22,7 +22,9 @@ Web, Android, macOS/iOS, .NET, custom modules, arbitrary `custom.py`, and arbitr
 
 ## Architecture
 
-Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md), [workbench and activity rollout](docs/workbench.md).
+Brand: **min.gd**. Repository/technical name: `mingd`; npm scope: `@mingd/`; builder image: `mingd/builder`. See [naming and rebrand rollout](docs/naming.md) for existing checkouts and caches. The future CLI name is `mingd`; no standalone CLI exists yet.
+
+Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md), [workbench and activity rollout](docs/workbench.md), [performance and compiler-cache diagnostics](docs/performance.md).
 
 ```text
 Browser
@@ -117,7 +119,7 @@ Open `http://localhost:3000`.
 
 ## Production Supabase
 
-Supabase's CLI development stack is not intended to be internet-facing production infrastructure. For self-hosting, deploy the official Supabase Docker setup, configure backups and SMTP, and point gdslimmer at its public API endpoint. See `infra/self-hosted-supabase.md`.
+Supabase's CLI development stack is not intended to be internet-facing production infrastructure. For self-hosting, deploy the official Supabase Docker setup, configure backups and SMTP, and point min.gd at its public API endpoint. See `infra/self-hosted-supabase.md`.
 
 ## Build lifecycle
 
@@ -167,7 +169,7 @@ Set `BUILDER_DRY_RUN=true` to test queue and database plumbing without compiling
 
 `tests/fixtures/smoke-project` is the repository-owned fixture for validating a completed real artifact. It has a small 2D scene using Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer, and GDScript.
 
-Follow [the smoke-test procedure](docs/smoke-tests.md) for both platforms and profiles. This workbench release requires applying the new build-activity migration before rebuilding the worker and restarting the web application; see [rollout instructions](docs/workbench.md). Use release export because these packages do not contain debug templates.
+Follow [the smoke-test procedure](docs/smoke-tests.md) for both platforms and all four presets. Apply pending migrations, including `20261005044808_build_performance.sql`, before rebuilding the worker and restarting the web application; see [rollout instructions](docs/workbench.md). Use release export because these packages do not contain debug templates.
 
 The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
 
@@ -176,7 +178,7 @@ The worker records the package SHA-256 and size, compiled-template size, Godot/v
 1. Finish auth UX and email configuration.
 2. Add build quotas/rate limits.
 3. Add per-build log streaming/tailing.
-4. Complete Windows Standard acceptance, then Linux Lean 2D and Windows Lean 2D; pin compiler/toolchain versions.
+4. Record native acceptance for all presets on both platforms and representative custom recipes; pin compiler/toolchain versions.
 5. Compare artifact size to official templates and show savings in the UI.
 6. Add `.gdbuild` import after validating its format and threat model.
 7. Add Web builds in a dedicated Emscripten worker image.

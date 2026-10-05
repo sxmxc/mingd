@@ -10,9 +10,11 @@ After updating the application, rebuild the worker:
 docker compose --profile builder up -d --build builder
 ```
 
-Apply the build-activity migration first using [the workbench rollout](workbench.md), then restart the web process. No new environment variable is required. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
+Apply all pending migrations, including build performance, first using [the workbench rollout](workbench.md), then restart the web process. No new environment variable is required. Keep `BUILDER_DRY_RUN=false` in the root `.env`.
 
-Run this procedure for all four combinations: Linux Standard, Windows Standard, Linux Lean 2D, and Windows Lean 2D. Select target and profile, wait for completion and download through the authenticated route. Record the build ID, SHA-256 and artifact sizes from the inspector. Compare Lean 2D against a Standard artifact built with the same recipe/toolchain; do not claim a reduction before measuring it.
+Run this procedure for all eight combinations: Linux and Windows with Standard, Lean 2D, Offline 2D and Lean 3D. Select target and profile, wait for completion and download through the authenticated route. Record the build ID, SHA-256, artifact sizes and performance measurements from the inspector. Compare reduced profiles against Standard built with the same recipe/toolchain; do not claim a reduction before measuring it.
+
+For Custom, test dependency toggles and select a fixture compatible with removed features. This fixture requires 2D physics; it is not suitable when that subsystem is removed. Actual audio/video/SVG assets, transport connections and complex-script text require separate feature-specific fixtures. An empty sprite/audio node or an Offline 2D label does not establish those capabilities.
 
 Submit the same profile again and confirm it completes as a cached artifact. A build for the other platform must have a different cache identity and its own correctly named artifact.
 
@@ -38,6 +40,6 @@ Use a Linux preset and output filename for Linux. Headless export checks exporta
 
 Linux: make the exported executable executable if needed and run it. Windows: copy the complete export directory to a Windows x86_64 machine and run `smoke.exe`, then `smoke.console.exe`. Keep any exported `.pck` beside the executable. The wrapper should start the same project and allow startup errors to be inspected.
 
-The smoke test passes when a 640×360 window displays **GDSlimmer smoke test passed**, the export/startup logs contain no errors, and the application closes normally. Compilation or ZIP validation alone does not satisfy this gate.
+The smoke test passes when a 640×360 window displays **min.gd smoke test passed**, the export/startup logs contain no errors, and the application closes normally. Compilation or ZIP validation alone does not satisfy this gate.
 
 Record compilation, archive validation, authenticated download, Godot template acceptance, release export, and native launch separately. Include build ID, recipe version, editor version, target OS, artifact SHA-256, main binary/package sizes and any errors. Linux acceptance was confirmed by the project owner; Windows native acceptance remains pending until these steps are completed.
