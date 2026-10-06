@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Call only after the build has been fetched through the user's ownership RLS.
+// Call only after the build has been fetched through ownership/SuperAdmin RLS.
 export async function artifactSummaryForOwnedBuild(artifactId: string | null) {
   if (!artifactId) return null;
   const { data } = await createAdminClient().from("artifacts")

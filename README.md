@@ -6,7 +6,7 @@ min.gd is a bootstrap for a hosted custom Godot export-template builder. Users c
 
 This repository intentionally starts with a narrow, credible real-build milestone:
 
-- Godot version selection: 4.7.2 and 4.6.3, each with pinned official source integrity metadata.
+- Godot version selection: official stable Godot 4 releases from 4.5 onward, discovered automatically with verified source integrity metadata.
 - Linux and Windows x86_64 release/debug templates, separately or together.
 - Web wasm32 release/debug templates with single-threaded or threaded exports in a dedicated Emscripten 4.0.11 worker.
 - Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on all targets.
@@ -189,7 +189,7 @@ npm run compose:down
 5. Builder rechecks the artifact hash to avoid duplicate races.
 6. Builder verifies/caches the exact official Godot source archive.
 7. Builder generates only server-owned SCons options from the validated config.
-8. SCons builds the selected desktop release template with only generated, allowlisted arguments.
+8. SCons builds the selected target and template kinds with only generated, allowlisted arguments.
 9. Builder validates Linux ELF or Windows PE32+ output (including the Windows console wrapper), packages Godot filenames, `version.txt`, and a README, then tests ZIP integrity before upload.
 10. Artifact is uploaded to the private `build-artifacts` Supabase bucket.
 11. Artifact metadata and final build status are written to Postgres.
@@ -200,14 +200,35 @@ npm run compose:down
 
 `packages/build-config/src/recipe.ts` contains `BUILD_RECIPE_VERSION`. The cache identity includes this version, canonical normalized configuration, and the pinned official source URL/checksum. Bump it whenever the worker toolchain, compiler policy, packaging layout, or SCons mapping changes enough that existing artifacts should not be reused.
 
-## Current pinned Godot source
+## Godot release discovery
 
-`packages/build-config/src/versions.ts` currently pins Godot `4.7.2-stable`:
+The version selector reads GitHub's official `godotengine/godot-builds` release
+catalog on the server. It includes stable Godot 4 releases from **4.5 onward**,
+including initial minor releases and all available patches, sorted newest first.
+Development snapshots, betas, release candidates, older branches and future major
+versions are excluded. 4.5 is the minimum for the current feature/module recipe;
+older branches need separate mappings and toolchain validation.
+
+The catalog refreshes hourly per process, follows pagination and accepts only
+official source assets with a SHA-256 digest. Submission and the worker resolve
+the selected release independently; source URL/checksum remain part of the cache
+identity, and the downloaded archive is verified before compilation. Users cannot
+supply repositories, Git refs, source URLs or checksums. Source-cache directories
+include the checksum so changed release bytes cannot reuse an old extracted tree.
+
+If GitHub is unavailable or rate limited, a process retains its last verified
+catalog and retries after one minute. A fresh process falls back to the two
+previously pinned releases and shows a notice in the selector. Newly published
+releases appear after refresh without a code change or redeployment. Discovery
+does not establish runtime acceptance; use the smoke tests for each new release.
+
+`packages/build-config/src/versions.ts` retains Godot `4.7.2-stable` as an offline fallback:
 
 - Official release archive: `godot-4.7.2-stable.tar.xz`
 - SHA-256: `a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481`
 
-Add versions deliberately. Every supported version should have an exact source URL and checksum. Do not dynamically build arbitrary Git refs for normal users.
+The fallback also includes 4.6.3. Minimum-version policy lives in the shared
+build configuration package; lower it only after verifying the older build flags.
 
 ## Important safety rules
 
@@ -217,7 +238,7 @@ Add versions deliberately. Every supported version should have an exact source U
 - Keep the Supabase privileged key out of client bundles.
 - Keep artifact Storage private and issue signed URLs after ownership checks.
 - Treat the build container as disposable and deny unnecessary host mounts/capabilities in production.
-- Add CPU, RAM, disk, queue, and wall-clock quotas before public launch.
+- Keep worker resource limits and compile timeouts configured for the host.
 - Validate the produced binaries before marking artifacts complete.
 
 ## Dry-run mode
@@ -235,10 +256,10 @@ The worker records the package SHA-256 and size, compiled-template size, Godot/v
 ## Suggested next milestones
 
 1. Validate the expanded version/debug/Web build matrix and browser exports.
-2. Finish auth UX and email configuration, then add build quotas/rate limits.
+2. Roll out [accounts and administration](docs/accounts-and-admin.md) and configure SMTP on the Supabase host.
 3. Compare measured artifact sizes to official templates and show savings.
 4. Add `.gdbuild` import after validating its format and threat model.
-5. Add billing only after build-cost measurements exist.
+5. Finish the UI review and authenticated end-to-end smoke tests.
 
 ## License
 

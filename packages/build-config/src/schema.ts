@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GODOT_VERSION_IDS } from "./versions.ts";
+import { isSupportedGodotVersion, MINIMUM_GODOT_VERSION } from "./versions.ts";
 
 export const TemplateKindSchema = z.enum(["release", "debug"]);
 export const PlatformSchema = z.enum(["windows", "linux", "web"]);
@@ -33,7 +33,7 @@ export const BuildFeaturesSchema = z.object({
 });
 
 export const BuildConfigSchema = z.object({
-  godotVersion: z.enum(GODOT_VERSION_IDS),
+  godotVersion: z.string().max(32).refine(isSupportedGodotVersion, `Choose a stable Godot 4 release, version ${MINIMUM_GODOT_VERSION} or newer.`),
   platform: PlatformSchema,
   architecture: ArchitectureSchema,
   templateKinds: z

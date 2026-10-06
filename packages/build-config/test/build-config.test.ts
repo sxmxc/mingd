@@ -99,7 +99,7 @@ test("version, platform, kinds and Web threading have distinct validated cache r
     }
   }
   assert.equal(hashes.size, GODOT_VERSION_IDS.length * 12);
-  assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, godotVersion: "4.6.99" }));
+  assert.throws(() => canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, godotVersion: "4.6.99" }), /Resolve official/);
   assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, platform: "web" }));
   assert.throws(() => normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, architecture: "wasm32" }));
   assert.equal(canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, webThreads: true }), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG));

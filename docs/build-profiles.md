@@ -1,13 +1,18 @@
 # Build profiles
 
-All profiles and editable custom recipes are available for Godot 4.7.2 and 4.6.3.
+All profiles and editable custom recipes use dynamically discovered official
+stable Godot 4 releases from 4.5 onward. The catalog refreshes hourly; only official
+source archives with SHA-256 digests are selectable. See the root README for
+discovery and outage behavior. Availability is separate from smoke-test acceptance.
 Linux/Windows use x86_64; Web uses wasm32. Release, debug or both template kinds
 are selectable with `optimize=size` and `lto=none`. Linux Standard release on
-4.7.2 remains the default. Source URLs/checksums are allowlisted centrally.
+4.7.2 remains the default. Official source URLs/checksums are resolved centrally.
 
-The owner confirmed the existing desktop preset smoke tests pass.
-New debug/version/Web combinations require separate
-acceptance. Structural packaging checks and SCons dry-runs are not runtime tests.
+The owner confirmed the existing desktop preset smoke tests pass, and reported
+a passing smoke test for a Godot 4.7.2 Windows x86_64 Offline 2D package containing
+debug and release templates. See the acceptance record below for its scope.
+Other debug/version/Web combinations require separate acceptance.
+Structural packaging checks and SCons dry-runs are not runtime tests.
 
 ## Expanded build matrix
 
@@ -49,7 +54,7 @@ Windows keeps Vulkan and OpenGL and the shared Standard engine modules. The exis
 
 The builder validates the main Linux ELF binary. On Windows it requires both the GUI executable and console wrapper and validates MZ/PE signatures, AMD64 architecture, PE32+ format and the expected GUI/console subsystem before packaging. These structural checks do not establish that an exported project runs: follow [the smoke test](smoke-tests.md).
 
-Every TPZ includes `version.txt` (`4.7.2.stable`) and `README-mingd.txt`. The worker tests ZIP integrity before upload. Artifact metadata records the main executable size, package size and SHA-256, normalized configuration, source checksum and recipe version. Official-template comparisons require a measured reference artifact.
+Every TPZ includes `version.txt` for the selected release (for example, `4.7.2.stable` or `4.5.0.stable`) and `README-mingd.txt`. The worker tests ZIP integrity before upload. Artifact metadata records the main executable size, package size and SHA-256, normalized configuration, source checksum and recipe version. Official-template comparisons require a measured reference artifact.
 
 ## Cache and recipe
 
@@ -64,7 +69,27 @@ Changes affecting binary output, toolchains, generated flags or package semantic
 
 ## Acceptance tracking
 
-Run the smoke procedure for the expanded version/platform/kind matrix and compare sizes against Standard builds using the same recipe/toolchain. Custom recipes need a project that does not reference removed classes or resource formats. Compilation, packaging and native runtime acceptance are separate checks.
+### Owner-reported smoke test: Windows 4.7.2 Offline 2D
+
+The owner reported a passing smoke test for Godot **4.7.2**, Windows **x86_64**,
+with **debug + release** templates, `optimize=size` and LTO disabled. The supplied
+normalized features exactly match the Offline 2D preset in
+`packages/build-config/src/presets.ts`.
+
+Reported stage durations total **3204.8 seconds (53m 24.8s)**: compiling 3051.2s,
+linking 78.5s, preparing workspace 34.2s, uploading 20.5s, packaging 9.7s,
+verifying source 7.1s, preparing source 2.0s, validating 1.1s and recording
+artifact 0.5s. Compiler: `x86_64-w64-mingw32-g++ (GCC) 12-posix`; ccache 4.7.5
+reported **1160 preprocessed hits / 2645 misses (30.5% hit rate)**. Peak process
+RSS was **1138.1 MiB**; this is not total parallel-worker memory.
+
+This records the owner's smoke-test result for the combined package. Separate
+debug/release launch results, debugger connection, console-wrapper launch,
+build ID, artifact hash/sizes and deployed recipe version were not supplied.
+It does not establish acceptance for other configurations or feature-specific
+audio/video/SVG/network behavior.
+
+Run the smoke procedure for each newly discovered version/platform/kind matrix and compare sizes against Standard builds using the same recipe/toolchain. Custom recipes need a project that does not reference removed classes or resource formats. Compilation, packaging and native runtime acceptance are separate checks.
 
 Other architectures/optimizations and LTO remain rejected by submission and real-build guards.
 
@@ -83,7 +108,7 @@ Debug names are `linux_debug.x86_64` and `windows_debug_x86_64.exe`, with `windo
 
 For the focused compiler audit, run `node --import tsx scripts/audit-build-matrix.mjs`
 inside the Web worker image with `GODOT_CACHE_DIR` pointing at a disposable cache
-and the repository mounted read-only at `/app`. It downloads and verifies both
+and the repository mounted read-only at `/app`. It downloads and verifies all discovered
 official sources, then checks each target/kind/Web-thread mode using three
 concurrent SCons dry-runs. It never compiles or publishes an artifact. Dummy
 `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and `REDIS_URL` satisfy worker configuration;

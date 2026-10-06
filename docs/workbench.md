@@ -4,7 +4,7 @@ The interface is organized around recipes, compiler activity and artifacts rathe
 
 The build monitor uses a desktop workbench layout, without a narrow centered content column: a compact toolbar places status beside live counters, with a slim horizontal stage rail underneath. The connected workspace gives the compiler console the remaining width beside a fixed 380px diagnostics pane. Performance, Artifact and Recipe tabs replace stacked inspector cards; stage timings use compact label/value rows, with detailed notes/counters expandable. Below 900px the workspace stacks; the toolbar wraps below 1100px, and small screens use two-column counters. Tabs support arrow keys, Home/End and visible focus. Polling, output-follow, worker liveness semantics and build execution are unchanged; this layout update requires no migration or worker restart.
 
-The application header aligns with the full-width workbench gutters. Layout checks used synthetic builds, not the owner's running job: desktop panes were measured at 1920px and visually inspected at 1440px, with no overflow at 390px; keyboard tabs, output-follow, completion/artifact visibility and failure messages were exercised. Temporary fixture routes were removed. Rendering regression tests cover the tabset, activity strip, artifact reuse and failure information.
+The header aligns with the build list's 1152px content width. The logo anchors the left side; Builds, Admin and the account avatar form a compact group on the right, with consistent spacing between controls. Builds contains All builds and New build. An avatar-only account dropdown contains account settings and sign-out, with identity details inside the dropdown. Menus support keyboard focus, Escape and outside-click dismissal. Header checks used a temporary synthetic account preview at 1920px, 768px, 390px and 320px with no page overflow; the preview route was removed. Earlier workbench layout checks used synthetic builds, not the owner's running job: desktop panes were measured at 1920px and visually inspected at 1440px, with no overflow at 390px; keyboard tabs, output-follow, completion/artifact visibility and failure messages were exercised. Rendering regression tests cover the tabset, activity strip, artifact reuse and failure information.
 
 ## Rollout
 
@@ -39,7 +39,7 @@ Build detail polling runs every 2.5 seconds without overlapping requests, stops 
 
 Build-history timestamps use an explicit UTC format (`YYYY-MM-DD HH:mm:ss UTC`) so the server and browser render identical text regardless of locale or timezone. Regression tests run with the web workspace's `npm test` command and the root test suite.
 
-Artifact size, main-binary size, SHA-256 and recipe version are exposed only after the user's build ownership is verified; storage paths are not returned.
+Artifact size, main-binary size, SHA-256 and recipe version are exposed only after build ownership or SuperAdmin access is verified; storage paths are not returned. See [accounts and administration](accounts-and-admin.md) for role checks and queue recovery.
 
 ## Validation checklist
 

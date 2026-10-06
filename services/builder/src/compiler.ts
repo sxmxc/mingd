@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assertRealBuildSupported, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
+import { assertRealBuildSupported, godotVersionIdentifier, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
 import { env } from "./env.js";
 import { ensureGodotSource } from "./source-cache.js";
 import { packageArtifact } from "./package-artifact.js";
@@ -41,7 +41,7 @@ export async function compileBuild(
     const packageDir = join(outputDir, "dry-run");
     await mkdir(packageDir, { recursive: true });
     await writeFile(join(packageDir, "README.txt"), `min.gd dry-run artifact\n\n${JSON.stringify(config, null, 2)}\n`);
-    await writeFile(join(packageDir, "version.txt"), `${config.godotVersion}.stable\n`);
+    await writeFile(join(packageDir, "version.txt"), `${godotVersionIdentifier(config.godotVersion)}\n`);
     const artifact = join(outputDir, `mingd-${buildId}-DRY-RUN.tpz`);
     await onStage("packaging");
     const packageFiles = await readdir(packageDir);

@@ -92,10 +92,11 @@ test("Linux Lean 2D packages original ELF bytes and reports packaging after vali
     const path = join(source, "bin", "godot.linuxbsd.template_release.x86_64");
     await writeFile(path, binary);
     let packaging = false;
-    const result = await packageArtifact(source, output, { ...DEFAULT_BUILD_CONFIG, features: PRESETS.lean2d.features }, async () => { packaging = true; });
+    const result = await packageArtifact(source, output, { ...DEFAULT_BUILD_CONFIG, godotVersion: "4.5", features: PRESETS.lean2d.features }, async () => { packaging = true; });
     assert.equal(packaging, true);
     assert.equal(result.binarySizeBytes, 512);
-    assert.equal(basename(result.artifactPath), "mingd-4.7.2-linux-x86_64-release.tpz");
+    assert.equal(basename(result.artifactPath), "mingd-4.5-linux-x86_64-release.tpz");
+    assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.5.0.stable\n");
     assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, "linux_release.x86_64"]), binary);
     binary.writeUInt16LE(3, 18);
     await writeFile(path, binary);

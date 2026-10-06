@@ -71,7 +71,7 @@ services:
 
   web-builder:
     image: mingd/web-builder
-    profiles: ["web-builder"]
+    profiles: ["builder"]
     build:
       context: .
       dockerfile: services/builder/Dockerfile

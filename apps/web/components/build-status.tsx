@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import type { BuildPerformanceMetrics } from "@mingd/build-config";
+import { RetryBuild } from "@/components/retry-build";
 
 type Build = {
   id: string; status: string; stage: string; progress: number; error: string | null;
@@ -56,7 +57,7 @@ export function BuildStatus({ initial }: { initial: Build }) {
       <div className="min-w-0"><div className="monitor-status-line"><h2 className="flex items-center gap-2 text-base font-semibold">{!terminal && alive && <span className="spinner" />}{build.stage}</h2><span className={`status-tag ${build.status}`}>{build.status.replaceAll("_", " ")}</span></div>
       {!terminal && <p className="mt-2 text-xs text-[var(--muted)]">{queued ? "Waiting for an available worker." : connectionError ?? (alive ? "Worker connected · heartbeat confirms liveness, not compiler progress." : "Heartbeat overdue · check worker health; the build may be stalled.")}</p>}
       {build.status === "complete" && <a href={`/api/builds/${build.id}/download`} className="tool-action mt-2 inline-flex text-xs">{build.artifact?.is_dry_run ? "Download diagnostic (not a template)" : "Download template .tpz ↓"}</a>}
-      {build.status === "failed" && <a href="/build/new" className="mt-2 inline-flex text-xs text-[var(--accent)]">Configure another build →</a>}
+      {build.status === "failed" && <RetryBuild config={build.config} />}
       </div>
       <dl className="monitor-activity" aria-label="Build activity">
         <div><dt>Elapsed</dt><dd>{duration(elapsed)}</dd></div>

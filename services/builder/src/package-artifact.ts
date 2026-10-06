@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@mingd/build-config";
-import { SUPPORTED_GODOT_VERSIONS, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
+import { godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
 import { runProcess } from "./process.js";
 import { writeZip } from "./zip.js";
 
@@ -82,11 +82,11 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   }
 
   await onPackaging();
-  const version = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
-  await writeFile(join(packageDir, "version.txt"), `${version.versionIdentifier}\n`);
+  const versionIdentifier = godotVersionIdentifier(config.godotVersion);
+  await writeFile(join(packageDir, "version.txt"), `${versionIdentifier}\n`);
   await writeFile(join(packageDir, "README-mingd.txt"), [
     "min.gd custom Godot export template", "",
-    `Godot: ${version.versionIdentifier}`,
+    `Godot: ${versionIdentifier}`,
     `Target: ${config.platform} ${config.architecture} template_${config.templateKinds.join(", template_")}`,
     "Install this TPZ with Godot's Export template manager, or extract and select the template in Custom Template > Release/Debug.",
     `Included template kinds: ${config.templateKinds.join(", ")}. Match Export With Debug to an included template.`,
@@ -112,7 +112,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   const names = listing.stdout.trim().split("\n").sort();
   for (const name of required) if (!names.includes(name)) throw new Error(`Template package is missing required entry: ${name}`);
   const archivedVersion = await execFileAsync("unzip", ["-p", artifact, "version.txt"], { maxBuffer: 1024 });
-  if (archivedVersion.stdout.trim() !== version.versionIdentifier) throw new Error("Template package version.txt does not match the requested Godot version.");
+  if (archivedVersion.stdout.trim() !== versionIdentifier) throw new Error("Template package version.txt does not match the requested Godot version.");
   return { artifactPath: artifact, binarySizeBytes };
 }
 

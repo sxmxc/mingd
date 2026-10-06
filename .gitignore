@@ -14,3 +14,4 @@ npm-debug.log*
 .work/
 supabase/.branches/
 supabase/.temp/
+.playwright-mcp/

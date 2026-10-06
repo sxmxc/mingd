@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation";
 import {
   DEFAULT_BUILD_CONFIG, PRESETS, SUPPORTED_PRESET_IDS, FEATURE_GROUPS,
   buildPresetId, normalizeBuildConfig, toSconsArgs,
-  SUPPORTED_GODOT_VERSIONS, GODOT_VERSION_IDS,
+  MINIMUM_GODOT_VERSION, type SupportedGodotVersion,
   type GodotVersionId, type TemplateKind, type BuildFeatures, type BooleanFeature, type Platform, type SupportedPresetId,
 } from "@mingd/build-config";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-export function BuildForm() {
+export function BuildForm({ versions, catalogStale }: { versions: SupportedGodotVersion[]; catalogStale: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [platform, setPlatform] = useState<Platform>("linux");
-  const [godotVersion, setGodotVersion] = useState<GodotVersionId>(DEFAULT_BUILD_CONFIG.godotVersion);
+  const [godotVersion, setGodotVersion] = useState<GodotVersionId>(versions.find(version => version.id === DEFAULT_BUILD_CONFIG.godotVersion)?.id ?? versions[0].id);
   const [templateSelection, setTemplateSelection] = useState("release");
   const [webThreads, setWebThreads] = useState(false);
   const [startingProfile, setStartingProfile] = useState<SupportedPresetId>("standard");
@@ -61,9 +61,10 @@ export function BuildForm() {
         <legend className="section-label">01 / Version and target</legend>
         <label className="mt-4 block text-sm">Godot version
           <select className="mt-2 block w-full rounded border border-[var(--border)] bg-[var(--panel)] p-3" value={godotVersion} onChange={event => setGodotVersion(event.target.value as GodotVersionId)}>
-            {GODOT_VERSION_IDS.map(id => <option key={id} value={id}>{SUPPORTED_GODOT_VERSIONS[id].displayName}</option>)}
+            {versions.map(version => <option key={version.id} value={version.id}>{version.displayName}</option>)}
           </select>
-          <span className="mt-2 block text-xs text-[var(--muted)]">Choose the exact version of your Godot editor.</span>
+          <span className="mt-2 block text-xs text-[var(--muted)]">Official stable Godot 4 releases, {MINIMUM_GODOT_VERSION} and newer. Choose the exact version of your Godot editor.</span>
+          {catalogStale && <span role="status" className="mt-2 block text-xs text-[var(--muted)]">Release discovery is temporarily unavailable. Showing previously verified versions.</span>}
         </label>
         <div className="choice-grid mt-4">{(["linux", "windows", "web"] as const).map(value =>
           <label key={value} className={`choice ${platform === value ? "selected" : ""}`}>
@@ -91,7 +92,7 @@ export function BuildForm() {
             <span><strong>{PRESETS[id].label}</strong><small>{PRESETS[id].description}</small></span>
           </label>,
         )}</div>
-        <p className="mt-3 text-xs text-[var(--muted)]">Presets are starting points. New profiles and custom combinations require native project validation; successful packaging is not proof of compatibility.</p>
+        <p className="mt-3 text-xs text-[var(--muted)]">Choose a preset, then adjust the features below.</p>
       </fieldset>
       <fieldset disabled={busy} className="space-y-6">
         <legend className="section-label">03 / Engine features</legend>
@@ -136,7 +137,7 @@ export function BuildForm() {
         <hr className="my-5 border-[var(--border)]" />
         <p className="text-sm font-medium">{removed.length ? "Removed features" : "All supported features retained"}</p>
         {removed.length > 0 && <ul className="mt-3 space-y-1 text-xs text-[var(--muted)]">{removed.map(label => <li key={label}>− {label}</li>)}</ul>}
-        <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Stripped features may prevent your project from running. Validate exports on the target platform. Identical normalized recipes reuse an artifact.</p>
+        <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Keep the features your game uses. Matching recipes reuse an existing template.</p>
         <p className="mt-4 text-sm">Output: private <code>.tpz</code> package</p>
         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Install the TPZ in the template manager, or extract it and select the {platform === "web" ? "nested ZIP" : "executable"} under Custom Template → Release/Debug. Match Export With Debug to an included template.</p>
         {error && <p role="alert" className="mt-4 text-sm text-[var(--danger)]">{error}</p>}

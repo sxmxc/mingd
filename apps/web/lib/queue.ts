@@ -4,6 +4,15 @@ import type { Platform } from "@mingd/build-config";
 
 const queues = new Map<string, Queue>();
 
+export async function queueOperation<T>(operation: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("Queue connection timed out.")), 3000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
 function redisConnectionFromUrl(urlString: string) {
   const url = new URL(urlString);
   return {
@@ -13,6 +22,9 @@ function redisConnectionFromUrl(urlString: string) {
     password: url.password || undefined,
     db: url.pathname.length > 1 ? Number(url.pathname.slice(1)) : 0,
     tls: url.protocol === "rediss:" ? {} : undefined,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    connectTimeout: 3000,
   };
 }
 
@@ -29,6 +41,7 @@ export function getBuildQueue(platform: Platform = "linux") {
         removeOnFail: 1000,
       },
     });
+    queue.on("error", () => console.warn("Build queue connection unavailable."));
     queues.set(name, queue);
   }
   return queue;

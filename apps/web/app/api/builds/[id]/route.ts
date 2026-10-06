@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { currentAccount } from "@/lib/access";
 import { artifactSummaryForOwnedBuild } from "@/lib/build-artifact";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const account = await currentAccount();
+  if (!account) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!account.enabled) return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+  const { supabase } = account;
 
   const { data, error } = await supabase
     .from("builds")

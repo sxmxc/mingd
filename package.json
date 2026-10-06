@@ -23,6 +23,7 @@
     "compose:web:logs": "docker compose logs -f web",
     "compose:web-builder:build": "docker compose --profile web-builder up -d --build web-builder",
     "compose:builder": "docker compose up -d builder",
+    "compose:web-builder": "docker compose up -d web-builder",
     "compose:builder:build": "docker compose --profile builder up -d --build builder",
     "compose:builder:logs": "docker compose logs -f builder",
     "db:migration:new": "npx supabase migration new",

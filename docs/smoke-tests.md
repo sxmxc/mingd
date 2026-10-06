@@ -1,6 +1,6 @@
 # Template smoke tests
 
-Use the standard editor matching the selected **4.7.2 or 4.6.3** template version
+Use the standard editor matching the selected **official stable Godot 4.5+** template version
 and the repository fixture at `tests/fixtures/smoke-project`. The owner confirms
 the previous desktop release smoke tests pass. Repeat acceptance for the new
 version/debug/Web combinations. The fixture checks scene registration and

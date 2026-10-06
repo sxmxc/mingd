@@ -1,12 +1,14 @@
 // Run with node --import tsx inside the Web worker image, using a disposable cache.
 // Pure config tests cover every preset; this audit checks every compiler target,
-// kind and Web threading mode against both verified release sources.
+// kind and Web threading mode against the discovered verified release sources.
 import { spawn } from "node:child_process";
 import { ensureGodotSource } from "../services/builder/src/source-cache.ts";
-import { GODOT_VERSION_IDS } from "../packages/build-config/src/versions.ts";
+import { getGodotReleaseCatalog } from "../packages/build-config/src/release-catalog.ts";
 
 const jobs = [];
-for (const version of GODOT_VERSION_IDS) {
+const catalog = await getGodotReleaseCatalog();
+if (catalog.stale) throw new Error("Cannot audit a stale release catalog.");
+for (const { id: version } of catalog.versions) {
   const source = await ensureGodotSource(version);
   for (const platform of ["linux", "windows", "web"]) jobs.push({ version, source, platform });
 }

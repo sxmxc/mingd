@@ -1,5 +1,6 @@
 export * from "./schema.ts";
 export * from "./versions.ts";
+export * from "./release-catalog.ts";
 export * from "./presets.ts";
 export * from "./normalize.ts";
 export * from "./scons.ts";

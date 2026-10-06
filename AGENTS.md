@@ -239,9 +239,14 @@ Do not add a frontend-only toggle that the builder ignores.
 
 ## 8. Godot source and version rules
 
-Supported Godot releases must be explicitly allowlisted in `packages/build-config/src/versions.ts` (or its current replacement if refactored).
+Supported Godot releases are discovered from the official release catalog in
+`packages/build-config/src/release-catalog.ts`, subject to the minimum-version
+and stable-major policy in `versions.ts`. Do not replace discovery with a fixed
+dropdown list. The pinned entries in `versions.ts` are an offline fallback.
 
-For each supported release, preserve enough immutable metadata to verify the source being built, including an exact official source location and SHA-256/checksum when available.
+For each selected release, resolve an exact official source location and required
+SHA-256 before hashing, queuing or compiling. Revalidate through the official
+catalog in the worker; never accept client-supplied source metadata.
 
 Never build arbitrary user-selected repositories, branches, commits, forks, or URLs.
 
