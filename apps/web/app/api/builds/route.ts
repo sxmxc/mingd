@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid build configuration" }, { status: 400 });
   }
 
+  if (config.platform === "macos" && !/^[a-f0-9]{64}$/.test(process.env.MACOS_TOOLCHAIN_SHA256 ?? "")) return NextResponse.json({ error: "macOS builds are not available yet. You can save and export a recipe." }, { status: 503 });
   const configHash = hashBuildConfig(config, source);
   // Dry-run diagnostics are deliberately never handed out as export templates.
   const { data: artifact } = await admin.from("artifacts").select("id").eq("config_hash", configHash).eq("is_dry_run", false).maybeSingle();

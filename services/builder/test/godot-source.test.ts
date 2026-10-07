@@ -14,10 +14,12 @@ test("exact Godot source accepts platform/preset/debug recipes and uses ccache l
   try {
     const workspace = join(dir, "source");
     await runProcess("cp", ["-a", "--reflink=auto", `${source}/.`, workspace]);
-    const platforms = process.env.MINGD_AUDIT_WEB === "true" ? ["web" as const] : ["linux" as const, "windows" as const];
+    const platforms = process.env.MINGD_AUDIT_PLATFORM === "android" ? ["android" as const] : process.env.MINGD_AUDIT_PLATFORM === "macos" ? ["macos" as const] : process.env.MINGD_AUDIT_WEB === "true" ? ["web" as const] : ["linux" as const, "windows" as const];
     const profiles = process.env.MINGD_AUDIT_STANDARD_ONLY === "true" ? ["standard" as const] : SUPPORTED_PRESET_IDS;
-    for (const platform of platforms.filter(platform => !process.env.MINGD_AUDIT_PLATFORM || platform === process.env.MINGD_AUDIT_PLATFORM)) for (const id of profiles) for (const kind of ["release", "debug"] as const) for (const webThreads of platform === "web" ? [false, true] : [false]) {
-      const config = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, godotVersion: process.env.MINGD_GODOT_VERSION ?? DEFAULT_BUILD_CONFIG.godotVersion, platform, architecture: platform === "web" ? "wasm32" : "x86_64", features: PRESETS[id].features, templateKinds: [kind], webThreads });
+    const selectedPlatforms = platforms.filter(platform => !process.env.MINGD_AUDIT_PLATFORM || platform === process.env.MINGD_AUDIT_PLATFORM);
+    assert.ok(selectedPlatforms.length > 0, "Source audit must exercise at least one platform.");
+    for (const platform of selectedPlatforms) for (const id of profiles) for (const kind of ["release", "debug"] as const) for (const architecture of platform === "android" ? ["arm64", "arm32", "x86_64", "x86_32"] as const : platform === "macos" ? ["arm64", "x86_64"] as const : platform === "web" ? ["wasm32"] as const : ["x86_64"] as const) for (const webThreads of platform === "web" ? [false, true] : [false]) {
+      const config = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, godotVersion: process.env.MINGD_GODOT_VERSION ?? DEFAULT_BUILD_CONFIG.godotVersion, platform, architecture, features: PRESETS[id].features, templateKinds: [kind], webThreads });
       let compilerObserved = false;
       let filenameObserved = false;
       let unknownVariable = false;
@@ -28,8 +30,8 @@ test("exact Godot source accepts platform/preset/debug recipes and uses ccache l
         onOutput(chunk) {
           // Link commands can exceed one pipe chunk; scan before truncating.
           tail += chunk.toString();
-          compilerObserved ||= platform === "web" ? /ccache em\+\+/.test(tail) : platform === "linux" ? /ccache g\+\+/.test(tail) : /ccache x86_64-w64-mingw32-g\+\+/.test(tail);
-          filenameObserved ||= tail.includes(compiledTemplateFilename(config, kind));
+          compilerObserved ||= platform === "web" ? /ccache em\+\+/.test(tail) : platform === "linux" ? /ccache g\+\+/.test(tail) : platform === "windows" ? /ccache x86_64-w64-mingw32-g\+\+/.test(tail) : platform === "macos" ? /ccache \S+apple-darwin27-c\+\+/.test(tail) : /ccache [^\n]*clang\+\+/.test(tail);
+          filenameObserved ||= tail.includes(platform === "android" ? "libgodot_android.so" : compiledTemplateFilename(config, kind));
           unknownVariable ||= /Unknown (?:variables|options)/i.test(tail);
           tail = tail.slice(-8192);
         },
@@ -37,7 +39,7 @@ test("exact Godot source accepts platform/preset/debug recipes and uses ccache l
       assert.equal(compilerObserved, true, `${platform}/${id}: explicit ccache compiler command not observed`);
       assert.equal(filenameObserved, true, `${platform}/${id}: release output name not observed`);
       assert.equal(unknownVariable, false, `${platform}/${id}: unsupported SCons variable`);
-      t.diagnostic(`${config.godotVersion}/${platform}/${id}/${kind}${platform === "web" ? (webThreads ? "/threaded" : "/single-threaded") : ""}: SCons dry-run accepted recipe, ccache compiler command and output observed`);
+      t.diagnostic(`${config.godotVersion}/${platform}/${architecture}/${id}/${kind}${platform === "web" ? (webThreads ? "/threaded" : "/single-threaded") : ""}: SCons dry-run accepted recipe, ccache compiler command and output observed`);
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

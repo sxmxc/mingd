@@ -17,6 +17,9 @@ services:
       REDIS_URL: redis://redis:6379
       BUILDER_QUEUE_NAME: ${BUILDER_QUEUE_NAME:-godot-builds}
       WEB_BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+      ANDROID_BUILDER_QUEUE_NAME: ${ANDROID_BUILDER_QUEUE_NAME:-godot-android-builds}
+      MACOS_BUILDER_QUEUE_NAME: ${MACOS_BUILDER_QUEUE_NAME:-godot-macos-builds}
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
       ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
       SIGNED_DOWNLOAD_TTL_SECONDS: ${SIGNED_DOWNLOAD_TTL_SECONDS:-900}
     ports:
@@ -37,7 +40,7 @@ services:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -93,6 +96,58 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  android-builder:
+    image: mingd/android-builder
+    profiles: ["builder"]
+    build:
+      context: .
+      dockerfile: services/builder/Dockerfile
+      target: android
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      BUILDER_TARGET: android
+      BUILDER_QUEUE_NAME: ${ANDROID_BUILDER_QUEUE_NAME:-godot-android-builds}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - android-godot-source-cache:/cache/godot
+      - android-ccache:/cache/ccache
+      - android-gradle:/cache/gradle
+      - android-builder-work:/work/jobs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  macos-builder:
+    image: mingd/macos-builder
+    profiles: ["macos-builder"]
+    build:
+      context: .
+      dockerfile: services/builder/Dockerfile
+      target: macos
+      args:
+        MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      BUILDER_TARGET: macos
+      BUILDER_QUEUE_NAME: ${MACOS_BUILDER_QUEUE_NAME:-godot-macos-builds}
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - macos-godot-source-cache:/cache/godot
+      - macos-ccache:/cache/ccache
+      - macos-builder-work:/work/jobs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   redis-data:
   godot-source-cache:
@@ -101,3 +156,10 @@ volumes:
   web-godot-source-cache:
   web-ccache:
   web-builder-work:
+  android-godot-source-cache:
+  android-ccache:
+  android-gradle:
+  android-builder-work:
+  macos-godot-source-cache:
+  macos-ccache:
+  macos-builder-work:

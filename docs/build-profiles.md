@@ -1,6 +1,6 @@
 # Build profiles
 
-All profiles and editable custom recipes use dynamically discovered official
+Linux, Windows and Web profiles and editable custom recipes use dynamically discovered official
 stable Godot 4 releases from 4.5 onward. The catalog refreshes hourly; only official
 source archives with SHA-256 digests are selectable. See the root README for
 discovery and outage behavior. Availability is separate from smoke-test acceptance.
@@ -13,6 +13,10 @@ a passing smoke test for a Godot 4.7.2 Windows x86_64 Offline 2D package contain
 debug and release templates. See the acceptance record below for its scope.
 Other debug/version/Web combinations require separate acceptance.
 Structural packaging checks and SCons dry-runs are not runtime tests.
+
+Android and macOS initially support verified 4.6.3 and 4.7.2 recipes. See
+[recipe files and mobile templates](recipe-files-and-mobile-templates.md) for
+architectures, platform limitations, setup and pending runtime acceptance.
 
 ## Expanded build matrix
 

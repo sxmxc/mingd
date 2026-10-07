@@ -30,6 +30,9 @@ test("link detection handles split output and ignores static libraries", () => {
   let largeChunkObserved = false;
   new LinkObserver(() => { largeChunkObserved = true; }).record(Buffer.from(`Linking Program bin/godot.linuxbsd.template_release.x86_64 ${" ".repeat(8192)}`));
   assert.equal(largeChunkObserved, true);
+  for (const output of ["Linking Shared Library bin/libgodot.android.template_release.arm64.so ...", "Linking Program bin/godot.macos.template_release.arm64 ..."]) {
+    let observed = false; new LinkObserver(() => { observed = true; }).record(Buffer.from(output)); assert.equal(observed, true);
+  }
   for (const suffix of ["wasm32", "wasm32.nothreads"]) {
     let webObserved = false;
     new LinkObserver(() => { webObserved = true; }).record(Buffer.from(`Linking Program bin/godot.web.template_debug.${suffix}.js ...`));

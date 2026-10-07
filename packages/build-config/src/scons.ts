@@ -1,4 +1,5 @@
 import type { BuildConfig, TemplateKind } from "./schema.ts";
+import { platformVersionSupported } from "./platforms.ts";
 import { normalizeBuildConfig } from "./normalize.ts";
 
 function yn(value: boolean): "yes" | "no" {
@@ -15,6 +16,7 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     throw new Error(`Template kind ${kind} is not requested by this build.`);
   }
 
+  if (config.architecture === "universal") throw new Error("Generate separate arm64 and x86_64 invocations for a universal macOS build.");
   const f = config.features;
   const args = [
     `platform=${config.platform === "linux" ? "linuxbsd" : config.platform}`,
@@ -58,7 +60,7 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
 
   if (config.platform === "web") {
     args.push(`threads=${yn(config.webThreads)}`, "dlink_enabled=no", "proxy_to_pthread=no", "use_closure_compiler=no", "vulkan=no", "opengl3=yes");
-  } else {
+  } else if (config.platform === "linux" || config.platform === "windows") {
     args.push("use_static_cpp=yes");
   }
 
@@ -67,6 +69,9 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     // Vulkan/OpenGL remain available; SDK-backed Windows extras can be added later.
     args.push("d3d12=no", "accesskit=no", "winrt=no", "angle=no", "windows_subsystem=gui");
   }
+
+  if (config.platform === "android") args.push("generate_android_binaries=no", "swappy=no");
+  if (config.platform === "macos") args.push("vulkan=no", "metal=no", "opengl3=yes", "angle=no", "accesskit=no", "generate_bundle=no", "osxcross_sdk=darwin27");
 
   if (kind === "release") {
     args.push("production=yes");
@@ -79,6 +84,7 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
 export function assertRealBuildSupported(input: unknown): BuildConfig {
   const config = normalizeBuildConfig(input);
 
+  if (!platformVersionSupported(config.platform, config.godotVersion)) throw new Error("Android and macOS currently support Godot 4.6.3 and 4.7.2. Choose an exact verified release.");
   if (
     config.optimization !== "size" || config.lto
   ) {
@@ -95,6 +101,8 @@ export function expectedConsoleTemplateFilename(config: BuildConfig, kind: Templ
 
 export function compiledTemplateFilename(config: BuildConfig, kind: TemplateKind, console = false): string {
   if (console && config.platform !== "windows") throw new Error("Console wrappers are Windows-only.");
+  if (config.platform === "android") return `android_${kind}.apk`;
+  if (config.platform === "macos") return `godot.macos.template_${kind}.${config.architecture}`;
   if (config.platform === "web") return `godot.web.template_${kind}.wasm32${config.webThreads ? "" : ".nothreads"}.zip`;
   return `godot.${config.platform === "linux" ? "linuxbsd" : "windows"}.template_${kind}.${config.architecture}${config.platform === "windows" ? (console ? ".console.exe" : ".exe") : ""}`;
 }
@@ -103,6 +111,8 @@ export function expectedTemplateFilename(
   config: BuildConfig,
   kind: TemplateKind,
 ): string {
+  if (config.platform === "android") return `android_${kind}.apk`;
+  if (config.platform === "macos") return "macos.zip";
   if (config.platform === "web") return `web${config.webThreads ? "" : "_nothreads"}_${kind}.zip`;
   if (config.platform === "linux") {
     return `linux_${kind}.${config.architecture}`;

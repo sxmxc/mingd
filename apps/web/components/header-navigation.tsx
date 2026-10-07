@@ -48,10 +48,11 @@ export function HeaderNavigation({ account }: { account: HeaderAccount | null })
   const path = usePathname();
   return <>
     {account?.enabled && <nav aria-label="Main navigation" className="header-primary-nav">
-      <HeaderDropdown label="Builds" accessibleLabel="Builds menu" active={path === "/dashboard" || path.startsWith("/build/")}>
+      <HeaderDropdown label="Builds" accessibleLabel="Builds menu" active={path === "/dashboard" || path.startsWith("/build/") || path === "/recipes"}>
         <nav aria-label="Build navigation">
           <Link href="/dashboard" className="account-menu-item" aria-current={path === "/dashboard" ? "page" : undefined}><List size={16} aria-hidden="true" />All builds</Link>
           <Link href="/build/new" className="account-menu-item" aria-current={path === "/build/new" ? "page" : undefined}><Plus size={16} aria-hidden="true" />New build</Link>
+          <Link href="/recipes" className="account-menu-item" aria-current={path === "/recipes" ? "page" : undefined}><List size={16} aria-hidden="true" />Saved recipes</Link>
         </nav>
       </HeaderDropdown>
       {account.admin && <NavLink href="/admin" className="header-nav-link">Admin</NavLink>}

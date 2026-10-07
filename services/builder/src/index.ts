@@ -1,3 +1,4 @@
+import { workerPlatforms } from "@mingd/build-config";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -60,7 +61,7 @@ async function processBuild(job: Job<BuildJob>) {
   try {
     config = normalizeBuildConfig(job.data.config);
     source = await resolveGodotVersion(config.godotVersion);
-    configHash = createHash("sha256").update(canonicalBuildCacheInput(config, source)).digest("hex");
+    configHash = createHash("sha256").update(canonicalBuildCacheInput(config, source, process.env.MACOS_TOOLCHAIN_SHA256)).digest("hex");
     if (configHash !== job.data.configHash) throw new Error("Build configuration hash does not match the queued payload.");
   } catch (error) {
     await updateBuild(buildId, { ...failureState(job.attemptsMade, job.opts.attempts ?? 1), error: sanitizeLog(String(error), [env.supabaseSecretKey, env.redisUrl]) });
@@ -175,7 +176,7 @@ async function reconcileBuilds() {
     while (!closing) {
     let query = supabase.from("builds").select("id,user_id,config_hash,config,status,created_at")
       .not("status", "in", "(complete,failed)")
-      .in("config->>platform", env.target === "web" ? ["web"] : ["linux", "windows"])
+      .in("config->>platform", workerPlatforms(env.target))
       .order("id").limit(100);
     if (cursor) query = query.gt("id", cursor);
     const result = await query;

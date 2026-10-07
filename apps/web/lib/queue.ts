@@ -29,7 +29,7 @@ function redisConnectionFromUrl(urlString: string) {
 }
 
 export function getBuildQueue(platform: Platform = "linux") {
-  const name = platform === "web" ? env.webQueueName() : env.queueName();
+  const name = platform === "web" ? env.webQueueName() : platform === "android" ? env.androidQueueName() : platform === "macos" ? env.macosQueueName() : env.queueName();
   let queue = queues.get(name);
   if (!queue) {
     queue = new Queue(name, {

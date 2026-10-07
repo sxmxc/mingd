@@ -5,11 +5,11 @@ import { authenticate, type AuthState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 type AuthMode = "signin" | "signup" | "reset" | "resend";
-export function AuthForm({ initialMode = "signin", initialError }: { initialMode?: "signin" | "signup" | "reset"; initialError?: string }) {
+export function AuthForm({ initialMode = "signin", initialError, next = "/dashboard" }: { initialMode?: "signin" | "signup" | "reset"; initialError?: string; next?: string }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  return <AuthModeForm key={mode} mode={mode} setMode={setMode} initialError={mode === "signin" ? initialError : undefined} />;
+  return <AuthModeForm key={mode} mode={mode} setMode={setMode} next={next} initialError={mode === "signin" ? initialError : undefined} />;
 }
-function AuthModeForm({ mode, setMode, initialError }: { mode: AuthMode; setMode: (mode: AuthMode) => void; initialError?: string }) {
+function AuthModeForm({ mode, setMode, initialError, next }: { mode: AuthMode; setMode: (mode: AuthMode) => void; initialError?: string; next: string }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(authenticate, {});
   const titles = { signin: "Sign in", signup: "Create an account", reset: "Reset your password", resend: "Confirm your email" };
   return <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6 sm:p-8">
@@ -17,6 +17,7 @@ function AuthModeForm({ mode, setMode, initialError }: { mode: AuthMode; setMode
     <p className="mt-2 text-sm text-[var(--muted)]">{mode === "signin" ? "Access your builds and account." : mode === "signup" ? "Build custom Godot export templates." : "Enter your account email to receive a link."}</p>
     <form action={action} className="mt-6 space-y-5">
       <input type="hidden" name="mode" value={mode} />
+      <input type="hidden" name="next" value={next} />
       <label className="block text-sm">Email<Input className="mt-2" name="email" type="email" autoComplete="email" required maxLength={254} /></label>
       {(mode === "signin" || mode === "signup") && <label className="block text-sm">Password<Input className="mt-2" name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} required minLength={mode === "signup" ? 8 : undefined} maxLength={128} /></label>}
       {(state.error || initialError) && <p role="alert" className="text-sm text-[var(--danger)]">{state.error ?? initialError}</p>}

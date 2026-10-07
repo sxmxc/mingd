@@ -17,3 +17,7 @@ node_modules
 *.log
 *.zip
 *.tpz
+
+# Local Apple installer archives are never part of image build contexts.
+*.xip
+**/*.xip

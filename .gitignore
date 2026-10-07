@@ -15,3 +15,6 @@ npm-debug.log*
 supabase/.branches/
 supabase/.temp/
 .playwright-mcp/
+
+# Operator-supplied macOS SDK/toolchain archives stay local.
+toolchains/

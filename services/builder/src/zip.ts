@@ -1,7 +1,7 @@
 import { deflateRawSync } from "node:zlib";
 import { writeFile } from "node:fs/promises";
 
-export type ZipEntry = { name: string; contents: Buffer };
+export type ZipEntry = { name: string; contents: Buffer; mode?: number };
 
 function crc32(contents: Buffer): number {
   let value = 0xffffffff;
@@ -14,14 +14,17 @@ function crc32(contents: Buffer): number {
 
 /**
  * Write a small, deterministic ZIP archive without relying on a host `zip`
- * executable. Entries are intentionally flat and supplied by server-owned code.
+ * executable. Paths and modes are supplied by server-owned packaging code.
  */
 export async function writeZip(path: string, entries: ZipEntry[]): Promise<void> {
   const localRecords: Buffer[] = [];
   const centralRecords: Buffer[] = [];
   let offset = 0;
 
+  const names = new Set<string>();
   for (const entry of entries) {
+    if (!entry.name || entry.name.startsWith("/") || entry.name.includes("\\") || entry.name.split("/").some(part => !part || part === "." || part === "..") || names.has(entry.name)) throw new Error("Unsafe or duplicate ZIP entry.");
+    names.add(entry.name);
     const name = Buffer.from(entry.name, "utf8");
     const compressed = deflateRawSync(entry.contents, { level: 9 });
     const checksum = crc32(entry.contents);
@@ -37,7 +40,7 @@ export async function writeZip(path: string, entries: ZipEntry[]): Promise<void>
 
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(entry.mode ? 0x0314 : 20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(0x0800, 8);
     central.writeUInt16LE(8, 10);
@@ -45,6 +48,7 @@ export async function writeZip(path: string, entries: ZipEntry[]): Promise<void>
     central.writeUInt32LE(compressed.length, 20);
     central.writeUInt32LE(entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
+    if (entry.mode) central.writeUInt32LE((entry.mode << 16) >>> 0, 38);
     central.writeUInt32LE(offset, 42);
 
     const record = Buffer.concat([local, name, compressed]);

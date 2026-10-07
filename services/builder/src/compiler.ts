@@ -1,12 +1,13 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assertRealBuildSupported, godotVersionIdentifier, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
+import { assertRealBuildSupported, buildArchitectures, workerTargetForPlatform, godotVersionIdentifier, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
 import { env } from "./env.js";
 import { ensureGodotSource } from "./source-cache.js";
 import { packageArtifact } from "./package-artifact.js";
 import { runProcess } from "./process.js";
 import { BuildPerformance, LinkObserver } from "./performance.js";
 import { collectCacheDiagnostics, compilerCacheEnvironment } from "./cache-diagnostics.js";
+import { verifyPlatformToolchain } from "./toolchain.js";
 import { writeZip } from "./zip.js";
 
 export type BuildStage = "preparing_source" | "verifying_source" | "preparing_workspace" | "compiling" | "linking" | "validating" | "packaging";
@@ -21,7 +22,7 @@ export async function compileBuild(
 ): Promise<{ artifactPath: string; binarySizeBytes: number; config: BuildConfig }> {
   const config = normalizeBuildConfig(rawConfig);
   if (!env.dryRun) assertRealBuildSupported(config);
-  if ((config.platform === "web") !== (env.target === "web")) {
+  if (workerTargetForPlatform(config.platform) !== env.target) {
     throw new Error(`The ${env.target} worker cannot compile ${config.platform} jobs.`);
   }
   await onStage("preparing_source");
@@ -52,13 +53,14 @@ export async function compileBuild(
     return { artifactPath: artifact, binarySizeBytes: 0, config };
   }
 
+  await verifyPlatformToolchain(config, sourceDir);
   const statsLog = join(outputDir, "ccache-stats.log");
   const processEnv = compilerCacheEnvironment(sourceDir, env.ccacheDir, statsLog);
 
   let linkingStage: Promise<void> | null = null;
   let linkingError: unknown;
   try {
-    for (const kind of config.templateKinds) {
+    for (const kind of config.templateKinds) for (const architecture of buildArchitectures(config)) {
       // Each template invocation has its own compile/link interval.
       await linkingStage;
       if (linkingError) throw linkingError;
@@ -67,12 +69,20 @@ export async function compileBuild(
         measurements.markLinking();
         linkingStage = onStage("linking").catch(error => { linkingError = error; });
       });
-      const args = ["-j", String(env.sconsJobs), ...toSconsArgs(config, kind)];
+      const args = ["-j", String(env.sconsJobs), ...toSconsArgs({ ...config, architecture }, kind)];
       await runProcess("scons", args, {
         cwd: sourceDir, env: processEnv, logFile, timeoutMs: env.compileTimeoutMs,
         onOutput: chunk => { onOutput?.(chunk); links.record(chunk); },
-        resourceFile: join(outputDir, `resources-${kind}.txt`),
+        resourceFile: join(outputDir, `resources-${kind}-${architecture}.txt`),
         onPeakRss: value => measurements.recordPeak(value),
+      });
+    }
+    if (config.platform === "android") {
+      await onStage("compiling");
+      await runProcess("./gradlew", ["--no-daemon", "--max-workers", String(env.sconsJobs), "-Dorg.gradle.jvmargs=-Xmx1536m", "generateGodotTemplates"], {
+        cwd: join(sourceDir, "platform/android/java"), env: processEnv, logFile,
+        timeoutMs: env.compileTimeoutMs, onOutput,
+        resourceFile: join(outputDir, "resources-gradle.txt"), onPeakRss: value => measurements.recordPeak(value),
       });
     }
   } finally {

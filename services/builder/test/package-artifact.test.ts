@@ -74,8 +74,7 @@ test("Web TPZ preserves nested template ZIPs and rejects missing or invalid WASM
     await assert.rejects(packageArtifact(source, output, config), /missing godot.wasm/);
     await writeZip(path, [...entries, { name: "godot.wasm", contents: Buffer.alloc(16) }]);
     await assert.rejects(packageArtifact(source, output, config), /invalid WebAssembly/);
-    await writeZip(path, [...entries, { name: "../godot.wasm", contents: wasm }]);
-    await assert.rejects(packageArtifact(source, output, config), /flat filenames/);
+    await assert.rejects(writeZip(path, [...entries, { name: "../godot.wasm", contents: wasm }]), /Unsafe/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

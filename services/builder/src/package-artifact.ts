@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@mingd/build-config";
 import { godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
+import { packageMacosTemplate, validateAndroidApk, validateAndroidSource, androidNativeLibrary } from "./platform-package.js";
 import { runProcess } from "./process.js";
 import { writeZip } from "./zip.js";
 
@@ -57,13 +58,24 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   await mkdir(packageDir, { recursive: true });
   let binarySizeBytes = 0;
 
-  for (const kind of config.templateKinds) {
+  if (config.platform === "macos") {
+    const macos = await packageMacosTemplate(sourceDir, outputDir, config);
+    binarySizeBytes = macos.bytes;
+    await copyFile(macos.path, join(packageDir, "macos.zip"));
+  }
+  const androidLibraries = new Map<TemplateKind, Buffer>();
+  for (const kind of config.platform === "macos" ? [] : config.templateKinds) {
     const built = findCompiledBinary(files, config, kind);
     if (!built) throw new Error(`Could not locate compiled ${config.platform} ${kind} binary in ${binDir}. Found: ${files.join(", ")}`);
 
     if (config.platform === "web") {
       binarySizeBytes += await validateWebTemplate(join(binDir, built));
       await copyFile(join(binDir, built), join(packageDir, expectedTemplateFilename(config, kind)));
+    } else if (config.platform === "android") {
+      const path = join(binDir, built);
+      binarySizeBytes += await validateAndroidApk(path, config);
+      androidLibraries.set(kind, await androidNativeLibrary(path, config));
+      await copyFile(path, join(packageDir, expectedTemplateFilename(config, kind)));
     } else if (config.platform === "linux") {
       const sourcePath = join(binDir, built);
       const binary = await readFile(sourcePath);
@@ -78,9 +90,14 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
       validateWindowsBinary(await readFile(join(binDir, consoleBuilt)), consoleBuilt, true);
       await copyFile(join(binDir, consoleBuilt), join(packageDir, expectedConsoleTemplateFilename(config, kind)));
     }
-    if (config.platform !== "web") binarySizeBytes += (await stat(join(binDir, built))).size;
+    if (config.platform === "linux" || config.platform === "windows") binarySizeBytes += (await stat(join(binDir, built))).size;
   }
 
+  if (config.platform === "android") {
+    const path = join(binDir, "android_source.zip");
+    await validateAndroidSource(path, config, androidLibraries);
+    await copyFile(path, join(packageDir, "android_source.zip"));
+  }
   await onPackaging();
   const versionIdentifier = godotVersionIdentifier(config.godotVersion);
   await writeFile(join(packageDir, "version.txt"), `${versionIdentifier}\n`);
@@ -94,7 +111,14 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
       `Web: ${config.webThreads ? "threaded" : "single-threaded"}, WebGL 2 / Compatibility renderer, no GDExtension support.`,
       "Custom Template fields take the nested ZIP, not its extracted WebAssembly file. Match the export preset's Thread Support option.",
       ...(config.webThreads ? ["Hosting requires cross-origin isolation (COOP: same-origin, COEP: require-corp)."] : []),
-    ] : ["Keep the Windows console wrapper beside its main executable."]),
+    ] : config.platform === "android" ? [
+      "APK templates contain only the selected ABI. Enable only this architecture in your Android export preset.",
+      "android_source.zip includes matching AARs for Gradle builds. Install Android build templates from this package.",
+      "Only the requested debug/release kinds are included. Swappy frame pacing is disabled; test frame timing on devices.",
+    ] : config.platform === "macos" ? [
+      "Custom Template fields take macos.zip. Use the Compatibility renderer and select the matching export architecture.",
+      "Metal, Vulkan, ANGLE and AccessKit are disabled. Sign and notarize your exported game for distribution.",
+    ] : config.platform === "windows" ? ["Keep the Windows console wrapper beside its main executable."] : []),
   ].join("\n"));
 
   const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
@@ -104,7 +128,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     contents: await readFile(join(packageDir, name)),
   }))));
   await runProcess("unzip", ["-tqq", artifact]);
-  const required = ["version.txt", "README-mingd.txt", ...config.templateKinds.flatMap((kind) => [
+  const required = ["version.txt", "README-mingd.txt", ...(config.platform === "android" ? ["android_source.zip"] : []), ...config.templateKinds.flatMap((kind) => [
     expectedTemplateFilename(config, kind),
     ...(config.platform === "windows" ? [expectedConsoleTemplateFilename(config, kind)] : []),
   ])];

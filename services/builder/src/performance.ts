@@ -34,14 +34,14 @@ export class BuildPerformance {
   finish() { this.flush(performance.now()); this.stage = null; return this.snapshot(); }
 }
 
-/** SCons output can be split across pipe chunks. Only final Program links count. */
+/** SCons output can be split across pipe chunks. Only final engine executable/shared-library links count. */
 export class LinkObserver {
   private buffer = "";
   private observed = false;
   constructor(private readonly onLink: () => void) {}
   record(chunk: Buffer) {
     this.buffer = (this.buffer + chunk.toString()).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
-    if (!this.observed && /Linking Program\s+.*godot\.(?:windows|linuxbsd|web)\.template_(?:release|debug)\.[a-z0-9_]+(?:\.nothreads)?(?:\.exe|\.js)?(?=[\s"'])/.test(this.buffer)) {
+    if (!this.observed && (/Linking Program\s+.*godot\.(?:windows|linuxbsd|web|macos)\.template_(?:release|debug)\.[a-z0-9_]+(?:\.nothreads)?(?:\.exe|\.js)?(?=[\s"'])/.test(this.buffer) || /Linking Shared Library\s+.*libgodot\.android\.template_(?:release|debug)\.(?:arm64|arm32|x86_64|x86_32)\.so(?=[\s"'])/.test(this.buffer))) {
       this.observed = true;
       this.onLink();
     }

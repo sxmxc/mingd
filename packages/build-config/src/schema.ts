@@ -1,9 +1,10 @@
+import { PLATFORM_ARCHITECTURES } from "./platforms.ts";
 import { z } from "zod";
 import { isSupportedGodotVersion, MINIMUM_GODOT_VERSION } from "./versions.ts";
 
 export const TemplateKindSchema = z.enum(["release", "debug"]);
-export const PlatformSchema = z.enum(["windows", "linux", "web"]);
-export const ArchitectureSchema = z.enum(["x86_64", "wasm32"]);
+export const PlatformSchema = z.enum(["windows", "linux", "web", "android", "macos"]);
+export const ArchitectureSchema = z.enum(["x86_64", "wasm32", "arm64", "arm32", "x86_32", "universal"]);
 export const OptimizationSchema = z.enum(["size", "size_extra"]);
 export const TextServerSchema = z.enum(["advanced", "fallback"]);
 
@@ -45,8 +46,8 @@ export const BuildConfigSchema = z.object({
   lto: z.boolean(),
   webThreads: z.boolean().default(false),
   features: BuildFeaturesSchema,
-}).refine(config => config.architecture === (config.platform === "web" ? "wasm32" : "x86_64"), {
-  message: "Web requires wasm32; desktop targets require x86_64.", path: ["architecture"],
+}).refine(config => (PLATFORM_ARCHITECTURES[config.platform] as readonly string[]).includes(config.architecture), {
+  message: "Choose an architecture supported by the selected platform.", path: ["architecture"],
 });
 
 export type BuildConfig = z.infer<typeof BuildConfigSchema>;

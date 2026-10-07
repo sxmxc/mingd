@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import type { BuildPerformanceMetrics } from "@mingd/build-config";
+import { assertRealBuildSupported, type BuildPerformanceMetrics, type SizeComparison } from "@mingd/build-config";
+import Link from "next/link";
+import { RecipeFileDownload } from "@/components/recipe-file-download";
+import { TemplateSizeComparison } from "@/components/size-comparison";
 import { RetryBuild } from "@/components/retry-build";
 
 type Build = {
@@ -9,7 +12,7 @@ type Build = {
   log_tail: string | null; config: Record<string, unknown>; artifact_id: string | null;
   created_at: string; started_at: string | null; completed_at: string | null;
   heartbeat_at: string | null; stage_started_at: string | null; last_output_at: string | null; output_bytes: number;
-  artifact: { sha256: string; size_bytes: number; binary_size_bytes: number | null; build_recipe_version: string | null; is_dry_run: boolean } | null;
+  artifact: { sha256: string; size_bytes: number; binary_size_bytes: number | null; build_recipe_version: string | null; is_dry_run: boolean; comparison?: SizeComparison | null } | null;
   performance_metrics?: BuildPerformanceMetrics | null;
 };
 const phases = ["queued", "preparing_source", "verifying_source", "preparing_workspace", "compiling", "validating", "packaging", "uploading", "complete"];
@@ -25,6 +28,8 @@ export function BuildStatus({ initial }: { initial: Build }) {
   const [follow, setFollow] = useState(true);
   const [panel, setPanel] = useState<"performance" | "artifact" | "recipe">("performance");
   const log = useRef<HTMLPreElement>(null);
+  let exportConfig;
+  try { exportConfig = assertRealBuildSupported(build.config); } catch { exportConfig = null; }
   const terminal = build.status === "complete" || build.status === "failed";
   useEffect(() => {
     if (terminal) return;
@@ -98,10 +103,11 @@ export function BuildStatus({ initial }: { initial: Build }) {
       </section>
       <section className="monitor-diagnostics-body" role="tabpanel" id={`${panelId}-artifact`} aria-labelledby={`${panelId}-artifact-tab`} hidden={panel !== "artifact"} tabIndex={0}>
         <h3 className="section-label">Artifact inspector</h3>
-        {build.artifact ? <><dl className="monitor-metrics mt-4"><div><dt>Package size</dt><dd>{(build.artifact.size_bytes / 1048576).toFixed(2)} MiB</dd></div><div><dt>Template binaries</dt><dd>{build.artifact.binary_size_bytes === null ? "Not recorded" : `${(build.artifact.binary_size_bytes / 1048576).toFixed(2)} MiB`}</dd></div><div><dt>Recipe version</dt><dd>{build.artifact.build_recipe_version ?? "Legacy"}</dd></div></dl><dl className="monitor-metrics mt-5"><div className="col-span-full"><dt>SHA-256</dt><dd className="select-all text-xs">{build.artifact.sha256}</dd></div></dl></> : <p className="mt-4 text-sm text-[var(--muted)]">Artifact details appear after a template has been packaged and uploaded successfully.</p>}
+        {build.artifact ? <><dl className="monitor-metrics mt-4"><div><dt>Package size</dt><dd>{(build.artifact.size_bytes / 1048576).toFixed(2)} MiB</dd></div><div><dt>Template binaries</dt><dd>{build.artifact.binary_size_bytes === null ? "Not recorded" : `${(build.artifact.binary_size_bytes / 1048576).toFixed(2)} MiB`}</dd></div><div><dt>Recipe version</dt><dd>{build.artifact.build_recipe_version ?? "Legacy"}</dd></div></dl><dl className="monitor-metrics mt-5"><div className="col-span-full"><dt>SHA-256</dt><dd className="select-all text-xs">{build.artifact.sha256}</dd></div></dl>{!build.artifact.is_dry_run && <TemplateSizeComparison comparison={build.artifact.comparison} />}</> : <p className="mt-4 text-sm text-[var(--muted)]">Artifact details appear after a template has been packaged and uploaded successfully.</p>}
       </section>
       <section className="monitor-diagnostics-body" role="tabpanel" id={`${panelId}-recipe`} aria-labelledby={`${panelId}-recipe-tab`} hidden={panel !== "recipe"} tabIndex={0}>
         <h3 className="section-label">Normalized recipe</h3><pre className="monitor-json mt-4">{JSON.stringify(build.config, null, 2)}</pre>
+        <div className="mt-4 flex flex-wrap gap-3"><Link className="tool-action inline-flex" href={`/build/new?build=${build.id}`}>Edit / save this recipe</Link>{exportConfig && <RecipeFileDownload name={`Godot ${exportConfig.godotVersion} — ${exportConfig.platform}`} config={exportConfig} />}</div>
       </section>
     </Card>
     </div>

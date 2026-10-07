@@ -36,10 +36,10 @@ Apply pending migrations (including `20261005064025_build_matrix.sql`) before
 starting expanded workers, then run:
 
 ```bash
-docker compose --profile builder --profile web-builder up -d --build
+docker compose --profile builder up -d --build
 ```
 
-The `builder` profile enables desktop compilation; `web-builder` enables the
+The shared `builder` profile enables both desktop compilation and the
 separate Emscripten worker and Web queue. See the root README for queue variables
 and service commands.
 

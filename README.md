@@ -8,6 +8,8 @@ This repository intentionally starts with a narrow, credible real-build mileston
 
 - Godot version selection: official stable Godot 4 releases from 4.5 onward, discovered automatically with verified source integrity metadata.
 - Linux and Windows x86_64 release/debug templates, separately or together.
+- Android APK/Gradle templates for ARM64, ARMv7 and x86 architectures; optional Linux macOS cross-worker for Apple Silicon, Intel or universal templates. These new targets initially support Godot 4.6.3 and 4.7.2 and need runtime acceptance. macOS requires an operator-supplied Apple SDK/toolchain.
+- Portable `.gdbuild` import/export from build forms, saved recipes and shared links.
 - Web wasm32 release/debug templates with single-threaded or threaded exports in a dedicated Emscripten 4.0.11 worker.
 - Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on all targets.
 - The owner confirmed desktop preset smoke tests pass. Newly added versions, debug templates and Web targets need their own acceptance checks.
@@ -19,7 +21,7 @@ This repository intentionally starts with a narrow, credible real-build mileston
   The Debian Bookworm toolchain uses GCC 12 and glibc 2.36; Linux templates target that glibc baseline or newer.
 - Build-result deduplication by canonical configuration hash.
 
-Android, macOS/iOS, .NET, Web GDExtensions, custom modules, arbitrary `custom.py`, and arbitrary source patches remain out of scope.
+iOS, .NET, Web GDExtensions, custom modules, arbitrary `custom.py`, and arbitrary source patches remain out of scope.
 
 ## Architecture
 
@@ -141,16 +143,24 @@ Apply pending migrations before starting the expanded workers, including
 ```bash
 npm run db:migrate:check
 npm run db:migrate
-docker compose --profile builder --profile web-builder up -d --build
+docker compose --profile builder up -d --build
 ```
 
-`web` and Redis are default services. The `builder` and `web-builder` profiles
-enable the desktop and Emscripten workers respectively. Desktop jobs use
+`web` and Redis are default services. The shared `builder` profile enables both
+the desktop (`builder`), Emscripten (`web-builder`) and Android (`android-builder`) workers. macOS has a separate optional `macos-builder` profile. Desktop jobs use
 `BUILDER_QUEUE_NAME`; Web jobs use `WEB_BUILDER_QUEUE_NAME` (default
 `godot-web-builds`). The Web worker has separate source, compiler-cache and job
 volumes. Start only the frontend with `npm run compose:web`, or only the Web
 worker with `npm run compose:web-builder:build`. A `/login` HTTP health check
 checks frontend readiness without requiring an authenticated session.
+
+Use `npm run compose:builders` to start both workers, or
+`npm run compose:builders:build` to rebuild and start both. Their logs are available
+with `npm run compose:builders:logs`. The singular `compose:builder` and
+`compose:web-builder` commands (and their `:build` variants) target only that
+worker and its Redis dependency. Explicit service targets do not need a profile
+flag. `npm run compose:up` starts the default web/Redis services; the full-stack
+command above enables both workers too.
 
 ## Production Supabase configuration
 
@@ -190,7 +200,7 @@ npm run compose:down
 6. Builder verifies/caches the exact official Godot source archive.
 7. Builder generates only server-owned SCons options from the validated config.
 8. SCons builds the selected target and template kinds with only generated, allowlisted arguments.
-9. Builder validates Linux ELF or Windows PE32+ output (including the Windows console wrapper), packages Godot filenames, `version.txt`, and a README, then tests ZIP integrity before upload.
+9. Builder validates platform binaries and nested template archives (Android native ELF/APK/AAR, macOS Mach-O, Web WASM, Linux ELF or Windows PE32+ output) (including the Windows console wrapper), packages Godot filenames, `version.txt`, and a README, then tests ZIP integrity before upload.
 10. Artifact is uploaded to the private `build-artifacts` Supabase bucket.
 11. Artifact metadata and final build status are written to Postgres.
 12. The download route checks ownership and generates a short-lived signed Storage URL.
@@ -253,14 +263,29 @@ Follow [the smoke-test procedure](docs/smoke-tests.md) for both platforms and al
 
 The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
 
-## Suggested next milestones
+## Current status snapshot
+
+The repository now includes the following implemented capabilities in code and documentation:
+
+- official Godot 4 release discovery with verified source metadata and cache identities;
+- Linux and Windows desktop template builds, plus Android and macOS worker support under toolchain-specific validation;
+- `.gdbuild` portability/import support, saved recipes and shared recipe links;
+- account and admin access controls, queue recovery and build visibility flows;
+- size-comparison and compatibility guidance based on measured official references where they exist;
+- workbench, build-history and performance diagnostics.
+
+These features are real, implemented and documented. However, they are not all production-accepted yet. Runtime acceptance remains pending for Android and macOS exports on real devices and Apple toolchains, and the self-hosted rollout still needs operator configuration for SMTP, admin provisioning and deployment validation.
+
+## Current focus
 
 1. Validate the expanded version/debug/Web build matrix and browser exports.
-2. Roll out [accounts and administration](docs/accounts-and-admin.md) and configure SMTP on the Supabase host.
-3. Compare measured artifact sizes to official templates and show savings.
-4. Add `.gdbuild` import after validating its format and threat model.
-5. Finish the UI review and authenticated end-to-end smoke tests.
+2. Verify Android and macOS runtime acceptance on target devices and toolchains.
+3. Complete self-hosted rollout for [accounts and administration](docs/accounts-and-admin.md), including SMTP setup and SuperAdmin assignment.
+4. Finish the UX and validation pass for [saved/shared recipes, compatibility guidance and measured size comparisons](docs/recipes-and-comparisons.md).
+5. Finish the remaining UI review and authenticated end-to-end smoke tests.
 
 ## License
 
 No project license is selected in this bootstrap. Add the license you intend to use before publishing the repository.
+
+Portable `.gdbuild` recipes, Android templates and optional macOS cross-compilation are described in [Recipe files and mobile templates](docs/recipe-files-and-mobile-templates.md). Android joins the `builder` profile; macOS uses its own optional profile and requires an operator-supplied Apple SDK/toolchain. Apply new migrations through your normal push workflow before using the new artifact targets.

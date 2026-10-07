@@ -10,9 +10,9 @@ export const currentAccount = cache(async () => {
   if (access.error) throw new Error("Account access could not be checked.");
   return { user: data.user, role: access.data?.role ?? "authenticated", enabled: access.data?.enabled ?? true, supabase };
 });
-export async function requireAccount() {
+export async function requireAccount(next?: string) {
   const account = await currentAccount();
-  if (!account) redirect("/login");
+  if (!account) redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   if (!account.enabled) redirect("/account/disabled");
   return account;
 }

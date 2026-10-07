@@ -7,3 +7,8 @@ export * from "./scons.ts";
 export * from "./recipe.ts";
 export * from "./features.ts";
 export * from "./performance.ts";
+export * from "./saved-recipes.ts";
+export * from "./size-comparison.ts";
+export * from "./compatibility.ts";
+export * from "./platforms.ts";
+export * from "./gdbuild.ts";
