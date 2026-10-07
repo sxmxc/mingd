@@ -1,5 +1,5 @@
-# Legacy local-stack identity; retain to keep existing containers/data attached.
-# This is not the product/repository name. See docs/naming.md before changing.
+# Local CLI stack identity; changing it selects different containers/data.
+# This does not configure production Supabase. See docs/naming.md.
 project_id = "mingd-local"
 
 [api]

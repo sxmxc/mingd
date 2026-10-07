@@ -1,94 +1,85 @@
 # Accounts and administration
 
-Apply `20261005234530_accounts_and_admin.sql` before starting the updated web app.
-The migration adds account access, site settings and administrative metrics. It
-does not assign an administrator or change existing users' access.
+The app uses Supabase Auth with cookie-backed sessions. Normal accounts have
+application role `authenticated`; SuperAdmin access lives in protected
+`account_roles`, never user-editable metadata. Apply all migrations before
+starting the current application; see [deployment](deployment.md).
 
 ## Initial SuperAdmin
 
-For the self-hosted rollout, use the root `.env` database connection and run:
+Create an account and confirm its email first. From the repository root, with
+the intended Supabase URL and privileged key in root `.env`:
 
-```sh
-npm run db:migrate:check
-npm run db:migrate
+```bash
+node scripts/grant-superadmin.mjs admin@example.com
 ```
 
-Then rebuild the web image and both worker images. Restart workers when current
-builds have finished; a forced stop interrupts the running compiler. Keep SMTP
-configuration separate from application deployment.
+Replace the example email with the existing confirmed account. The script finds
+that exact email and enables its SuperAdmin role; it does not create an account
+or send email. It prefers `NEXT_PUBLIC_SUPABASE_URL` over `SUPABASE_URL` when both
+are set. Check that URL and key point to the intended installation.
 
-Once your account has a confirmed email address, run from the repository root:
+Additional administrators can be assigned through `/admin/users`. The application
+blocks self-disable/self-demotion through its admin controls.
 
-```sh
-node scripts/grant-superadmin.mjs voidmoose@voidmoose.com
-```
+## Admin controls
 
-This reads the root `.env` Supabase URL and privileged key. It finds the existing
-account by exact email and enables its SuperAdmin role. It does not create an
-account or send email. Additional administrators can be assigned in `/admin/users`.
-Normal signed-in users have the `authenticated` application role by default.
-Roles live in `account_roles`, never editable user metadata.
+| Page | Purpose |
+| --- | --- |
+| `/admin` | Active/all/completed/failed builds and individual inspection |
+| `/admin/users` | Enable/disable accounts and manage application roles |
+| `/admin/metrics` | Build, artifact, queue, daily-statistics, and maintenance metrics |
+| `/admin/settings` | Pause new submissions and set a site announcement |
 
-The admin area provides active/all/completed/failed build lists, user access and
-role management, build/artifact/queue metrics, a new-submission pause and a site
-announcement. Each page and action checks current account access. You cannot
-disable or demote yourself. Disabling an account blocks application pages, build
-submission and downloads; it retains the account and its build records. Existing
-queued builds continue, and already issued signed download URLs expire normally.
+Pages and actions verify current account access. SuperAdmins may inspect builds
+and downloads across accounts. Ordinary users retain ownership-only access.
+Disabling an account blocks protected pages, submissions, and new downloads but
+keeps the account/build records. Existing queued builds continue, and already
+issued signed download URLs remain usable until expiry.
 
-## Account emails
+Pausing submissions prevents new builds; it does not cancel queued/running work.
+Use it to drain jobs before deploying worker/recipe changes. Queue counts reflect
+Redis jobs and can include previous attempts; they are not counts of failed
+build records. See [deployment](deployment.md#updating) and [maintenance](maintenance.md).
 
-SMTP configuration is deferred to the Supabase host. Sign-up confirmations,
-password recovery and email changes require working delivery there. No SMTP
-credentials belong in the web app or browser environment.
+## Account settings and email flows
 
-On your self-hosted Supabase Auth service, set the site URL to the public app URL,
-allow its `/auth/callback` redirect, enable email confirmations and secure email
-changes, and configure your chosen SMTP provider. Install the three templates
-in `supabase/templates/` using your host's Auth email-template configuration.
-They use a token hash at `/auth/confirm`, so links can be opened in another browser.
-The SDK callback also supports same-browser PKCE links at `/auth/callback`.
-For self-hosted Docker configuration, see the official
-[Auth settings](https://supabase.com/docs/guides/self-hosting/auth/config) and
-[SMTP guide](https://supabase.com/docs/guides/auth/auth-smtp).
+Users can update display name, email, and password at `/account`. Gravatar uses
+the normalized email's SHA-256 with a neutral fallback. It can be disabled in
+profile settings; no upload or API key is required.
 
-`NEXT_PUBLIC_APP_URL` must match the public app URL in both root `.env` (Docker)
-and `apps/web/.env.local` (Next development). Local Supabase uses the checked-in
-templates and its local mail viewer; no external SMTP provider is needed locally.
+Sign-up, recovery, and secure email changes need SMTP on the separate Supabase
+server. Credentials belong there, not in web/browser settings. Set the Auth site
+URL/allowed callbacks and serve the three repository email templates using
+[self-hosted Supabase setup](self-hosted-supabase.md). Local Supabase uses its
+mail viewer and checked-in `content_path` templates instead.
 
-Users can change their display name, email and password at `/account`. Gravatar
-uses the SHA-256 hash of the normalized email address, with a neutral fallback.
-Users can disable Gravatar in their profile; no image upload or API key is needed.
+Token-hash links at `/auth/confirm` verify the email token and set cookies, even
+when opened in a different browser. Recovery opens `/account/reset-password`.
+`/auth/callback` also supports PKCE exchange using the originating browser.
+Set `NEXT_PUBLIC_APP_URL` to the correct app origin and rebuild web after changes.
+Request fresh emails when configuration changes.
 
 ## Queue recovery
 
-The database's queued build row is the durable submission record. Workers scan
-unfinished builds every 30 seconds and enqueue missing jobs with the original
-build ID. Redis connection failures do not discard a submitted build. BullMQ
-recovers stalled jobs after a worker interruption; ordinary failures receive one
-automatic retry. An exhausted or inconsistent queue job becomes a failed build
-with a visible retry action, which creates a new build using the same recipe.
+A queued database build is the durable submission record. Workers scan unfinished
+builds every 30 seconds and enqueue missing deliveries with the original build
+ID. Redis failure does not discard that record. BullMQ recovers stalled jobs;
+ordinary failures have two total attempts with exponential backoff. Exhausted
+or inconsistent jobs become failed builds with a retry action that submits a
+new build using the same recipe.
 
-Each delivery uses its own workspace. Uploads include a content digest and
-artifact cache inserts preserve the first committed result. A late attempt
-cannot move a completed build back into a working or failed state.
+Each delivery has an isolated attempt workspace. Upload identities include the
+content digest, and artifact cache insertion preserves the first committed
+result. Late attempts cannot regress a completed build to working/failed state.
+Keep workers and web on compatible recipe revisions.
 
-No per-user quotas, subscription tiers or billing are added in this milestone.
+## Validation and scope
 
-## Validation
+Run [application and SQL checks](development.md); account SQL coverage lives in
+[`account_access.sql`](../supabase/tests/account_access.sql). Manually check
+confirmation, recovery/new-password sign-in, secure email change, profile edits,
+sign-out, admin restrictions, disabled access, and submission pause after changing
+these flows. Successful CI does not test delivered production email.
 
-Use a disposable local Supabase project when running `db reset`; the command
-removes that project's data. After reset, run `npx supabase test db --local`.
-`supabase/tests/account_access.sql` checks role grants, ownership, disabled users,
-admin reads and protection against self-demotion. Run `npm run typecheck` and
-`npm test` for the application and worker checks.
-
-The implementation was validated with all migrations in an isolated Supabase
-stack, 17 pgTAP permission checks and database advisors reporting no issues. The
-repository suite passed 40 tests; four toolchain/source opt-in checks were skipped.
-The production web image built successfully. Browser checks covered sign-up,
-confirmation, recovery/new-password sign-in, both email-change confirmations,
-profile/Gravatar edits, sign-out, admin-only pages, access suspension, submission
-pause and layouts at 390px and desktop widths. A separate test Redis queue and
-dry-run cache fixture verified missing-job reconciliation and duplicate delivery.
-These checks did not apply migrations or assign roles on the hosted Supabase.
+No per-user quotas, subscriptions, or billing are implemented.

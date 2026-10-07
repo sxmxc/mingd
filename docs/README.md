@@ -1,15 +1,42 @@
 # min.gd documentation
 
-This documentation reflects the current repository state: many platform, recipe and admin features are implemented and documented, but runtime acceptance and deployment hardening remain explicitly pending where the repository itself says they are not yet confirmed.
+Start with the guide for your task. Commands assume the repository root unless
+a guide explicitly names the separate Supabase deployment directory.
 
-- [Naming](naming.md): brand versus technical names, package scope and safe rollout for existing installations.
+## Setup and operations
 
-- [Build profiles](build-profiles.md): available targets, toolchain policy, cache identity and acceptance status.
-- [Template smoke tests](smoke-tests.md): build, download, install, export and launch on Linux or Windows.
-- [Workbench and activity](workbench.md): monitoring semantics, migration rollout and UI validation.
-- [Performance and compiler cache](performance.md): stage timings, memory scope, per-build cache counters and cold/warm benchmarking.
-- [Recipes and size comparisons](recipes-and-comparisons.md): saving/sharing configurations, compatibility guidance and measured official-template comparisons.
+| Guide | Covers |
+| --- | --- |
+| [Getting started](getting-started.md) | Node/npm, local Supabase, development web app, and workers |
+| [Configuration](configuration.md) | Environment files, process-specific variables, queues, and URLs |
+| [Deployment](deployment.md) | Dedicated-server setup, Compose commands, migrations, updates, and backups |
+| [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
+| [Maintenance](maintenance.md) | Five cron schedules, two backend tasks, retention, retries, and references |
+| [Troubleshooting](troubleshooting.md) | Auth errors, queued/stalled builds, maintenance failures, and cache issues |
+| [Accounts and administration](accounts-and-admin.md) | First SuperAdmin, access controls, site settings, and account emails |
 
-- [Recipe files and mobile templates](recipe-files-and-mobile-templates.md): `.gdbuild`, Android worker setup and macOS cross-toolchain provisioning.
+## Building and using templates
 
-Update these documents whenever supported profiles, packaging, or validation procedures change. Keep setup and entry points in the root README.
+| Guide | Covers |
+| --- | --- |
+| [Build profiles](build-profiles.md) | Release/platform matrix, presets, restrictions, packages, and acceptance records |
+| [Recipes and comparisons](recipes-and-comparisons.md) | Private recipes, share links, compatibility guidance, and measured savings |
+| [Recipe files and mobile templates](recipe-files-and-mobile-templates.md) | `.gdbuild`, Android builds, and optional macOS SDK provisioning |
+| [Workbench](workbench.md) | Build history, output, heartbeat and stage semantics |
+| [Performance](performance.md) | Timings, memory scope, compiler cache, and benchmarking |
+| [Template smoke tests](smoke-tests.md) | Installation, export, native/browser/device launch, and pass criteria |
+
+## Contributing
+
+| Guide | Covers |
+| --- | --- |
+| [Architecture](architecture.md) | Component boundaries, lifecycle, cache identity, and authorization |
+| [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
+| [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
+| [Naming](naming.md) | Brand, technical names, and infrastructure identities |
+| [Agent instructions](../AGENTS.md) | Repository-specific inspection, change, and validation rules |
+
+The implementation and source-controlled migrations determine current behavior.
+Runtime acceptance records describe specific tested configurations; they do not
+certify every recipe or newly discovered release. Update the relevant guide when
+behavior changes, and link to it from the [root README](../README.md).

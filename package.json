@@ -46,7 +46,10 @@
     "compose:android-builder:logs": "docker compose logs -f android-builder",
     "compose:macos-builder": "docker compose up -d macos-builder",
     "compose:macos-builder:build": "docker compose up -d --build macos-builder",
-    "compose:macos-builder:logs": "docker compose logs -f macos-builder"
+    "compose:macos-builder:logs": "docker compose logs -f macos-builder",
+    "compose:maintenance": "docker compose up -d maintenance",
+    "compose:maintenance:build": "docker compose up -d --build maintenance",
+    "compose:maintenance:logs": "docker compose logs -f maintenance"
   },
   "engines": {
     "node": ">=22"

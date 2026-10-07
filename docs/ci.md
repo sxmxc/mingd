@@ -1,46 +1,59 @@
 # Continuous integration
 
-`.github/workflows/ci.yml` runs on pull requests, pushes to `main`, and manual
-runs from GitHub's Actions tab. All jobs use GitHub-hosted Ubuntu runners.
-No repository secrets, production services, or private-network access are needed.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on pull requests,
+pushes to `main`, and manual GitHub Actions runs. It uses GitHub-hosted Ubuntu
+24.04 runners with read-only repository permissions and cancels older runs for
+the same ref. No production secrets or private-network access are required.
 
-The application job uses Node **24.21.0**, pinned in `.nvmrc`, matching the
-production host. It installs the lockfile with `npm ci`, generates Next.js route
-types, typechecks all workspaces, runs their tests, and builds the web application
-and builder workspace. For local development with nvm, run `nvm install` and
-`nvm use` in the repository root.
+## Jobs
 
-The database job starts a disposable local Supabase Postgres instance, resets it
-with every migration, and runs the pgTAP tests in `supabase/tests/`. The CLI
-comes from the npm lockfile. SQL tests cover account and artifact access, recipes,
-platform constraints, template references, and scheduled maintenance. Cleanup
-runs even after a failed step. This job never connects to the deployed database.
+| Required check name | What runs |
+| --- | --- |
+| `Application checks (Node 24)` | Lockfile install, Next.js route type generation, workspace typecheck/tests, web/builder build |
+| `Database migrations and SQL tests` | Disposable local Supabase Postgres, full migration reset, pgTAP tests, cleanup even on failure |
+| `Docker build (web)` | Build existing web Dockerfile with BuildKit caching |
+| `Docker build (maintenance)` | Build existing maintenance Dockerfile with BuildKit caching |
 
-Two Docker jobs build the existing web and maintenance images with BuildKit
-caching. Those Dockerfiles still use Node 22; the host's Node version does not
-change a container's runtime. These jobs validate the Dockerfiles as deployed.
-Changing the container runtime is a separate rollout.
+Application/SQL jobs use Node **24.21.0** from `.nvmrc`, matching the production
+host. Supabase CLI is installed through the lockfile. Database tests cover access,
+recipes, platform constraints, references, and maintenance in `supabase/tests`;
+the job does not contact the deployed database.
 
-The app and Docker builds use a dummy publishable key and loopback URLs. CI
-images are validation artifacts and are not published or deployed. A future
-release-image workflow must build the web image with the actual production
-`NEXT_PUBLIC_*` settings. Privileged credentials belong only in runtime settings.
+Dockerfiles currently use Node 22 independently of the host. These image checks
+validate the Dockerfiles as deployed; changing their runtime is a separate rollout.
+Application/image builds use dummy public settings and loopback URLs. Images
+are not pushed or deployed. A production image must be built with its real
+`NEXT_PUBLIC_*` values, keeping privileged keys runtime-only.
 
-Real Godot compilation, device export acceptance, compiler-cache integration
-tests that require native toolchains, and authenticated browser/email flows are
-outside this initial workflow. Existing tests explicitly skip unavailable
-toolchains. Keep those acceptance checks in the smoke-test procedure until a
-dedicated workflow and runner are configured.
+## Coverage limits
 
-After the first successful GitHub run, configure a branch ruleset for `main`
-requiring these four checks:
+CI does not compile real Godot templates, build all platform-worker images,
+provision Apple's SDK, perform native/device smoke tests, or test real Auth email
+flows. Native-toolchain/source opt-in checks skip missing prerequisites. See
+[development](development.md) and [smoke tests](smoke-tests.md).
 
-- `Application checks (Node 24)`
-- `Database migrations and SQL tests`
-- `Docker build (web)`
-- `Docker build (maintenance)`
+CI also does not apply production migrations, publish release images, or deploy.
+The current deployment process is pull, review migrations, and rebuild after
+checks pass; see [deployment](deployment.md).
 
-The workflow does not configure branch rules, publish images, apply production
-migrations, or deploy. Deployment remains the existing pull-and-rebuild process
-after checks pass. Actions are pinned to immutable commits; update their commit
-pins and version comments together when upgrading them.
+## Branch protection and workflow changes
+
+After a successful GitHub run, configure a `main` ruleset requiring all four check
+names in the table. The workflow does not configure repository rules itself.
+Actions use immutable commit pins; update their pins and version comments together.
+Keep CI builds isolated from production credentials and services.
+
+To reproduce application checks locally:
+
+```bash
+nvm use
+npm ci
+npm exec --workspace @mingd/web -- next typegen
+npm run typecheck
+npm test
+npm run build
+```
+
+Use configured development environment values. SQL checks need a disposable
+local database; follow [development validation](development.md#database-changes),
+not the production migration commands.

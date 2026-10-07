@@ -373,6 +373,8 @@ This list is architectural context, not permission to duplicate capabilities.
 
 Update README/config examples when a change alters setup, required environment variables, supported platforms, or developer workflow.
 
+Keep the root README concise and use [docs/README.md](docs/README.md) as the documentation index. Maintain detailed setup, configuration, deployment, and feature guidance in the relevant guide rather than duplicating rollout commands across documents. Check relative links, documented npm scripts, and configuration defaults against the current implementation. Distinguish structural/unit validation from actual native, browser, or device acceptance; preserve the scope of owner-reported results.
+
 Keep `AGENTS.md` focused on **how agents should work in the repository**. Product positioning, marketing copy, roadmap, and feature pitches belong elsewhere.
 
 When repository state contradicts documentation, inspect the implementation and authoritative tooling, call out the inconsistency, and fix the appropriate source rather than blindly following stale prose.
