@@ -58,7 +58,7 @@ Windows keeps Vulkan and OpenGL and the shared Standard engine modules. The exis
 
 The builder validates the main Linux ELF binary. On Windows it requires both the GUI executable and console wrapper and validates MZ/PE signatures, AMD64 architecture, PE32+ format and the expected GUI/console subsystem before packaging. These structural checks do not establish that an exported project runs: follow [the smoke test](smoke-tests.md).
 
-Every TPZ includes `version.txt` for the selected release (for example, `4.7.2.stable` or `4.5.0.stable`) and `README-mingd.txt`. The worker tests ZIP integrity before upload. Artifact metadata records the main executable size, package size and SHA-256, normalized configuration, source checksum and recipe version. Official-template comparisons require a measured reference artifact.
+Every TPZ includes `version.txt` for the selected release (for example, `4.7.2.stable` or `4.5.stable`) and `README-mingd.txt`. The worker tests ZIP integrity before upload. Artifact metadata records the main executable size, package size and SHA-256, normalized configuration, source checksum and recipe version. Official-template comparisons require a measured reference artifact.
 
 ## Cache and recipe
 

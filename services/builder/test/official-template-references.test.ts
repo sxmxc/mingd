@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { test } from "node:test";
-import { officialTemplateReferenceTargets, validateTemplateReferenceMeasurements } from "@mingd/build-config";
+import { godotVersionIdentifier, officialTemplateReferenceTargets, validateTemplateReferenceMeasurements } from "@mingd/build-config";
 import { missingTemplateReferenceVersions } from "../src/maintenance.js";
 import { writeZip, type ZipEntry } from "../src/zip.js";
 
@@ -52,7 +52,7 @@ async function fixture(dir: string, mutate?: (entries: ZipEntry[]) => void) {
   const archive = join(dir, "official.tpz"); await writeZip(archive, entries); return archive;
 }
 async function measure(archive: string, version = "4.7.2") {
-  const { stdout } = await execute("python3", [script, archive, `${version}.stable`, JSON.stringify(officialTemplateReferenceTargets(version))], { timeout: 10000 });
+  const { stdout } = await execute("python3", [script, archive, godotVersionIdentifier(version), JSON.stringify(officialTemplateReferenceTargets(version))], { timeout: 10000 });
   return validateTemplateReferenceMeasurements(version, JSON.parse(stdout));
 }
 
@@ -65,6 +65,18 @@ test("official fixtures measure all architectures and both kinds without countin
     assert.deepEqual(rows.filter(row => row.platform === "macos").map(row => row.binary_size_bytes), [320, 320, 64, 64, 96, 96]);
     // Both FAT32 and FAT64 entries produce slice lengths, not universal lengths.
     assert.deepEqual(missingTemplateReferenceVersions([{ id: "4.7.2" }], rows.map(row => ({ ...row, godot_version: "4.7.2" }))), []);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("base stable releases use the official identifier without a synthetic zero patch", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "mingd-reference-base-release-"));
+  try {
+    const archive = await fixture(dir, entries => {
+      entries.find(entry => entry.name === "templates/version.txt")!.contents = Buffer.from("4.7.stable\n");
+    });
+    const rows = await measure(archive, "4.7");
+    assert.equal(rows.length, 8);
+    await assert.rejects(execute("python3", [script, archive, "4.7.0.stable", JSON.stringify(officialTemplateReferenceTargets("4.7"))]), /version.txt/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

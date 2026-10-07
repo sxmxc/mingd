@@ -38,5 +38,5 @@ export function isSupportedGodotVersion(id: string): boolean {
 
 export function godotVersionIdentifier(id: string): string {
   if (!isSupportedGodotVersion(id)) throw new Error("Unsupported Godot version.");
-  return `${id.split(".").length === 2 ? `${id}.0` : id}.stable`;
+  return `${id}.stable`;
 }

@@ -68,13 +68,32 @@ test("Storage removal precedes acknowledgment; failed deletion stays pending", a
 
 test("failed tasks retry without persisting secrets, and completion requires the lease token", async () => {
   const fake = fakeClient(true);
-  await runMaintenanceOnce(fake.client, options);
+  const logs: Record<string, unknown>[] = [];
+  await runMaintenanceOnce(fake.client, options, undefined, event => logs.push(event));
   assert.equal(fake.patches[0].requested, true);
   assert.equal(fake.patches[0].lease_token, null);
   assert.ok(!String(fake.patches[0].last_error).includes("secret"));
+  assert.match(String(fake.patches[0].last_error), /Artifact Storage deletion unavailable/);
+  assert.equal(logs[0].event, "maintenance_failed");
+  assert.equal(logs[0].task, "artifact_cleanup");
+  assert.match(String(logs[0].message), /Artifact Storage deletion unavailable/);
   assert.deepEqual(fake.filters, [["name", "artifact_cleanup"], ["lease_token", "token"]]);
   const refreshed = fakeClient(false, "release_refresh");
   await runMaintenanceOnce(refreshed.client, options, async () => ({ releases: 2, importedVersion: null, remainingVersions: 0 }));
   assert.equal(refreshed.patches[0].last_error, null);
   assert.equal(refreshed.patches[0].requested, undefined, "completion preserves a request received during work");
+});
+
+test("unexpected upstream errors never leak credentials into maintenance logs or persisted errors", async () => {
+  const fake = fakeClient(false, "release_refresh");
+  const logs: Record<string, unknown>[] = [];
+  await runMaintenanceOnce(fake.client, options, async () => {
+    throw new Error("https://user:secret@example.com?apikey=private-token");
+  }, event => logs.push(event));
+  assert.match(String(fake.patches[0].last_error), /Unexpected maintenance failure/);
+  for (const value of [JSON.stringify(logs), String(fake.patches[0].last_error)]) {
+    assert.ok(!value.includes("secret"));
+    assert.ok(!value.includes("private-token"));
+    assert.ok(!value.includes("example.com"));
+  }
 });

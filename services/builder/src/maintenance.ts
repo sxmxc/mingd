@@ -14,6 +14,18 @@ const importer = fileURLToPath(new URL("../../../scripts/import-template-referen
 const MAX_ARCHIVE_BYTES = 4 * 1024 ** 3;
 export type MaintenanceOptions = { supabaseUrl: string; secretKey: string; bucket: string };
 
+// Only messages constructed here may reach logs/the dashboard. Upstream errors
+// and child-process stderr can contain credentials, so never forward them raw.
+class MaintenanceError extends Error {}
+
+export function maintenanceFailureMessage(error: unknown): string {
+  if (error instanceof MaintenanceError) return error.message;
+  if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+    return "Maintenance exceeded its time limit.";
+  }
+  return "Unexpected maintenance failure; check worker configuration and connectivity.";
+}
+
 export function missingTemplateReferenceVersions(versions: { id: string }[], references: (TemplateReferenceTarget & { godot_version: string })[]) {
   const identities = new Set(references.map(row => `${row.godot_version}/${templateReferenceIdentity(row)}`));
   return versions.filter(version => officialTemplateReferenceTargets(version.id).some(target =>
@@ -35,31 +47,31 @@ export function officialTemplateAsset(version: string, release: {
   const asset = release.assets?.find(item => item.name === name && item.browser_download_url === url);
   if (release.tag_name !== `${version}-stable` || release.draft !== false || release.prerelease !== false
     || !/^sha256:[a-f0-9]{64}$/.test(asset?.digest ?? "") || !Number.isSafeInteger(asset?.size)
-    || !asset || asset.size <= 0 || asset.size > MAX_ARCHIVE_BYTES) throw new Error("Official template archive identity is unavailable.");
+    || !asset || asset.size <= 0 || asset.size > MAX_ARCHIVE_BYTES) throw new MaintenanceError("Official template archive identity is unavailable.");
   return asset;
 }
 
 export async function downloadTemplateArchive(response: Response, path: string, expectedSize: number, signal: AbortSignal) {
-  if (!response.ok || !response.body) throw new Error("Official archive download unavailable.");
+  if (!response.ok || !response.body) throw new MaintenanceError("Official archive download unavailable.");
   let size = 0;
   await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       size += chunk.length;
-      callback(size > expectedSize ? new Error("Official archive exceeds its declared size.") : null, chunk);
+      callback(size > expectedSize ? new MaintenanceError("Official archive exceeds its declared size.") : null, chunk);
     },
   }), createWriteStream(path, { flags: "wx" }), { signal });
-  if (size !== expectedSize) throw new Error("Official archive download is incomplete.");
+  if (size !== expectedSize) throw new MaintenanceError("Official archive download is incomplete.");
 }
 
 export async function refreshOfficialReleases(admin: SupabaseClient, options: MaintenanceOptions, signal: AbortSignal) {
   const catalog = await createGodotReleaseCatalog((input, init) => fetch(input, {
     ...init, signal: AbortSignal.any([signal, init?.signal ?? AbortSignal.timeout(10000)]),
   }))();
-  if (catalog.stale) throw new Error("Official release catalog unavailable; retained previous data.");
+  if (catalog.stale) throw new MaintenanceError("Official release catalog unavailable; retained previous data.");
   const saved = await admin.from("official_release_catalog").upsert({ id: true, versions: catalog.versions, refreshed_at: new Date().toISOString() });
-  if (saved.error) throw new Error("Release catalog could not be saved.");
+  if (saved.error) throw new MaintenanceError("Release catalog could not be saved.");
   const existing = await admin.from("official_template_references").select("godot_version,platform,architecture,template_kind,web_threads");
-  if (existing.error) throw new Error("Template reference inventory unavailable.");
+  if (existing.error) throw new MaintenanceError("Template reference inventory unavailable.");
   const missing = missingTemplateReferenceVersions(catalog.versions, existing.data ?? []);
   // One archive per lease bounds disk, memory and network use. Catch up through
   // coalesced tasks until every release has all supported platform references.
@@ -69,7 +81,7 @@ export async function refreshOfficialReleases(admin: SupabaseClient, options: Ma
       headers: { Accept: "application/vnd.github+json", "User-Agent": "mingd-maintenance" },
       signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
     });
-    if (!release.ok) throw new Error("Official template release unavailable.");
+    if (!release.ok) throw new MaintenanceError("Official template release unavailable.");
     const asset = officialTemplateAsset(version, await release.json());
     const directory = await mkdtemp(join(tmpdir(), "mingd-templates-"));
     try {
@@ -77,43 +89,59 @@ export async function refreshOfficialReleases(admin: SupabaseClient, options: Ma
       await downloadTemplateArchive(await fetch(asset.browser_download_url, { signal }), archive, asset.size, signal);
       // Reuse the existing SHA-256 verification and bounded, nonexecuting Python
       // measurement importer. It checks version.txt and binary headers as well.
-      await promisify(execFile)(process.execPath, ["--import", "tsx", importer, "--version", version, "--archive", archive], {
-        timeout: 150000, signal, maxBuffer: 65536,
-        env: { ...process.env, SUPABASE_URL: options.supabaseUrl, NEXT_PUBLIC_SUPABASE_URL: options.supabaseUrl, SUPABASE_SECRET_KEY: options.secretKey },
-      });
+      try {
+        await promisify(execFile)(process.execPath, ["--import", "tsx", importer, "--version", version, "--archive", archive], {
+          timeout: 150000, signal, maxBuffer: 65536,
+          env: { ...process.env, SUPABASE_URL: options.supabaseUrl, NEXT_PUBLIC_SUPABASE_URL: options.supabaseUrl, SUPABASE_SECRET_KEY: options.secretKey },
+        });
+      } catch (error) {
+        const child = error as { stderr?: unknown; signal?: unknown; killed?: unknown };
+        const reasons = [
+          "Official archive version.txt does not match the requested release",
+          "Official archive SHA-256 verification failed.",
+          "Could not resolve the official Godot release.",
+          "Reference import failed. Apply the recipes_and_template_references migration first.",
+        ];
+        const stderr = typeof child?.stderr === "string" ? child.stderr : "";
+        const reason = reasons.find(message => stderr.includes(message));
+        throw new MaintenanceError(`Template reference import for ${version} failed: ${reason ??
+          (child?.signal === "SIGKILL" ? "importer was killed; check the container memory limit." :
+            child?.killed ? "importer exceeded its time limit." : "archive measurement or importer execution failed.")}`);
+      }
     } finally { await rm(directory, { recursive: true, force: true }); }
   }
   if (missing.length > 1) {
     const requested = await admin.rpc("request_maintenance", { task_name: "release_refresh" });
-    if (requested.error) throw new Error("Release refresh continuation unavailable.");
+    if (requested.error) throw new MaintenanceError("Release refresh continuation unavailable.");
   }
   return { releases: catalog.versions.length, importedVersion: version ?? null, remainingVersions: Math.max(0, missing.length - 1) };
 }
 
 export async function cleanArtifacts(admin: SupabaseClient, options: MaintenanceOptions) {
   const retired = await admin.rpc("retire_unused_artifacts");
-  if (retired.error) throw new Error("Artifact retirement unavailable.");
+  if (retired.error) throw new MaintenanceError("Artifact retirement unavailable.");
   const pending = await admin.from("artifact_deletions").select("storage_path").is("deleted_at", null).order("queued_at").limit(100);
-  if (pending.error) throw new Error("Artifact deletion inventory unavailable.");
+  if (pending.error) throw new MaintenanceError("Artifact deletion inventory unavailable.");
   const paths = (pending.data ?? []).map(row => row.storage_path as string);
-  if (paths.some(path => !validArtifactPath(path))) throw new Error("Artifact cleanup found an invalid generated path.");
+  if (paths.some(path => !validArtifactPath(path))) throw new MaintenanceError("Artifact cleanup found an invalid generated path.");
   if (paths.length) {
     const removed = await admin.storage.from(options.bucket).remove(paths);
-    if (removed.error) throw new Error("Artifact Storage deletion unavailable.");
+    if (removed.error) throw new MaintenanceError("Artifact Storage deletion unavailable.");
     const acknowledged = await admin.from("artifact_deletions").update({ deleted_at: new Date().toISOString() }).in("storage_path", paths);
-    if (acknowledged.error) throw new Error("Artifact deletion acknowledgement unavailable.");
+    if (acknowledged.error) throw new MaintenanceError("Artifact deletion acknowledgement unavailable.");
   }
   if (retired.data === 100 || paths.length === 100) {
     const requested = await admin.rpc("request_maintenance", { task_name: "artifact_cleanup" });
-    if (requested.error) throw new Error("Artifact cleanup continuation unavailable.");
+    if (requested.error) throw new MaintenanceError("Artifact cleanup continuation unavailable.");
   }
   return { retired: retired.data, deleted: paths.length };
 }
 
 export async function runMaintenanceOnce(admin: SupabaseClient, options: MaintenanceOptions,
-  refresh = refreshOfficialReleases) {
+  refresh = refreshOfficialReleases,
+  log: (event: Record<string, unknown>) => void = event => console.error(JSON.stringify(event))) {
   const claim = await admin.rpc("claim_maintenance");
-  if (claim.error) throw new Error("Maintenance claim unavailable.");
+  if (claim.error) throw new MaintenanceError("Maintenance claim unavailable.");
   const task = claim.data?.[0];
   if (!task) return;
   let patch: Record<string, unknown>;
@@ -121,19 +149,20 @@ export async function runMaintenanceOnce(admin: SupabaseClient, options: Mainten
     const result = task.name === "artifact_cleanup" ? await cleanArtifacts(admin, options)
       : await refresh(admin, options, AbortSignal.timeout(15 * 60 * 1000));
     patch = { completed_at: new Date().toISOString(), result, last_error: null, lease_token: null, lease_until: null };
-  } catch {
-    // Do not persist upstream errors that can contain URLs or credentials.
+  } catch (error) {
+    const message = maintenanceFailureMessage(error);
+    log({ event: "maintenance_failed", task: task.name === "artifact_cleanup" ? "artifact_cleanup" : "release_refresh", message });
     patch = { requested: true, retry_after: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      last_error: "Maintenance task failed; will retry. Check backend connectivity and official release availability.", lease_token: null, lease_until: null };
+      last_error: `${message} Will retry in 15 minutes.`, lease_token: null, lease_until: null };
   }
   const finished = await admin.from("maintenance_tasks").update(patch).eq("name", task.name).eq("lease_token", task.lease_token);
-  if (finished.error) throw new Error("Maintenance completion unavailable; lease will be recovered.");
+  if (finished.error) throw new MaintenanceError("Maintenance completion unavailable; lease will be recovered.");
 }
 
 async function main() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const secretKey = process.env.SUPABASE_SECRET_KEY;
-  if (!supabaseUrl || !secretKey) throw new Error("Configure SUPABASE_URL and SUPABASE_SECRET_KEY for maintenance.");
+  if (!supabaseUrl || !secretKey) throw new MaintenanceError("Configure SUPABASE_URL and SUPABASE_SECRET_KEY for maintenance.");
   const options = { supabaseUrl, secretKey, bucket: process.env.ARTIFACT_BUCKET ?? "build-artifacts" };
   const admin = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -141,9 +170,10 @@ async function main() {
   });
   let closing = false;
   let wake: (() => void) | undefined;
+  console.info("Maintenance worker started.");
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { closing = true; wake?.(); });
   do {
-    await runMaintenanceOnce(admin, options).catch(() => console.warn("Maintenance unavailable; will retry."));
+    await runMaintenanceOnce(admin, options).catch(error => console.warn(maintenanceFailureMessage(error)));
     if (process.argv.includes("--once") || closing) break;
     await new Promise<void>(resolve => {
       const timer = setTimeout(resolve, 30000);
