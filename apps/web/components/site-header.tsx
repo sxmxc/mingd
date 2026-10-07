@@ -2,10 +2,12 @@ import Link from "next/link";
 import { currentAccount } from "@/lib/access";
 import { gravatarUrl } from "@/lib/avatar";
 import { HeaderNavigation } from "@/components/header-navigation";
+import { SiteAnnouncements } from "@/components/site-announcements";
 
 export async function SiteHeader() {
   const account = await currentAccount();
-  const settings = account?.enabled ? await account.supabase.from("site_settings").select("announcement").eq("id", true).maybeSingle() : null;
+  const settings = account?.enabled ? await account.supabase.from("site_settings").select("announcements").eq("id", true).maybeSingle() : null;
+  const announcements: string[] = settings?.data?.announcements ?? [];
 
   return (
     <header className="site-header">
@@ -23,7 +25,7 @@ export async function SiteHeader() {
           admin: account.role === "superadmin",
         } : null} />
       </div>
-      {settings?.data?.announcement && <div className="header-announcement"><p role="status">{settings.data.announcement}</p></div>}
+      <SiteAnnouncements announcements={announcements} />
     </header>
   );
 }

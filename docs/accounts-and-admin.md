@@ -29,7 +29,7 @@ blocks self-disable/self-demotion through its admin controls.
 | `/admin` | Active/all/completed/failed builds and individual inspection |
 | `/admin/users` | Enable/disable accounts and manage application roles |
 | `/admin/metrics` | Build, artifact, queue, daily-statistics, and maintenance metrics |
-| `/admin/settings` | Pause new submissions and set a site announcement |
+| `/admin/settings` | Pause new submissions and manage site announcements |
 
 Pages and actions verify current account access. SuperAdmins may inspect builds
 and downloads across accounts. Ordinary users retain ownership-only access.
@@ -41,6 +41,22 @@ Pausing submissions prevents new builds; it does not cancel queued/running work.
 Use it to drain jobs before deploying worker/recipe changes. Queue counts reflect
 Redis jobs and can include previous attempts; they are not counts of failed
 build records. See [deployment](deployment.md#updating) and [maintenance](maintenance.md).
+
+## Site announcements
+
+Manage up to 10 simultaneous messages at `/admin/settings`, with 500 characters
+per message. Add or remove individual messages, then save settings to publish the
+list. Blank messages are omitted and identical messages appear once. The new
+migration preserves the previous single announcement.
+
+Enabled signed-in users see announcements below the navigation. They can
+collapse the list, dismiss individual messages or dismiss all, and reopen them
+from the compact announcement bar. Expanded lists scroll after 240 pixels to
+keep the page accessible when many notices are active. Collapse and dismissal
+preferences are saved in this browser, shared across tabs, and do not sync across
+devices. New or edited text appears again; reordering unchanged messages does
+not reset preferences. If browser storage is blocked, controls still work for
+the current page session.
 
 ## Account settings and email flows
 

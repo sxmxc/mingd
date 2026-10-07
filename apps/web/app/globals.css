@@ -66,15 +66,27 @@ input::placeholder, textarea::placeholder { color: #758596; }
 .account-menu-item:disabled { opacity: .6; }
 .header-sign-in { padding: 9px 14px; border: 1px solid var(--border); border-radius: 6px; font-size: .8125rem; font-weight: 500; }
 .header-sign-in:hover { background: var(--panel-2); }
-.header-announcement { border-top: 1px solid var(--border); }
-.header-announcement p { max-width: 1320px; margin: 0 auto; padding: 10px 24px; color: var(--muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.header-announcements { border-top: 1px solid var(--border); font-size: .8125rem; }
+.announcements-inner { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
+.announcements-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 16px; min-height: 40px; }
+.announcements-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; color: var(--muted); }
+.announcements-count { border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; font-size: .6875rem; }
+.announcements-actions { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: .75rem; }
+.announcements-actions button { min-height: 40px; }
+.announcements-list { margin: 0; padding: 0; list-style: none; max-height: 240px; overflow-y: auto; }
+.announcement-row { display: flex; align-items: flex-start; gap: 16px; border-top: 1px solid var(--border); padding: 4px 0; }
+.announcement-row p { flex: 1; min-width: 0; margin: 0; padding: 10px 0; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.announcement-dismiss { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 5px; color: var(--muted); }
+.announcement-dismiss:hover { background: var(--panel-2); }
+.header-announcements button:hover { color: var(--foreground); }
+.header-announcements button:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 @media (max-width: 600px) {
   .site-header-inner { gap: 16px; min-height: 60px; padding: 8px 16px; }
   .header-primary-nav { gap: 16px; }
   .header-builds .header-dropdown-panel { left: auto; right: -16px; width: 180px; }
   .header-actions { gap: 10px; }
   .header-account-trigger { padding: 5px; }
-  .header-announcement p { padding: 10px 16px; }
+  .announcements-inner { padding: 0 16px; }
 }
 .skip-link { position: absolute; left: 16px; top: -80px; z-index: 50; background: var(--panel); padding: 12px; }
 .skip-link:focus { top: 12px; }
