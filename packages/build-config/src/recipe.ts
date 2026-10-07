@@ -15,6 +15,6 @@ export function canonicalBuildCacheInput(input: unknown, resolvedSource?: Suppor
     throw new Error("Resolve official Godot source metadata before hashing this version.");
   }
   if (config.platform === "macos" && !/^[a-f0-9]{64}$/.test(macosToolchainSha256 ?? "")) throw new Error("macOS builds require a verified toolchain SHA-256.");
-  const platformRecipe = config.platform === "android" ? "\nandroid-1:ndk-29.0.14206865:sdk-36:build-tools-36.1.0:java-17" : config.platform === "macos" ? `\nmacos-1:osxcross:sdk-27.0:compatibility:${macosToolchainSha256}` : "";
+  const platformRecipe = config.platform === "android" ? "\nandroid-1:ndk-29.0.14206865:sdk-36:build-tools-36.1.0:java-17" : config.platform === "macos" ? `\nmacos-2:osxcross:sdk-27.0:compatibility:${macosToolchainSha256}` : "";
   return `${BUILD_RECIPE_VERSION}${platformRecipe}\n${source.sourceUrl}\n${source.sourceSha256}\n${configJson}`;
 }

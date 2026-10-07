@@ -14,7 +14,12 @@ export async function verifyPlatformToolchain(config: BuildConfig, sourceDir: st
     if (!/^[a-f0-9]{64}$/.test(digest) || digest !== process.env.MACOS_TOOLCHAIN_SHA256) throw new Error("macOS toolchain identity does not match the configured SHA-256.");
     const settings = JSON.parse(await readFile(join(root, "target/SDK/MacOSX27.0.sdk/SDKSettings.json"), "utf8"));
     if (settings.Version !== "27.0") throw new Error("macOS worker requires the verified macOS 27.0 SDK.");
-    for (const architecture of ["arm64", "x86_64"]) await exec(join(root, `target/bin/${architecture}-apple-darwin27-clang++`), ["--version"], { timeout: 10000 });
+    for (const architecture of ["arm64", "x86_64"]) {
+      await exec(join(root, `target/bin/${architecture}-apple-darwin27-clang++`), ["--version"], { timeout: 10000 });
+      // The compiler's version check never launches ld. Verify that the linker
+      // itself can load its host dependencies before spending time compiling.
+      await exec(join(root, `target/bin/${architecture}-apple-darwin27-ld`), ["-v"], { timeout: 10000 });
+    }
     // cctools lipo has no version flag. Check the same PATH used by packaging;
     // the actual create/verify_arch operations validate it there.
     let lipoAvailable = false;
