@@ -39,6 +39,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
   const supportedVersion = platformVersionSupported(platform, godotVersion);
   const profile = buildPresetId(config);
   const profileLabel = profile ? PRESETS[profile].label : "Custom";
+  const featureLabel = (key: BooleanFeature) => FEATURE_GROUPS.flatMap(group => group.options).find(option => option.key === key)?.label ?? key;
   const normalizedFeatureSearch = featureSearch.trim().toLowerCase();
   const visibleFeatureGroups = FEATURE_GROUPS.map(group => ({
     ...group,
@@ -46,7 +47,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
       option.label,
       option.consequence,
       FEATURE_EXAMPLES[option.key].join(" "),
-      option.requires ? FEATURE_GROUPS.flatMap(item => item.options).find(item => item.key === option.requires)?.label ?? "" : "",
+      option.requires ? `requires ${featureLabel(option.requires)}` : "",
       option.locked ? "always included" : "",
       platform === "web" && (option.key === "openxr" || option.key === "enet") ? "unavailable browser exports" : "",
     ].join(" ").toLowerCase().includes(normalizedFeatureSearch)),
@@ -268,8 +269,8 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
                         : platformUnavailable
                           ? "Unavailable on Web"
                           : dependencyMissing
-                            ? `Requires ${FEATURE_GROUPS.flatMap(item => item.options).find(item => item.key === option.requires)?.label ?? "parent feature"}`
-                            : config.features[option.key] ? "Included" : "Removed";
+                            ? `Requires ${option.requires ? featureLabel(option.requires) : "parent feature"}`
+                            : config.features[option.key] ? "Optional · included" : "Optional · removed";
                       const stateClass = option.locked ? "always" : platformUnavailable || dependencyMissing ? "unavailable" : config.features[option.key] ? "included" : "removed";
                       const disabled = option.locked || platformUnavailable || dependencyMissing;
                       return <div key={option.key} className="build-feature-option">
@@ -280,7 +281,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
                           </label>
                           <span className={`build-feature-state ${stateClass}`}>{stateLabel}</span>
                         </div>
-                        {option.requires && <p className="build-feature-requirement">Requires {FEATURE_GROUPS.flatMap(item => item.options).find(item => item.key === option.requires)?.label ?? "parent feature"}.</p>}
+                        {option.requires && <p className="build-feature-requirement">Requires {featureLabel(option.requires)}; optional when that dependency is enabled.</p>}
                         <details className="build-feature-details">
                           <summary>Impact and examples</summary>
                           <p>{option.consequence}</p>
