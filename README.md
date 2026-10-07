@@ -1,365 +1,89 @@
 # min.gd
 
+[![CI](https://github.com/sxmxc/mingd/actions/workflows/ci.yml/badge.svg)](https://github.com/sxmxc/mingd/actions/workflows/ci.yml)
+
 **Build only the Godot your game needs.**
 
-min.gd is a bootstrap for a hosted custom Godot export-template builder. Users choose a supported target platform, starting preset, and removable engine features. min.gd turns that configuration into a reproducible Godot source build, caches identical artifacts, and stores the resulting `.tpz` in Supabase Storage.
+min.gd builds custom Godot export templates from official, checksum-verified
+source. Choose a platform and preset, remove engine features your project does
+not need, and download an installable `.tpz`. Equivalent recipes reuse cached
+artifacts.
 
-This repository intentionally starts with a narrow, credible real-build milestone:
+The application includes saved and shared recipes, portable `.gdbuild` files,
+build history with live compiler output, measured template-size comparisons,
+account management, an admin area, and scheduled maintenance.
 
-- Godot version selection: official stable Godot 4 releases from 4.5 onward, discovered automatically with verified source integrity metadata.
-- Linux and Windows x86_64 release/debug templates, separately or together.
-- Android APK/Gradle templates for ARM64, ARMv7 and x86 architectures; optional Linux macOS cross-worker for Apple Silicon, Intel or universal templates. These new targets initially support Godot 4.6.3 and 4.7.2 and need runtime acceptance. macOS requires an operator-supplied Apple SDK/toolchain.
-- Portable `.gdbuild` import/export from build forms, saved recipes and shared links.
-- Web wasm32 release/debug templates with single-threaded or threaded exports in a dedicated Emscripten 4.0.11 worker.
-- Editable Standard, Lean 2D, Offline 2D and Lean 3D presets plus validated custom feature recipes; `optimize=size` and LTO disabled on all targets.
-- The owner confirmed desktop preset smoke tests pass. Newly added versions, debug templates and Web targets need their own acceptance checks.
-- Tool-focused workbench with searchable build history, live compiler output, stage timing and worker heartbeats.
-- Windows retains Vulkan/OpenGL but omits D3D12, ANGLE, AccessKit and WinRT SDK integrations. See [build profiles](docs/build-profiles.md) for compatibility details.
-- Supabase Auth, Postgres, Row Level Security, and private Storage.
-- Redis + BullMQ for build jobs.
-- Dockerized Linux builder with GCC, MinGW-w64 (POSIX thread model), SCons, and ccache.
-  The Debian Bookworm toolchain uses GCC 12 and glibc 2.36; Linux templates target that glibc baseline or newer.
-- Build-result deduplication by canonical configuration hash.
+## Supported builds
 
-iOS, .NET, Web GDExtensions, custom modules, arbitrary `custom.py`, and arbitrary source patches remain out of scope.
+| Platform | Architectures | Versions |
+| --- | --- | --- |
+| Linux | x86_64 | Discovered official stable Godot 4 releases, 4.5 onward |
+| Windows | x86_64 | Same release policy as Linux |
+| Web | wasm32, single-threaded or threaded | Same release policy as Linux |
+| Android | ARM64, ARMv7, x86_64, x86 | 4.6.3 and 4.7.2 |
+| macOS | Apple Silicon, Intel, universal | 4.6.3 and 4.7.2; operator-provided SDK/toolchain required |
 
-## Architecture
+All targets offer release, debug, or both kinds, using size optimization with
+LTO disabled. Standard, Lean 2D, Offline 2D, and Lean 3D are editable presets.
+See [build profiles](docs/build-profiles.md) for restrictions and acceptance
+records. Desktop smoke results are owner-confirmed; the expanded version/Web/
+mobile matrix still needs its own runtime acceptance.
 
-Brand: **min.gd**. Repository/technical name: `mingd`; npm scope: `@mingd/`; builder image: `mingd/builder`. See [naming and rebrand rollout](docs/naming.md) for existing checkouts and caches. The future CLI name is `mingd`; no standalone CLI exists yet.
+iOS, .NET, arbitrary source repositories, custom modules, patches, and compiler
+commands are outside the supported build contract.
 
-Documentation: [index](docs/README.md), [build profiles](docs/build-profiles.md), [smoke-test procedure](docs/smoke-tests.md), [workbench and activity rollout](docs/workbench.md), [performance and compiler-cache diagnostics](docs/performance.md).
+## Run it
 
-```text
-Browser
-  |
-  v
-Next.js 16
-  |-- Supabase Auth
-  |-- Postgres build records
-  |-- private artifact downloads
-  |
-  +----> Redis / BullMQ ----> Linux builder container
-                                |-- official Godot source cache
-                                |-- SCons
-                                |-- GCC (Linux)
-                                |-- MinGW-w64 (Windows)
-                                |-- ccache
-                                |
-                                +----> Supabase Storage (.tpz)
-```
+Use npm workspaces and Node **24.21.0**, pinned in [.nvmrc](.nvmrc). Docker images
+currently use Node 22 independently of the host runtime.
 
-The web application never runs a compiler. The builder receives only validated, declarative build configuration. Do not accept arbitrary shell arguments, Python build files, C++ modules, or source patches from users.
+- **Develop locally:** follow [getting started](docs/getting-started.md) for
+  local Supabase, Next.js development, and workers.
+- **Deploy to a dedicated server:** follow [deployment](docs/deployment.md) and
+  [self-hosted Supabase](docs/self-hosted-supabase.md). Supabase runs separately
+  from this project's Compose stack.
+- **Configure processes:** use the [environment reference](docs/configuration.md).
+  Next.js development reads `apps/web/.env.local`; Compose reads the root `.env`.
 
-## Repo layout
-
-```text
-apps/web/                 Next.js App Router application
-packages/build-config/    shared schemas, presets, feature dependencies, SCons mapping
-services/builder/         BullMQ worker and Godot compiler orchestration
-supabase/                 local config + migrations
-infra/                    deployment notes
-docs/                     build profiles, acceptance status and validation procedures
-compose.yml               Redis and optional builder container
-AGENTS.md                  repository guardrails for coding agents
-```
-
-## Prerequisites
-
-- Node.js 24.21.0 LTS for development and CI (`.nvmrc`; existing Docker images use Node 22)
-- npm 10+
-- Docker / Docker Compose
-- Supabase CLI for local development
-
-For production self-hosting, use Supabase's maintained self-hosted Docker distribution rather than exposing the CLI development stack.
-
-GitHub Actions validates pull requests and pushes to `main` with application
-checks, disposable database tests, and web/maintenance Docker builds. See
-[continuous integration](docs/ci.md) for coverage and required-check setup.
-
-## Local setup
-
-1. Copy environment variables.
+For an already configured deployment, this builds and starts web, Redis,
+maintenance, and the Linux/Windows, Web, and Android workers:
 
 ```bash
-cp .env.example .env
-cp .env.example apps/web/.env.local
-```
-
-2. Install workspace dependencies.
-
-```bash
-npm install
-```
-
-3. Start local Supabase.
-
-```bash
-npx supabase start
-```
-
-Copy the local API URL, publishable/anon key, and secret/service-role key into
-both `.env` (Compose) and `apps/web/.env.local` (direct Next development). The
-names displayed by your Supabase CLI may differ from the newer publishable/secret
-terminology; use the client-safe key for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-and the server-only privileged key for `SUPABASE_SECRET_KEY`.
-
-4. Apply the migration if your local CLI did not do so automatically.
-
-```bash
-npm run db:local:reset
-```
-
-5. Start Redis.
-
-```bash
-docker compose up -d redis
-```
-
-6. Run the web app.
-
-```bash
-npm run dev:web
-```
-
-7. Run the builder either directly (requires the native Godot toolchains) or through Docker.
-
-```bash
-docker compose --profile builder up --build builder
-```
-
-Open `http://localhost:3000`.
-
-## Docker application services
-
-The `web` service builds `apps/web/Dockerfile` into a non-root Next.js standalone
-runtime on `${WEB_PORT:-3000}`. Compose loads the root `.env`; direct `next dev`
-uses `apps/web/.env.local`. Configure the public Supabase API URL so it is
-reachable by both the browser and the web container. Container loopback is not
-the host's loopback. Browser-safe `NEXT_PUBLIC_*` values are embedded at image
-build time, so rebuild the web image when changing them. The privileged key is
-passed only at runtime and is never a Docker build argument.
-
-Let existing jobs finish on the old workers before deploying recipe 9. Deploy
-the web app and workers together so queued hashes use matching recipe semantics.
-Recipe 9 corrects base stable release identifiers (`4.7.stable`, not
-`4.7.0.stable`) in template packages and invalidates earlier artifact hashes.
-Apply pending migrations before starting the expanded workers, including
-`20261005064025_build_matrix.sql`. Then run:
-
-```bash
-npm run db:migrate:check
-npm run db:migrate
 docker compose --profile builder up -d --build
 ```
 
-`web` and Redis are default services. The shared `builder` profile enables both
-the desktop (`builder`), Emscripten (`web-builder`) and Android (`android-builder`) workers. macOS has a separate optional `macos-builder` profile. Desktop jobs use
-`BUILDER_QUEUE_NAME`; Web jobs use `WEB_BUILDER_QUEUE_NAME` (default
-`godot-web-builds`). The Web worker has separate source, compiler-cache and job
-volumes. Start only the frontend with `npm run compose:web`, or only the Web
-worker with `npm run compose:web-builder:build`. A `/login` HTTP health check
-checks frontend readiness without requiring an authenticated session.
+Apply pending database migrations first. macOS is a separate optional profile.
+The deployment guide explains individual rebuild commands and safe updates.
 
-Use `npm run compose:builders` to start both workers, or
-`npm run compose:builders:build` to rebuild and start both. Their logs are available
-with `npm run compose:builders:logs`. The singular `compose:builder` and
-`compose:web-builder` commands (and their `:build` variants) target only that
-worker and its Redis dependency. Explicit service targets do not need a profile
-flag. `npm run compose:up` starts the default web/Redis services; the full-stack
-command above enables both workers too.
+## Documentation
 
-## Production Supabase configuration
+The [documentation index](docs/README.md) groups every guide by task.
 
-Supabase's CLI development stack is not intended to be internet-facing production infrastructure. For self-hosting, deploy the official Supabase Docker setup, configure backups and SMTP, and point min.gd at its public API endpoint. See `infra/self-hosted-supabase.md`.
+| I want to… | Guide |
+| --- | --- |
+| Understand the components and build lifecycle | [Architecture](docs/architecture.md) |
+| Pick features and install templates | [Build profiles](docs/build-profiles.md), [smoke tests](docs/smoke-tests.md) |
+| Save/share recipes and understand comparisons | [Recipes and comparisons](docs/recipes-and-comparisons.md) |
+| Import recipes or provision mobile workers | [Recipe files and mobile templates](docs/recipe-files-and-mobile-templates.md) |
+| Understand activity and cache measurements | [Workbench](docs/workbench.md), [performance](docs/performance.md) |
+| Manage accounts and administrators | [Accounts and administration](docs/accounts-and-admin.md) |
+| Operate jobs or diagnose failures | [Maintenance](docs/maintenance.md), [troubleshooting](docs/troubleshooting.md) |
+| Validate changes and understand CI | [Development and validation](docs/development.md), [CI](docs/ci.md) |
 
-Set the server-only `SUPABASE_DB_URL` in `.env` or the deployment environment
-to the percent-encoded Postgres connection URI for the self-hosted database.
-The database scripts load the repository-root `.env`; an already-exported
-deployment value takes precedence. Review pending migrations before applying
-them:
+## Repository
 
-```bash
-npm run db:status
-npm run db:migrate:check
-npm run db:migrate
+```text
+apps/web/               Next.js UI, Auth, and authorized API routes
+packages/build-config/  Shared schemas, presets, normalization, and build recipe
+services/builder/       Workers, compilation, packaging, and maintenance
+supabase/               Migrations, database tests, local config, email templates
+scripts/                Admin bootstrap, reference importer, source audits
+docs/                   Setup, product behavior, operations, and validation
 ```
 
-`db:migrate` only uses that explicit connection URI; it does not require or
-attempt to link a Supabase Cloud project. Do not use `db:local:reset` against
-production: it recreates the target database.
+Technical identifiers use `mingd` and `@mingd/`; visible branding uses `min.gd`.
+See [naming](docs/naming.md). Contributor and agent workflow rules live in
+[AGENTS.md](AGENTS.md).
 
-Common operational commands:
-
-```bash
-npm run compose:ps
-npm run compose:logs
-npm run compose:down
-```
-
-## Build lifecycle
-
-1. Authenticated user submits a `BuildConfig`.
-2. The web app normalizes the config and computes `SHA-256(build recipe version + canonical JSON)`.
-3. If a matching artifact already exists, a completed build record is created immediately and points at that artifact.
-4. Otherwise a `builds` row is created with `queued` status and a BullMQ job is emitted.
-5. Builder rechecks the artifact hash to avoid duplicate races.
-6. Builder verifies/caches the exact official Godot source archive.
-7. Builder generates only server-owned SCons options from the validated config.
-8. SCons builds the selected target and template kinds with only generated, allowlisted arguments.
-9. Builder validates platform binaries and nested template archives (Android native ELF/APK/AAR, macOS Mach-O, Web WASM, Linux ELF or Windows PE32+ output) (including the Windows console wrapper), packages Godot filenames, `version.txt`, and a README, then tests ZIP integrity before upload.
-10. Artifact is uploaded to the private `build-artifacts` Supabase bucket.
-11. Artifact metadata and final build status are written to Postgres.
-12. The download route checks ownership and generates a short-lived signed Storage URL.
-
-
-### Cache invalidation
-
-`packages/build-config/src/recipe.ts` contains `BUILD_RECIPE_VERSION`. The cache identity includes this version, canonical normalized configuration, and the pinned official source URL/checksum. Bump it whenever the worker toolchain, compiler policy, packaging layout, or SCons mapping changes enough that existing artifacts should not be reused.
-
-## Godot release discovery
-
-The version selector reads GitHub's official `godotengine/godot-builds` release
-catalog on the server. It includes stable Godot 4 releases from **4.5 onward**,
-including initial minor releases and all available patches, sorted newest first.
-Development snapshots, betas, release candidates, older branches and future major
-versions are excluded. 4.5 is the minimum for the current feature/module recipe;
-older branches need separate mappings and toolchain validation.
-
-The catalog refreshes hourly per process, follows pagination and accepts only
-official source assets with a SHA-256 digest. Submission and the worker resolve
-the selected release independently; source URL/checksum remain part of the cache
-identity, and the downloaded archive is verified before compilation. Users cannot
-supply repositories, Git refs, source URLs or checksums. Source-cache directories
-include the checksum so changed release bytes cannot reuse an old extracted tree.
-
-If GitHub is unavailable or rate limited, a process retains its last verified
-catalog and retries after one minute. A fresh process falls back to the two
-previously pinned releases and shows a notice in the selector. Newly published
-releases appear after refresh without a code change or redeployment. Discovery
-does not establish runtime acceptance; use the smoke tests for each new release.
-
-`packages/build-config/src/versions.ts` retains Godot `4.7.2-stable` as an offline fallback:
-
-- Official release archive: `godot-4.7.2-stable.tar.xz`
-- SHA-256: `a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481`
-
-The fallback also includes 4.6.3. Minimum-version policy lives in the shared
-build configuration package; lower it only after verifying the older build flags.
-
-## Important safety rules
-
-- Never run user-provided `custom.py`.
-- Never interpolate raw user strings into SCons command lines.
-- Use `spawn()`/argument arrays, never `shell: true`.
-- Keep the Supabase privileged key out of client bundles.
-- Keep artifact Storage private and issue signed URLs after ownership checks.
-- Treat the build container as disposable and deny unnecessary host mounts/capabilities in production.
-- Keep worker resource limits and compile timeouts configured for the host.
-- Validate the produced binaries before marking artifacts complete.
-
-## Dry-run mode
-
-Set `BUILDER_DRY_RUN=true` to test queue and database plumbing without compiling Godot. The worker will emit a small diagnostic `.tpz` describing the requested build. Never expose dry-run artifacts as real templates in production.
-
-## Real-template smoke test
-
-`tests/fixtures/smoke-project` is the repository-owned fixture for validating a completed real artifact. It has a small 2D scene using Node2D, Sprite2D, Label, CharacterBody2D, CollisionShape2D, AudioStreamPlayer, and GDScript.
-
-Follow [the smoke-test procedure](docs/smoke-tests.md) for both platforms and all four presets. Apply pending migrations, including `20261005044808_build_performance.sql`, before rebuilding the worker and restarting the web application; see [rollout instructions](docs/workbench.md). Use release export because these packages do not contain debug templates.
-
-The worker records the package SHA-256 and size, compiled-template size, Godot/version/source identity, platform, architecture, normalized configuration, and build recipe version. The database deliberately leaves an official-template comparison empty until an actual official reference artifact is measured; no comparison is estimated.
-
-## Current status snapshot
-
-The repository now includes the following implemented capabilities in code and documentation:
-
-- official Godot 4 release discovery with verified source metadata and cache identities;
-- Linux and Windows desktop template builds, plus Android and macOS worker support under toolchain-specific validation;
-- `.gdbuild` portability/import support, saved recipes and shared recipe links;
-- account and admin access controls, queue recovery and build visibility flows;
-- size-comparison and compatibility guidance based on measured official references where they exist;
-- workbench, build-history and performance diagnostics.
-
-These features are real, implemented and documented. However, they are not all production-accepted yet. Runtime acceptance remains pending for Android and macOS exports on real devices and Apple toolchains, and the self-hosted rollout still needs operator configuration for SMTP, admin provisioning and deployment validation.
-
-## Current focus
-
-1. Validate the expanded version/debug/Web build matrix and browser exports.
-2. Verify Android and macOS runtime acceptance on target devices and toolchains.
-3. Complete self-hosted rollout for [accounts and administration](docs/accounts-and-admin.md), including SMTP setup and SuperAdmin assignment.
-4. Finish the UX and validation pass for [saved/shared recipes, compatibility guidance and measured size comparisons](docs/recipes-and-comparisons.md).
-5. Finish the remaining UI review and authenticated end-to-end smoke tests.
-
-## License
-
-No project license is selected in this bootstrap. Add the license you intend to use before publishing the repository.
-
-Portable `.gdbuild` recipes, Android templates and optional macOS cross-compilation are described in [Recipe files and mobile templates](docs/recipe-files-and-mobile-templates.md). Android joins the `builder` profile; macOS uses its own optional profile and requires an operator-supplied Apple SDK/toolchain. Apply new migrations through your normal push workflow before using the new artifact targets.
-
-## Scheduled maintenance
-
-The `scheduled_maintenance` migration installs five named pg_cron jobs. Cron must
-be available/preloaded in Postgres (Supabase provides it); schedules use the
-configured cron timezone, normally GMT/UTC:
-
-| Job | Schedule | Behavior |
-| --- | --- | --- |
-| Stalled builds | Every five minutes | Flags active builds after five minutes without a heartbeat, including queued builds waiting that long. Does not fail/requeue them; existing BullMQ reconciliation handles recovery. Clears flags when activity resumes or a build finishes. |
-| Log retention | Daily 02:15 | Clears terminal build log tails after 30 days, up to 5,000 per run; keeps results, errors and performance metrics. Also prunes cron run history after 30 days. |
-| Daily statistics | Daily 02:00 | Summarizes terminal builds by UTC completion date and refreshes the last seven days. Stores success/failure counts, cache hits, average build/compile seconds and storage snapshots. |
-| Artifact cleanup | Sunday 03:00 | Requests backend deletion of unreferenced artifacts older than 90 days. Never removes artifacts referenced by any user's build or needed by an active build. |
-| Official releases | Daily 04:00 | Requests verified official release discovery and imports all supported platform/architecture reference measurements, one bounded archive per task. Includes Android/macOS for their supported Godot releases. |
-
-Artifact ownership is represented by `builds.user_id`, not by an owner on the
-shared artifact or its Storage object. A missing Storage owner is **not** evidence
-that a file is unused. Deleting an account cascades its build records; an artifact
-becomes eligible only once every build reference is gone and its grace period
-has elapsed. This does not expire completed builds or their downloads.
-
-Apply migrations using `npm run db:migrate:check` followed by `npm run db:migrate`
-for your configured self-hosted database. Start the dedicated backend with
-`docker compose up -d --build maintenance`. Compose starts this service alongside
-the web app on a normal `docker compose up`. It needs the root `.env` values
-`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `ARTIFACT_BUCKET`; no new secrets or
-public HTTP endpoint are required. Keep the bucket configuration consistent with
-all builders. Rebuild/restart builders with this migration: new uploads use unique
-delivery paths, and retired paths cannot be reused by older workers.
-
-Cron only requests backend work. The maintenance service polls every 30 seconds,
-claims tasks atomically with a 20-minute lease, bounds release imports to 15
-minutes, and retries failures after 15 minutes. Tasks survive service outages and
-the worker logs safe failure details to `docker compose logs maintenance` and
-stores the same reason for the admin dashboard. Raw upstream errors and child
-process output are not logged because they can include credentials. Tasks with
-expired leases are recovered. Storage deletion uses the Storage API; metadata
-retirement and deletion records commit together. Deletion records remain as
-path tombstones after success to protect concurrent uploads. Cleanup is bounded
-to 100 artifacts/files per task and continues while batches are full. It does not
-scan arbitrary Storage objects or local worker/source caches.
-
-Admin build tasks show overdue heartbeats; `/admin/metrics` shows daily snapshots,
-backend task status, and the last verified catalog refresh. Existing all-time
-metrics remain live. Historical storage snapshots are preserved when recent
-build statistics are recomputed.
-
-For local development, run `npx supabase db reset --local` and
-`npx supabase test db --local`. To run the backend without Docker, supply its
-server environment and run `npm run maintenance --workspace @mingd/builder`;
-Python 3 is required for verified archive measurements. Use `-- --once` for one
-poll. To request an immediate run from privileged SQL, call
-`select public.request_maintenance('release_refresh');` or
-`select public.request_maintenance('artifact_cleanup');`. Inspect named schedules
-in `cron.job`, SQL job outcomes in `cron.job_run_details`, and backend results in
-`public.maintenance_tasks`. The release-refresh task is requested initially when
-the migration is applied.
-
-The reference importer measures Android's `libgodot_android.so` inside each
-debug/release APK for ARM64, ARM32, x86_64 and x86_32. For macOS it measures each
-debug/release universal executable and its validated ARM64/x86_64 Mach-O slices,
-so thin builds compare against the matching thin slice. It excludes APK/app
-wrappers and runtime libraries. Coverage follows the shared build policy:
-Godot 4.6.3 and 4.7.2 require 22 reference rows; releases without Android/macOS
-build support require the original eight Linux/Windows/Web rows. Existing
-desktop-only inventories are automatically backfilled on the next release
-refresh. Rebuild the maintenance service to activate this importer update;
-the existing database schema already supports these reference platforms.
+No project `LICENSE` file is currently included. Godot and dependencies retain
+their own licenses.

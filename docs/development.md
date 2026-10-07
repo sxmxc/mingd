@@ -1,0 +1,146 @@
+# Development and validation
+
+Use [getting started](getting-started.md) to configure development services.
+Use [AGENTS.md](../AGENTS.md) for repository boundaries and change rules.
+Commands here run from the repository root.
+
+## Baseline checks
+
+```bash
+nvm use
+npm ci
+npm exec --workspace @mingd/web -- next typegen
+npm run typecheck
+npm test
+npm run build
+```
+
+`next typegen` prepares generated route types on a fresh checkout. Next.js 16
+loads the web config in the production phase for this command. The build uses
+configured public frontend settings; neither a successful typecheck nor a build
+establishes working Auth or database connectivity.
+
+Root scripts cover all applicable workspaces. `npm run build` builds web and
+runs the builder TypeScript build check; builder runtime uses `tsx` rather than
+a generated `dist` service. Use workspace commands for focused tests:
+
+```bash
+npm test --workspace @mingd/build-config
+npm test --workspace @mingd/web
+npm test --workspace @mingd/builder
+```
+
+For Next.js route/UI changes, exercise affected states in development and run the
+web build. For shared build-contract changes, validate both Next/Turbopack and
+Node/tsx consumers, including package resolution and cache semantics.
+
+## Test coverage and tool requirements
+
+| Checks | What they establish | Additional requirements |
+| --- | --- | --- |
+| Shared pure tests | Normalization, schemas, recipes/hashes, presets, versions, SCons arguments, comparisons, portable files | Node/npm |
+| Web tests | Rendering/access-flow helpers, request handling, account/UI invariants | Node/npm |
+| Builder tests | Process handling, archive/binary fixtures, performance, recovery, maintenance, reference measurement | Python 3, `zip`, `unzip`; some compiler checks opt in |
+| SQL tests | Migrations, constraints, ownership, roles, sharing, maintenance policies | Docker and disposable local Supabase Postgres |
+| Native smoke tests | Real template install, export, and game launch | Matching Godot editor and target OS/browser/device |
+
+Fixtures and SCons dry-runs do not establish runtime acceptance. See
+[smoke tests](smoke-tests.md) and the [acceptance record](build-profiles.md#acceptance-tracking).
+
+With a configured checkout, test inside the desktop image when host archive/
+compiler tools are missing:
+
+```bash
+docker compose build builder
+docker compose run --rm --no-deps -v "$PWD/scripts:/app/scripts:ro" --entrypoint npm builder test --workspace @mingd/builder
+```
+
+The image includes builder source/tests and shared configuration. The read-only
+`scripts/` mount supplies the official-reference measurement helper, which the
+desktop image does not copy. Fixture tests need no running production queue. To check unbuilt source edits,
+rebuild first; mounting the whole checkout over `/app` can hide image dependencies.
+macOS/Android fixture tests validate synthetic archives, not native compilers.
+
+## Database changes
+
+Create a new migration rather than changing deployed history:
+
+```bash
+npm run db:migration:new -- descriptive_name
+```
+
+On a disposable local project only:
+
+```bash
+npx supabase start
+npm run db:local:reset
+npx supabase test db --local
+```
+
+This reapplies the complete migration history, then tests all SQL files in
+`supabase/tests`. Reset destroys local data. Never point this workflow at the
+self-hosted production database. Production applies pending migrations using
+[deployment commands](deployment.md#database-migrations).
+
+## Direct worker development
+
+`npm run dev:builder` starts the desktop worker under `tsx watch`. Export the
+server variables or load root `.env`, and use writable host cache/work paths.
+A Web process needs its own toolchain and explicit routing, for example inside
+an environment already provisioned with Emscripten:
+
+```bash
+BUILDER_TARGET=web BUILDER_QUEUE_NAME=godot-web-builds npx dotenv -- npm run dev:builder
+```
+
+The current root `dev:web-builder` script references `@mingd/web-builder`, which
+is not a separate workspace. Use the shared builder command with the target
+settings above, or the supported Docker service. Desktop, Web, Android, and macOS
+all use `services/builder` with different toolchains/targets.
+
+Use `BUILDER_DRY_RUN=true` only for diagnostic pipeline checks in a disposable
+setup. Dry-run still downloads/verifies source and cannot produce a usable
+export template. Return to real mode for acceptance.
+
+## Opt-in compiler/source audits
+
+GCC/MinGW cache integration checks run when their tools are present; they require
+cold miss, warm hit from a different workspace, and matching object bytes.
+The optional exact-source SCons audit requires a verified cached source directory.
+For the pinned Godot 4.7.2 source in the desktop builder:
+
+```bash
+MINGD_GODOT_SOURCE=/cache/godot/4.7.2/a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/source
+docker compose run --rm --no-deps -e MINGD_GODOT_SOURCE="$MINGD_GODOT_SOURCE" --entrypoint node builder --import tsx --test services/builder/test/godot-source.test.ts
+```
+
+Confirm that path exists in the service's source-cache volume. Source paths are
+`<cache>/<version>/<source-sha256>/source`; use the resolved digest for other
+releases. The test copies source to a disposable workspace and checks flags/output names without compiling
+a full template. See [performance](performance.md) for measurement limits.
+
+`scripts/audit-build-matrix.mjs` runs discovered-release Linux/Windows/Web audits
+with three concurrent SCons dry-runs. Run it with `node --import tsx` inside a
+provisioned Web worker image, with `scripts/` available at `/app/scripts` and
+`GODOT_CACHE_DIR` set to a disposable writable cache. It downloads/verifies official
+sources and requires network access. Worker-config URL/key/Redis placeholders
+satisfy configuration loading; the audit does not connect to a database or queue.
+Do not run it against an active worker's mutable workspace.
+
+## Contribution checklist
+
+Keep changes within the owning component. Feature changes must update the shared
+schema, defaults/presets, normalization, guidance, SCons mapping, tests, and cache
+identity as needed. Never accept raw compiler/source/command inputs.
+
+Update setup/examples when configuration changes, and update the relevant guide
+plus [documentation index](README.md). Preserve user edits and deployed migration
+history. Review `git diff --check` and changes before submitting.
+
+Local screenshots, `.playwright-mcp/`, secrets, SDK/toolchain archives, and
+compiled artifacts are not source files. Ignore rules do not untrack files
+already committed; review staged files before committing. Test reports should
+state actual checks and skips, rather than repeating old success counts.
+
+[CI](ci.md) provides application/database/image gates. It currently does not
+compile every Godot target, test real Auth emails, or deploy production.

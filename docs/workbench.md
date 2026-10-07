@@ -1,54 +1,67 @@
-# Template workbench
+# Template workbench and activity
 
-The interface is organized around recipes, compiler activity and artifacts rather than a marketing dashboard. Signed-in users land on the build list. Search by platform, profile or build ID, filter by state, and open a build to inspect its recipe, output and artifact metadata.
+Signed-in users land on build history. Search by platform, profile, or build ID,
+filter by state, and open a build to inspect compiler activity, recipe, and artifact.
+The Builds menu includes history, new build, and saved recipes; the account menu
+provides settings/sign-out. SuperAdmins also see administrative navigation.
 
-The build monitor uses a desktop workbench layout, without a narrow centered content column: a compact toolbar places status beside live counters, with a slim horizontal stage rail underneath. The connected workspace gives the compiler console the remaining width beside a fixed 380px diagnostics pane. Performance, Artifact and Recipe tabs replace stacked inspector cards; stage timings use compact label/value rows, with detailed notes/counters expandable. Below 900px the workspace stacks; the toolbar wraps below 1100px, and small screens use two-column counters. Tabs support arrow keys, Home/End and visible focus. Polling, output-follow, worker liveness semantics and build execution are unchanged; this layout update requires no migration or worker restart.
+## Build monitor
 
-The header aligns with the build list's 1152px content width. The logo anchors the left side; Builds, Admin and the account avatar form a compact group on the right, with consistent spacing between controls. Builds contains All builds and New build. An avatar-only account dropdown contains account settings and sign-out, with identity details inside the dropdown. Menus support keyboard focus, Escape and outside-click dismissal. Header checks used a temporary synthetic account preview at 1920px, 768px, 390px and 320px with no page overflow; the preview route was removed. Earlier workbench layout checks used synthetic builds, not the owner's running job: desktop panes were measured at 1920px and visually inspected at 1440px, with no overflow at 390px; keyboard tabs, output-follow, completion/artifact visibility and failure messages were exercised. Rendering regression tests cover the tabset, activity strip, artifact reuse and failure information.
+The monitor places live counters and a stage rail above compiler output, with
+Performance, Artifact, and Recipe inspector tabs. At narrow widths the workspace
+stacks. Tabs support arrow keys, Home/End, visible focus, and reduced-motion
+preferences. Output-follow can be disabled to inspect earlier lines.
 
-## Rollout
+Build details poll every 2.5 seconds without overlapping requests, abort on
+unmount, and stop at terminal states. Active history refreshes every 10 seconds
+while visible. History timestamps use explicit `YYYY-MM-DD HH:mm:ss UTC` to
+keep server/browser rendering consistent.
 
-Apply all pending migrations before deploying the new worker and web app. The activity migration adds heartbeat/stage/output observations; `20261005044808_build_performance.sql` adds nullable, object-valued `performance_metrics`. Existing rows and ownership RLS are preserved; artifact storage stays private.
+## Interpret the observations
 
-For a linked hosted project, verify the linked project is the intended dedicated project, inspect pending migrations, then push:
+| Observation | Meaning |
+| --- | --- |
+| Heartbeat | Worker publishes every 10 seconds independently of compiler output |
+| Heartbeat under 45 seconds old | Recently observed worker activity; not proof the compiler is advancing |
+| Overdue heartbeat | UI warns that work may be stalled; a connection failure is shown separately |
+| Output tail | Bounded, sanitized 12,000-character compiler tail; quiet linking can be normal |
+| Output timestamp/bytes | Actual observations, not a completion estimate |
+| Stage and elapsed times | Wall-clock observations, not estimated time remaining |
+| Artifact reuse | Existing artifact fulfilled this request; compiler timings/cache counters may be absent |
 
-```bash
-npx supabase migration list --linked
-npx supabase db push --linked --dry-run
-npx supabase db push --linked
-docker compose --profile builder up -d --build builder
-```
+The stage sequence covers source preparation/verification, workspace,
+compilation/linking, validation, packaging, upload, and readiness. Internal stage
+markers are not a meaningful compilation percentage and are not shown as one.
+Completed builds stop their clocks.
 
-For dedicated self-hosted Supabase, apply this same source-controlled SQL through your established migration workflow and record the migration in that workflow. Do not reset the dedicated database. A local development stack can be reproduced with `npx supabase start` and `npx supabase db reset --local` (reset destroys local development data).
+Known credentials/common token patterns are redacted from persisted output.
+Local command logs are capped at 2 MiB per command. Daily maintenance clears
+older terminal log tails while retaining results and metrics.
 
-If your established self-hosted workflow uses the CLI database URL, run `npx supabase migration list --db-url "$MINGD_DATABASE_URL"`, then `npx supabase db push --db-url "$MINGD_DATABASE_URL" --dry-run` and `npx supabase db push --db-url "$MINGD_DATABASE_URL"`. This variable is your private, URL-encoded Postgres connection string, not the Supabase HTTP API URL. Do not commit it or paste it into logs.
+## Inspector tabs
 
-Restart the web development process or rebuild/redeploy it. No environment changes are needed. Keep root builder credentials and web server credentials privileged, and keep `BUILDER_DRY_RUN=false`.
+**Performance** shows observed durations, linking, process peak RSS, and per-build
+compiler-cache counters when available. Older builds can have null measurements.
+Read [measurement scope](performance.md) before interpreting memory/cache values.
 
-## Activity semantics
+**Artifact** shows package/main-binary sizes, SHA-256, recipe version, and eligible
+[official-template comparisons](recipes-and-comparisons.md#measured-comparisons).
+Metadata and signed downloads require ownership or SuperAdmin access; private
+Storage paths are not returned as ordinary build-detail fields.
 
-- Worker heartbeat: published every 10 seconds during a running job, independently of compiler output. Under 45 seconds old means recently observed worker activity, not proof the compiler is advancing.
-- Overdue heartbeat: the UI stops its active animation and warns that the worker may be stalled. A network failure is shown separately and polling retries.
-- Compiler output: a bounded, sanitized 12,000-character tail, updated with heartbeats and stage transitions. Known credentials and common token patterns are redacted. Local process logs are capped at 2 MiB per command.
-- Last output and output bytes: actual observed output, not an invented completion estimate. Linking can remain quiet while the worker is alive.
-- Stage pipeline: queue, source preparation/verification, workspace, compilation, binary validation, packaging, upload, ready. Percentages remain internal stage markers; the UI does not present them as compilation progress.
-- Elapsed and stage time: wall-clock observations, not estimated time remaining. Completed builds stop their clocks. A cache hit may have no worker/compiler history.
-- Performance panel: persisted stage durations, observed linking interval, compiler-process peak RSS and per-build ccache hits/misses. See [measurement scope and benchmarking](performance.md). Older builds show measurements unavailable; artifact reuse is not shown as compiler-cache effectiveness.
+**Recipe** shows the normalized recipe and can open it in the editor for a new
+build. Saved/shared/portable recipes preserve semantic settings, not compiler
+commands. See [recipes](recipes-and-comparisons.md).
 
-Build detail polling runs every 2.5 seconds without overlapping requests, stops at terminal states, and aborts on unmount. The active build list refreshes every 10 seconds while visible. Output-follow can be disabled to inspect earlier lines. Keyboard focus and reduced-motion preferences are supported.
+## Deployment and validation
 
-Build-history timestamps use an explicit UTC format (`YYYY-MM-DD HH:mm:ss UTC`) so the server and browser render identical text regardless of locale or timezone. Regression tests run with the web workspace's `npm test` command and the root test suite.
+Apply the complete migration history and deploy compatible web/workers using
+[deployment](deployment.md); historical activity/performance migrations are
+already part of that history. Avoid one-off rollout instructions tied to an
+older feature version.
 
-Artifact size, main-binary size, SHA-256 and recipe version are exposed only after build ownership or SuperAdmin access is verified; storage paths are not returned. See [accounts and administration](accounts-and-admin.md) for role checks and queue recovery.
-
-## Validation checklist
-
-Test queued, compiling with output, quiet compilation, overdue heartbeat, network loss/recovery, complete, failed and cache-hit states. Check narrow screens, keyboard navigation, reduced motion, output-follow and unauthorized build access. Native Lean 2D compilation/export/launch on Linux and Windows still requires the [smoke procedure](smoke-tests.md); unit fixtures are not executable acceptance evidence.
-
-Implementation validation: workspace typecheck and 13 shared/builder tests passed, including Linux ELF packaging, Windows GUI/console packaging, profile/hash guards and activity redaction. Browser checks used a temporary local fixture (removed afterward), covering queued/active/stale/complete/failed states, connection and submission errors, 390px layout without horizontal overflow, desktop layout, keyboard focus and reduced-motion animation suppression. Unauthenticated page redirects and API 401 responses were checked.
-
-Customization/performance pass: workspace typecheck, production Next/Turbopack build in Docker, and 26 regression tests passed. The separate opt-in exact-source audit also passed all eight preset/target SCons dry-runs, observing ccache launchers and release output names. GCC and MinGW tests each required a cold miss, a warm hit from a different workspace and identical object bytes. Browser checks exercised preset loading/reset, parent dependencies, codec dependencies, fallback text, normalized Windows submission (intercepted; no real job queued), the performance panel and a 390px layout without overflow. The temporary UI fixture was removed. New presets/custom recipes still require full compilation and native acceptance; these checks are not evidence of a full-build speedup.
-
-The activity migration and nonnegative byte constraint were tested in disposable Supabase Postgres with a minimal Storage fixture; ownership RLS returned only one user's row. This was not a full Supabase-stack reset or verification of the dedicated project's current state. Apply the migration there before deployment.
-
-The complete migration history, including performance metrics, was also applied in disposable Supabase Postgres. Two synthetic owners verified one-row visibility and blocked authenticated updates; non-object metrics were rejected. That container and its synthetic data were removed. No dedicated-project migration or worker deployment was performed by these tests.
+For UI changes, exercise queued, active-output, quiet, overdue-heartbeat,
+network-loss/recovery, complete, failed, and cache-hit states. Check narrow
+screens, keyboard navigation, reduced motion, output-follow, artifact availability,
+and unauthorized access. Rendering/formatting tests are in the web workspace.
+Real export/launch acceptance follows [smoke tests](smoke-tests.md).
