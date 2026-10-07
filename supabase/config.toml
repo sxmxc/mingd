@@ -1,6 +1,6 @@
 # Legacy local-stack identity; retain to keep existing containers/data attached.
 # This is not the product/repository name. See docs/naming.md before changing.
-project_id = "gdslimmer"
+project_id = "mingd-local"
 
 [api]
 enabled = true

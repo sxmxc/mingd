@@ -111,11 +111,15 @@ and its operator-supplied archive SHA-256. Architecture and selected kinds remai
 part of normalized configuration. Bump the relevant platform identity whenever
 its toolchain or compilation/packaging semantics change.
 
-Official size comparisons remain unavailable for Android and macOS until exact
-matching references are measured and verified. The existing reference importer
-supports Linux, Windows and Web only; it must be extended before adding these
-measurements. Never compare an APK's compressed size to an engine library, or
-a thin Mach-O binary to a universal official binary.
+The official reference importer supports all five platforms. For Android it
+measures the engine's ELF shared library inside each debug/release APK for every
+supported ABI. For macOS it validates the universal Mach-O executables and records
+both their full lengths and their ARM64/x86_64 slice lengths. Comparisons require
+exact release, architecture and template-kind matches, using engine binary bytes
+rather than APK/app wrapper sizes. Maintenance backfills older desktop-only
+reference inventories. Coverage follows the build policy: Android/macOS rows are
+required for Godot 4.6.3 and 4.7.2; other supported releases retain desktop/Web
+coverage. The archive is verified against its official SHA-256 before measuring.
 
 ## Validation and acceptance
 

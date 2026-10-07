@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,7 +28,7 @@ function fat(wide: boolean) {
   return bytes;
 }
 async function fixture(dir: string, mutate?: (entries: ZipEntry[]) => void) {
-  const entries: ZipEntry[] = [{ name: "templates/version.txt", contents: "4.7.2.stable\n" }];
+  const entries: ZipEntry[] = [{ name: "templates/version.txt", contents: Buffer.from("4.7.2.stable\n") }];
   for (const kind of ["debug", "release"]) {
     const pe = Buffer.alloc(256); pe.write("MZ"); pe.writeUInt32LE(64, 60); pe.write("PE\0\0", 64); pe.writeUInt16LE(0x8664, 68); pe.writeUInt16LE(0x20b, 88); pe.writeUInt16LE(2, 156);
     entries.push({ name: `templates/windows_${kind}_x86_64.exe`, contents: pe });
@@ -36,18 +36,18 @@ async function fixture(dir: string, mutate?: (entries: ZipEntry[]) => void) {
     entries.push({ name: `templates/linux_${kind}.x86_64`, contents: elf });
     const wasm = join(dir, `wasm-${kind}.zip`);
     await writeZip(wasm, [{ name: "godot.wasm", contents: Buffer.from([0, 97, 115, 109, 1, 0, 0, 0, 1]) }]);
-    entries.push({ name: `templates/web_${kind}.zip`, path: wasm }, { name: `templates/web_nothreads_${kind}.zip`, path: wasm });
+    entries.push({ name: `templates/web_${kind}.zip`, contents: await readFile(wasm) }, { name: `templates/web_nothreads_${kind}.zip`, contents: await readFile(wasm) });
     const libraries: ZipEntry[] = [];
     for (const [abi, elfClass, machine, size] of [["arm64-v8a", 2, 183, 100], ["armeabi-v7a", 1, 40, 110], ["x86_64", 2, 62, 120], ["x86", 1, 3, 130]] as const) {
       const library = Buffer.alloc(size); library.set([127, 69, 76, 70, elfClass, 1]); library.writeUInt16LE(3, 16); library.writeUInt16LE(machine, 18);
       libraries.push({ name: `lib/${abi}/libgodot_android.so`, contents: library }, { name: `lib/${abi}/libc++_shared.so`, contents: Buffer.alloc(300) });
     }
     const apk = join(dir, `android-${kind}.apk`); await writeZip(apk, libraries);
-    entries.push({ name: `templates/android_${kind}.apk`, path: apk });
+    entries.push({ name: `templates/android_${kind}.apk`, contents: await readFile(apk) });
   }
   const macos = join(dir, "macos.zip");
   await writeZip(macos, ["debug", "release"].map(kind => ({ name: `macos_template.app/Contents/MacOS/godot_macos_${kind}.universal`, contents: fat(kind === "debug") })));
-  entries.push({ name: "templates/macos.zip", path: macos });
+  entries.push({ name: "templates/macos.zip", contents: await readFile(macos) });
   mutate?.(entries);
   const archive = join(dir, "official.tpz"); await writeZip(archive, entries); return archive;
 }

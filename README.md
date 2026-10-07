@@ -302,7 +302,7 @@ configured cron timezone, normally GMT/UTC:
 | Log retention | Daily 02:15 | Clears terminal build log tails after 30 days, up to 5,000 per run; keeps results, errors and performance metrics. Also prunes cron run history after 30 days. |
 | Daily statistics | Daily 02:00 | Summarizes terminal builds by UTC completion date and refreshes the last seven days. Stores success/failure counts, cache hits, average build/compile seconds and storage snapshots. |
 | Artifact cleanup | Sunday 03:00 | Requests backend deletion of unreferenced artifacts older than 90 days. Never removes artifacts referenced by any user's build or needed by an active build. |
-| Official releases | Daily 04:00 | Requests verified official release discovery and imports missing Linux/Windows/Web reference measurements, one bounded archive per task. Android/macOS measurement support is unchanged. |
+| Official releases | Daily 04:00 | Requests verified official release discovery and imports all supported platform/architecture reference measurements, one bounded archive per task. Includes Android/macOS for their supported Godot releases. |
 
 Artifact ownership is represented by `builds.user_id`, not by an owner on the
 shared artifact or its Storage object. A missing Storage owner is **not** evidence
@@ -343,3 +343,14 @@ poll. To request an immediate run from privileged SQL, call
 in `cron.job`, SQL job outcomes in `cron.job_run_details`, and backend results in
 `public.maintenance_tasks`. The release-refresh task is requested initially when
 the migration is applied.
+
+The reference importer measures Android's `libgodot_android.so` inside each
+debug/release APK for ARM64, ARM32, x86_64 and x86_32. For macOS it measures each
+debug/release universal executable and its validated ARM64/x86_64 Mach-O slices,
+so thin builds compare against the matching thin slice. It excludes APK/app
+wrappers and runtime libraries. Coverage follows the shared build policy:
+Godot 4.6.3 and 4.7.2 require 22 reference rows; releases without Android/macOS
+build support require the original eight Linux/Windows/Web rows. Existing
+desktop-only inventories are automatically backfilled on the next release
+refresh. Rebuild the maintenance service to activate this importer update;
+the existing database schema already supports these reference platforms.
