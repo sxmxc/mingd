@@ -114,7 +114,7 @@ async function processBuild(job: Job<BuildJob>) {
 
     // Immutable upload identity prevents retry/racing workers from overwriting
     // bytes whose metadata another worker has already committed.
-    const storagePath = `${config.godotVersion}/${config.platform}/${artifactHash}/${digest}/${basename(artifactPath)}`;
+    const storagePath = `${config.godotVersion}/${config.platform}/${artifactHash}/${digest}/${deliveryId}/${basename(artifactPath)}`;
     measurements.transition("uploading");
     await updateBuild(buildId, { ...activity.snapshot(), performance_metrics: measurements.snapshot(), status: "uploading", stage: "Uploading artifact", stage_started_at: new Date().toISOString(), progress: 92 });
     const bytes = await readFile(artifactPath);
@@ -143,10 +143,14 @@ async function processBuild(job: Job<BuildJob>) {
       build_recipe_version: BUILD_RECIPE_VERSION,
       binary_size_bytes: binarySizeBytes,
       is_dry_run: env.dryRun,
-    }, { onConflict: "config_hash", ignoreDuplicates: true }).select("id").maybeSingle();
+    }, { onConflict: "config_hash", ignoreDuplicates: true }).select("id,storage_path").maybeSingle();
     if (artifactError) throw new Error(`Artifact metadata write failed: ${artifactError.message}`);
-    const winner = artifact ?? (await supabase.from("artifacts").select("id").eq("config_hash", artifactHash).single()).data;
+    const winner = artifact ?? (await supabase.from("artifacts").select("id,storage_path").eq("config_hash", artifactHash).single()).data;
     if (!winner) throw new Error("Artifact metadata could not be confirmed.");
+    if (winner.storage_path !== storagePath) {
+      const cleanup = await supabase.from("artifact_deletions").upsert({ storage_path: storagePath }, { onConflict: "storage_path", ignoreDuplicates: true });
+      if (cleanup.error) console.warn("Duplicate artifact cleanup could not be recorded.");
+    }
 
     await updateBuild(buildId, { ...activity.snapshot(), performance_metrics: measurements.finish(), artifact_id: winner.id, status: "complete", stage: env.dryRun ? "Dry-run artifact ready" : "Template ready", progress: 100, completed_at: new Date().toISOString() });
     await job.updateProgress(100);

@@ -14,13 +14,16 @@ function normalizeQueueCounts(counts: Record<string, number> | null): QueueCount
 export default async function AdminMetricsPage() {
   await requireSuperAdmin();
   const admin = createAdminClient();
-  const [stats, users, linux, web, android, macos] = await Promise.all([
+  const [stats, users, linux, web, android, macos, daily, maintenance, releases] = await Promise.all([
     admin.rpc("admin_build_stats"),
     admin.auth.admin.listUsers({ page: 1, perPage: 1 }),
     queueOperation(getBuildQueue("linux").getJobCounts("wait", "active", "delayed", "failed")).catch(() => null),
     queueOperation(getBuildQueue("web").getJobCounts("wait", "active", "delayed", "failed")).catch(() => null),
     queueOperation(getBuildQueue("android").getJobCounts("wait", "active", "delayed", "failed")).catch(() => null),
     queueOperation(getBuildQueue("macos").getJobCounts("wait", "active", "delayed", "failed")).catch(() => null),
+    admin.from("build_statistics_daily").select("*").order("day", { ascending: false }).limit(14),
+    admin.from("maintenance_tasks").select("name,requested,lease_until,completed_at,last_error,result").order("name"),
+    admin.from("official_release_catalog").select("versions,refreshed_at").eq("id", true).maybeSingle(),
   ]);
   if (stats.error) return <p role="alert" className="text-[var(--danger)]">Could not load build metrics.</p>;
 
@@ -88,6 +91,24 @@ export default async function AdminMetricsPage() {
         </div>)}
       </dl>
     </details>
+    <div className="mt-6">
+      <h3 className="text-base font-semibold">Daily build results</h3>
+      <p className="mt-1 text-xs text-[var(--muted)]">Grouped by completion date in UTC. Success rate excludes active builds; compile averages use recorded compile-stage time.</p>
+      {daily.error ? <p role="alert">Daily statistics unavailable. Apply the maintenance migration.</p> : <div className="mt-3 overflow-x-auto rounded-lg border border-[var(--border)]"><table className="admin-table"><thead><tr><th>Day (UTC)</th><th>Complete / failed</th><th>Success rate</th><th>Cache hits</th><th>Avg. build / compile</th><th>Storage snapshot</th></tr></thead><tbody>{(daily.data ?? []).map(row => <tr key={row.day}>
+        <td>{row.day}</td><td>{row.complete} / {row.failed}</td><td>{row.builds ? `${(row.complete / row.builds * 100).toFixed(1)}%` : "—"}</td><td>{row.cached}</td>
+        <td>{row.average_build_seconds == null ? "—" : `${(Number(row.average_build_seconds) / 60).toFixed(1)} min`} / {row.average_compile_seconds == null ? "—" : `${(Number(row.average_compile_seconds) / 60).toFixed(1)} min`}</td>
+        <td>{(row.artifact_bytes / 1048576).toFixed(1)} MiB · {row.artifacts} artifacts</td>
+      </tr>)}</tbody></table>{!daily.data?.length && <p className="p-4 text-sm">No daily snapshots yet.</p>}</div>}
+    </div>
+    <div className="mt-6">
+      <h3 className="text-base font-semibold">Scheduled maintenance</h3>
+      {maintenance.error ? <p role="alert">Maintenance status unavailable.</p> : <ul className="mt-3 space-y-3 text-sm">{(maintenance.data ?? []).map(task => <li key={task.name}>
+        <span className="font-medium">{task.name === "artifact_cleanup" ? "Orphaned artifact cleanup" : "Official release refresh"}</span>: {task.last_error ? "Retry pending" : task.lease_until ? "Running" : task.requested ? "Pending" : "Idle"}
+        <p className="text-xs text-[var(--muted)]">Last completed: {task.completed_at ? new Date(task.completed_at).toISOString() : "Never"}</p>
+        {task.last_error && <p className="text-xs text-[var(--danger)]">{task.last_error}</p>}
+      </li>)}</ul>}
+      <p className="mt-3 text-xs text-[var(--muted)]">{releases.error ? "Release catalog status unavailable." : releases.data ? `Catalog contains ${releases.data.versions.length} verified releases; refreshed ${new Date(releases.data.refreshed_at).toISOString()}.` : "Waiting for the first official release refresh."}</p>
+    </div>
     <p className="mt-4 text-xs leading-5 text-[var(--muted)]">Queue counts reflect Redis; retained failed queue jobs can include previous attempts and are distinct from failed build records. Average successful build duration excludes requests served from the artifact cache.</p>
   </section>;
 }

@@ -289,3 +289,57 @@ These features are real, implemented and documented. However, they are not all p
 No project license is selected in this bootstrap. Add the license you intend to use before publishing the repository.
 
 Portable `.gdbuild` recipes, Android templates and optional macOS cross-compilation are described in [Recipe files and mobile templates](docs/recipe-files-and-mobile-templates.md). Android joins the `builder` profile; macOS uses its own optional profile and requires an operator-supplied Apple SDK/toolchain. Apply new migrations through your normal push workflow before using the new artifact targets.
+
+## Scheduled maintenance
+
+The `scheduled_maintenance` migration installs five named pg_cron jobs. Cron must
+be available/preloaded in Postgres (Supabase provides it); schedules use the
+configured cron timezone, normally GMT/UTC:
+
+| Job | Schedule | Behavior |
+| --- | --- | --- |
+| Stalled builds | Every five minutes | Flags active builds after five minutes without a heartbeat, including queued builds waiting that long. Does not fail/requeue them; existing BullMQ reconciliation handles recovery. Clears flags when activity resumes or a build finishes. |
+| Log retention | Daily 02:15 | Clears terminal build log tails after 30 days, up to 5,000 per run; keeps results, errors and performance metrics. Also prunes cron run history after 30 days. |
+| Daily statistics | Daily 02:00 | Summarizes terminal builds by UTC completion date and refreshes the last seven days. Stores success/failure counts, cache hits, average build/compile seconds and storage snapshots. |
+| Artifact cleanup | Sunday 03:00 | Requests backend deletion of unreferenced artifacts older than 90 days. Never removes artifacts referenced by any user's build or needed by an active build. |
+| Official releases | Daily 04:00 | Requests verified official release discovery and imports missing Linux/Windows/Web reference measurements, one bounded archive per task. Android/macOS measurement support is unchanged. |
+
+Artifact ownership is represented by `builds.user_id`, not by an owner on the
+shared artifact or its Storage object. A missing Storage owner is **not** evidence
+that a file is unused. Deleting an account cascades its build records; an artifact
+becomes eligible only once every build reference is gone and its grace period
+has elapsed. This does not expire completed builds or their downloads.
+
+Apply migrations using `npm run db:migrate:check` followed by `npm run db:migrate`
+for your configured self-hosted database. Start the dedicated backend with
+`docker compose up -d --build maintenance`. Compose starts this service alongside
+the web app on a normal `docker compose up`. It needs the root `.env` values
+`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `ARTIFACT_BUCKET`; no new secrets or
+public HTTP endpoint are required. Keep the bucket configuration consistent with
+all builders. Rebuild/restart builders with this migration: new uploads use unique
+delivery paths, and retired paths cannot be reused by older workers.
+
+Cron only requests backend work. The maintenance service polls every 30 seconds,
+claims tasks atomically with a 20-minute lease, bounds release imports to 15
+minutes, and retries failures after 15 minutes. Tasks survive service outages and
+expired leases are recovered. Storage deletion uses the Storage API; metadata
+retirement and deletion records commit together. Deletion records remain as
+path tombstones after success to protect concurrent uploads. Cleanup is bounded
+to 100 artifacts/files per task and continues while batches are full. It does not
+scan arbitrary Storage objects or local worker/source caches.
+
+Admin build tasks show overdue heartbeats; `/admin/metrics` shows daily snapshots,
+backend task status, and the last verified catalog refresh. Existing all-time
+metrics remain live. Historical storage snapshots are preserved when recent
+build statistics are recomputed.
+
+For local development, run `npx supabase db reset --local` and
+`npx supabase test db --local`. To run the backend without Docker, supply its
+server environment and run `npm run maintenance --workspace @mingd/builder`;
+Python 3 is required for verified archive measurements. Use `-- --once` for one
+poll. To request an immediate run from privileged SQL, call
+`select public.request_maintenance('release_refresh');` or
+`select public.request_maintenance('artifact_cleanup');`. Inspect named schedules
+in `cron.job`, SQL job outcomes in `cron.job_run_details`, and backend results in
+`public.maintenance_tasks`. The release-refresh task is requested initially when
+the migration is applied.

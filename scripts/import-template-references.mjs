@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify, parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { isSupportedGodotVersion, godotVersionIdentifier } from "@mingd/build-config";
+import { isSupportedGodotVersion, godotVersionIdentifier, officialTemplateReferenceTargets, validateTemplateReferenceMeasurements } from "@mingd/build-config";
 
 const { values } = parseArgs({ options: { version: { type: "string" }, archive: { type: "string" }, "dry-run": { type: "boolean", default: false } } });
 if (!isSupportedGodotVersion(values.version ?? "") || !values.archive) throw new Error("Usage: node --import tsx scripts/import-template-references.mjs --version 4.7.2 --archive /path/to/official.tpz [--dry-run]");
@@ -26,10 +26,9 @@ const hash = createHash("sha256");
 for await (const chunk of createReadStream(values.archive)) hash.update(chunk);
 const digest = hash.digest("hex");
 if (`sha256:${digest}` !== asset.digest) throw new Error("Official archive SHA-256 verification failed.");
-const { stdout } = await promisify(execFile)("python3", [fileURLToPath(new URL("./measure-official-templates.py", import.meta.url)), values.archive, godotVersionIdentifier(version)], { timeout: 120000, maxBuffer: 65536 });
+const { stdout } = await promisify(execFile)("python3", [fileURLToPath(new URL("./measure-official-templates.py", import.meta.url)), values.archive, godotVersionIdentifier(version), JSON.stringify(officialTemplateReferenceTargets(version))], { timeout: 120000, maxBuffer: 65536 });
 const measuredAt = new Date().toISOString();
-const rows = JSON.parse(stdout).map(row => ({ ...row, godot_version: version, archive_sha256: digest, source_url: sourceUrl, measured_at: measuredAt }));
-if (rows.length !== 8 || rows.some(row => !Number.isSafeInteger(row.binary_size_bytes) || row.binary_size_bytes <= 0)) throw new Error("Official template measurements are incomplete.");
+const rows = validateTemplateReferenceMeasurements(version, JSON.parse(stdout)).map(row => ({ ...row, godot_version: version, archive_sha256: digest, source_url: sourceUrl, measured_at: measuredAt }));
 if (values["dry-run"]) console.log(JSON.stringify(rows, null, 2));
 else {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;

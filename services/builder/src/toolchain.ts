@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { constants } from "node:fs";
+import { access, readFile, stat } from "node:fs/promises";
+import { delimiter, join } from "node:path";
 import { promisify } from "node:util";
 import type { BuildConfig } from "@mingd/build-config";
 const exec = promisify(execFile);
@@ -14,7 +15,19 @@ export async function verifyPlatformToolchain(config: BuildConfig, sourceDir: st
     const settings = JSON.parse(await readFile(join(root, "target/SDK/MacOSX27.0.sdk/SDKSettings.json"), "utf8"));
     if (settings.Version !== "27.0") throw new Error("macOS worker requires the verified macOS 27.0 SDK.");
     for (const architecture of ["arm64", "x86_64"]) await exec(join(root, `target/bin/${architecture}-apple-darwin27-clang++`), ["--version"], { timeout: 10000 });
-    await exec("lipo", ["-version"], { timeout: 10000 });
+    // cctools lipo has no version flag. Check the same PATH used by packaging;
+    // the actual create/verify_arch operations validate it there.
+    let lipoAvailable = false;
+    for (const directory of (process.env.PATH ?? "").split(delimiter)) {
+      const path = join(directory, "lipo");
+      try {
+        await access(path, constants.X_OK);
+        if ((await stat(path)).isFile()) { lipoAvailable = true; break; }
+      } catch (error) {
+        if (!["ENOENT", "ENOTDIR", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+      }
+    }
+    if (!lipoAvailable) throw new Error("macOS cross-compilation requires an executable lipo on PATH.");
   }
   if (config.platform === "android") {
     const sdk = process.env.ANDROID_HOME;

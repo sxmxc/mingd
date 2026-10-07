@@ -1,16 +1,54 @@
 import { assertRealBuildSupported } from "./scons.ts";
 import type { Platform, TemplateKind } from "./schema.ts";
+import { PLATFORM_ARCHITECTURES, platformVersionSupported } from "./platforms.ts";
+import { isSupportedGodotVersion } from "./versions.ts";
 
 export type TemplateReference = {
   godot_version: string; platform: Platform; architecture: string; template_kind: TemplateKind;
   web_threads: boolean; binary_size_bytes: number; archive_sha256: string; source_url: string; measured_at: string;
 };
+export type TemplateReferenceTarget = Pick<TemplateReference, "platform" | "architecture" | "template_kind" | "web_threads">;
+export type TemplateReferenceMeasurement = TemplateReferenceTarget & { binary_size_bytes: number };
+
+/** Reference coverage follows the same release/architecture policy as builds. */
+export function officialTemplateReferenceTargets(version: string): TemplateReferenceTarget[] {
+  if (!isSupportedGodotVersion(version)) throw new Error("Unsupported Godot version.");
+  return (Object.keys(PLATFORM_ARCHITECTURES) as Platform[])
+    .filter(platform => platformVersionSupported(platform, version))
+    .flatMap(platform => PLATFORM_ARCHITECTURES[platform].flatMap(architecture =>
+      (["release", "debug"] as TemplateKind[]).flatMap(template_kind =>
+        (platform === "web" ? [false, true] : [false]).map(web_threads =>
+          ({ platform, architecture, template_kind, web_threads })))));
+}
+
+export function templateReferenceIdentity(row: TemplateReferenceTarget): string {
+  return `${row.platform}/${row.architecture}/${row.template_kind}/${row.web_threads}`;
+}
+
+/** Reject partial imports, duplicates and sizes that cannot be represented exactly. */
+export function validateTemplateReferenceMeasurements(version: string, input: unknown): TemplateReferenceMeasurement[] {
+  const targets = officialTemplateReferenceTargets(version);
+  if (!Array.isArray(input) || input.length !== targets.length) throw new Error("Official template measurements are incomplete.");
+  const rows = new Map<string, TemplateReferenceMeasurement>();
+  for (const row of input) {
+    if (!row || typeof row !== "object" || !Number.isSafeInteger(row.binary_size_bytes) || row.binary_size_bytes <= 0
+      || typeof row.web_threads !== "boolean") throw new Error("Invalid official template measurement.");
+    const identity = templateReferenceIdentity(row);
+    if (rows.has(identity)) throw new Error("Duplicate official template measurement.");
+    rows.set(identity, row);
+  }
+  return targets.map(target => {
+    const row = rows.get(templateReferenceIdentity(target));
+    if (!row) throw new Error("Official template measurements are incomplete.");
+    return { ...target, binary_size_bytes: row.binary_size_bytes };
+  });
+}
 export type SizeComparison = {
   officialBytes: number; customBytes: number; savedBytes: number; percentSaved: number;
   measurement: "executables" | "wasm" | "libraries"; references: TemplateReference[];
 };
 
-/** Compare main executables/WASM only. Require a complete matching reference set. */
+/** Compare main executables, native engine libraries or WASM. Require matching kinds and architectures. */
 export function compareTemplateSize(input: unknown, bytes: number | null, dryRun: boolean, references: TemplateReference[]): SizeComparison | null {
   if (dryRun || !Number.isSafeInteger(bytes) || bytes! <= 0) return null;
   let config;
