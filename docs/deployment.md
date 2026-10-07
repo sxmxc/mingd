@@ -76,6 +76,86 @@ This starts web, Redis, maintenance, desktop, Web, and Android. With a verified
 docker compose --profile builder --profile macos-builder up -d --build
 ```
 
+### Build here, pull on production (GHCR)
+
+All six application images support a shared repository prefix and release tag.
+For example, put these values in root `.env` on both hosts:
+
+```dotenv
+IMAGE_PREFIX=ghcr.io/sxmxc/mingd
+IMAGE_TAG=latest
+```
+
+This selects `ghcr.io/sxmxc/mingd/web:latest`,
+`maintenance`, `builder`, `web-builder`, `android-builder`, and `macos-builder`
+under the same prefix/tag. Redis continues to use `redis:8-alpine`.
+Publish both `latest` and a fresh release identifier (for example `v0.1.0`)
+for each release, and build all release images from the same checkout.
+Keep the Compose checkout on production at that revision.
+The build host and production must use compatible Linux CPU architectures;
+the current worker toolchains are prepared for Linux x86_64 hosts.
+
+On the build host, authenticate with `docker login ghcr.io`, then:
+
+```bash
+npm run images:build
+npm run images:publish -- v0.1.0
+```
+
+Use `images:build:all` and `images:publish:all -- v0.1.0` to include the optional macOS worker.
+Publication tags the configured local images with both the supplied identifier
+and `latest`, without rebuilding. It pins the local image IDs and verifies all
+selected images exist before tagging or pushing. All release tags are pushed
+before any `latest` aliases are promoted. If a release push fails, `latest`
+is not promoted remotely. Updates across repositories are not atomic: if promotion fails
+partway through, use the complete release identifier on production or rerun
+publication from the same local images to finish promotion.
+The existing `images:push` / `images:push:all` commands still push only `IMAGE_TAG`.
+Build commands do not start services. Push commands upload only application
+images and fail on registry errors. They use Docker's existing login; do not
+put the PAT in `.env`, build arguments, or images. GHCR requires a classic PAT
+with `write:packages` for publishing. New packages default to private; manage
+their permissions in GitHub. See [GHCR authentication and publishing](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+Keep the macOS toolchain image private: it includes the operator-supplied Apple SDK.
+
+Build the web image with production's `NEXT_PUBLIC_*` values on the build host.
+Production runtime variables cannot replace those embedded browser settings.
+Privileged Supabase keys remain runtime configuration. For macOS, production's
+`MACOS_TOOLCHAIN_SHA256` must match the archive used to build the published image
+and the web service's runtime setting. The provisioned SDK archive is needed
+only on the build host, not on the production machine pulling that image.
+
+If the images were already built using the default local names, they can be
+tagged into the configured GHCR namespace without rebuilding. Only do this for images known to belong
+to the same release and built with the intended public settings. For example:
+
+```bash
+docker tag mingd/macos-builder:latest ghcr.io/sxmxc/mingd/macos-builder:latest
+```
+
+Repeat for each application service being released, then run
+`npm run images:publish:all -- v0.1.0` (or omit `:all` without macOS).
+Subsequent builds can use `IMAGE_PREFIX`/`IMAGE_TAG` directly and the npm commands above.
+
+On production, configure the same prefix and the production runtime `.env`.
+Use `IMAGE_TAG=latest` to follow the latest published images, or
+`IMAGE_TAG=v0.1.0` to pin that release for repeatable deployment and rollback.
+Authenticate with `docker login ghcr.io` using a classic PAT with `read:packages`
+if the packages are private. Review/apply migrations, then:
+
+```bash
+npm run images:pull
+npm run images:up
+```
+
+Use `images:pull:all` and `images:up:all` when macOS is enabled. Pull completes
+before services are changed. Up uses `--no-build --pull never`, so missing images
+cause an error instead of a production build or an implicit registry fetch.
+The commands start web, Redis, maintenance, and the enabled workers, preserving
+named volumes. Follow the queue-draining and smoke-test steps under
+[Updating](#updating). The existing `compose:*:build` commands still build on
+the machine where they run; use the `images:*` production commands for this workflow.
+
 ## Command reference
 
 | Command | Effect |
@@ -93,6 +173,11 @@ docker compose --profile builder --profile macos-builder up -d --build
 | `npm run compose:logs` | Follow service logs |
 | `npm run compose:maintenance:logs` | Follow maintenance logs |
 | `npm run compose:down:all` | Stop/remove services across both profiles, preserving volumes |
+| `npm run images:build` / `images:push` | Build or publish web, maintenance, desktop/Web/Android workers |
+| `npm run images:pull` / `images:up` | Pull the configured release, then start with building and implicit pulls disabled |
+| `npm run images:build:all` / `images:push:all` | Build or publish all six application images, including macOS |
+| `npm run images:publish -- <release>` / `images:publish:all -- <release>` | Publish the built images under both a release identifier and `latest`; `:all` includes macOS |
+| `npm run images:pull:all` / `images:up:all` | Pull/start the configured release with both worker profiles |
 
 Commands without `:build` use existing images. Explicit service targets can start
 profiled services without enabling profiles. An exported `COMPOSE_PROFILES` also
@@ -110,7 +195,8 @@ and affected workers from the same revision: recipe/hash guards reject
 incompatible jobs. Old artifacts remain downloadable but are not reused by a
 new recipe identity.
 
-Apply migrations, rebuild the affected services, and check logs/admin metrics.
+Apply migrations, rebuild the affected services or pull the published release
+using the [registry workflow](#build-here-pull-on-production-ghcr), and check logs/admin metrics.
 Rebuild web after any `NEXT_PUBLIC_*` change. Rebuild maintenance when its source
 or importer changes. Resume submissions after checking a build/private download
 and relevant email flows. CI does not deploy or migrate production.
@@ -131,6 +217,9 @@ Do not use `docker compose down -v` during updates. See
 
 Retain the prior revision/configuration for rollback. Verify compatibility with
 already-applied migrations and worker recipes before restoring older code.
+For registry deployments, retain the prior release tag and matching macOS
+toolchain digest. Set `IMAGE_TAG` back to that release, restore its compatible
+configuration, and repeat the pull/up steps after reviewing migration compatibility.
 Pulling older code does not undo SQL; use a reviewed forward correction or tested
 restore when necessary.
 

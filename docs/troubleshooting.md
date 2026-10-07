@@ -88,6 +88,17 @@ operator toolchain archive does not need repackaging for this environment fix.
 The preflight now launches both architecture linkers, so missing host dependencies
 are detected before compilation.
 
+`Undefined symbols ... ___isPlatformVersionAtLeast` means the macOS availability
+helper emitted by Clang cannot be resolved. Verify that the toolchain includes
+Darwin compiler-rt's `libclang_rt.osx.a` with both ARM64 and Intel slices in the
+bundled Clang resource directory. Linux Clang packages and an Apple SDK alone
+do not provide this archive. Follow the
+[runtime provisioning and availability probe](recipe-files-and-mobile-templates.md#macos-on-linux),
+repackage the toolchain, update its SHA-256, and rebuild web and the macOS worker.
+The worker now links an availability probe for both architectures before any
+Godot compilation. The changed archive digest invalidates the old cache identity;
+the global recipe version does not need a bump for an archive-only repair.
+
 A dry-run archive is not installable. Confirm `BUILDER_DRY_RUN=false` and rebuild/
 recreate the worker if its environment changed.
 

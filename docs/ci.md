@@ -33,8 +33,9 @@ flows. Native-toolchain/source opt-in checks skip missing prerequisites. See
 [development](development.md) and [smoke tests](smoke-tests.md).
 
 CI also does not apply production migrations, publish release images, or deploy.
-The current deployment process is pull, review migrations, and rebuild after
-checks pass; see [deployment](deployment.md).
+Deployment supports local builds or publishing locally built images to GHCR
+and pulling them on production after checks pass; see
+[deployment](deployment.md#build-here-pull-on-production-ghcr).
 
 ## Branch protection and workflow changes
 
