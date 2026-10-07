@@ -17,6 +17,7 @@ test("macOS preflight accepts cctools lipo without a version flag and requires a
   await writeFile(join(sdk, "SDKSettings.json"), JSON.stringify({ Version: "27.0" }));
   for (const architecture of ["arm64", "x86_64"]) {
     await writeFile(join(bin, `${architecture}-apple-darwin27-clang++`), '#!/bin/sh\n[ "$1" = "--version" ]\n', { mode: 0o755 });
+    await writeFile(join(bin, `${architecture}-apple-darwin27-ld`), '#!/bin/sh\n[ "$1" = "-v" ]\n', { mode: 0o755 });
   }
   const saved = { PATH: process.env.PATH, OSXCROSS_ROOT: process.env.OSXCROSS_ROOT, MACOS_TOOLCHAIN_SHA256: process.env.MACOS_TOOLCHAIN_SHA256 };
   t.after(() => {
@@ -38,6 +39,12 @@ test("macOS preflight accepts cctools lipo without a version flag and requires a
   await rm(lipo, { recursive: true });
   await writeFile(lipo, '#!/bin/sh\necho "fatal error: lipo: unknown flag: $1" >&2\nexit 1\n', { mode: 0o755 });
   await verifyPlatformToolchain(config, root);
+  for (const architecture of ["arm64", "x86_64"]) {
+    const linker = join(bin, `${architecture}-apple-darwin27-ld`);
+    await writeFile(linker, '#!/bin/sh\necho "error while loading shared libraries: libBlocksRuntime.so" >&2\nexit 127\n', { mode: 0o755 });
+    await assert.rejects(verifyPlatformToolchain(config, root), /libBlocksRuntime\.so/);
+    await writeFile(linker, '#!/bin/sh\n[ "$1" = "-v" ]\n', { mode: 0o755 });
+  }
   process.env.MACOS_TOOLCHAIN_SHA256 = "b".repeat(64);
   await assert.rejects(verifyPlatformToolchain(config, root), /identity does not match/);
 });

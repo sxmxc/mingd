@@ -62,9 +62,9 @@ async function processBuild(job: Job<BuildJob>) {
     config = normalizeBuildConfig(job.data.config);
     source = await resolveGodotVersion(config.godotVersion);
     configHash = createHash("sha256").update(canonicalBuildCacheInput(config, source, process.env.MACOS_TOOLCHAIN_SHA256)).digest("hex");
-    if (configHash !== job.data.configHash) throw new Error("Build configuration hash does not match the queued payload.");
+    if (configHash !== job.data.configHash) throw new Error(`Build configuration hash does not match the queued payload. Worker recipe ${BUILD_RECIPE_VERSION}; queued hash ${job.data.configHash}; computed hash ${configHash}. Rebuild web and all workers from the same revision, verify source/toolchain identities, then submit the recipe again.`);
   } catch (error) {
-    await updateBuild(buildId, { ...failureState(job.attemptsMade, job.opts.attempts ?? 1), error: sanitizeLog(String(error), [env.supabaseSecretKey, env.redisUrl]) });
+    await updateBuild(buildId, { ...failureState(job.attemptsMade, job.opts.attempts ?? 1), stage: "Validating build recipe", error: sanitizeLog(String(error), [env.supabaseSecretKey, env.redisUrl]) });
     throw error;
   }
   const deliveryId = `${buildId}-${randomUUID()}`;

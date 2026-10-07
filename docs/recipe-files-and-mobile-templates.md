@@ -88,7 +88,7 @@ Bookworm worker and survive relocation to `/opt/osxcross`.
 Calculate its SHA-256 and set `MACOS_TOOLCHAIN_SHA256` in root `.env` to the
 64-character lowercase digest. Both web and worker must use that same value.
 The Docker build verifies the archive before installing it. The worker checks
-the installed identity and required SDK/wrappers before compiling. Changing the
+the installed identity, required SDK/wrappers, and both linkers before compiling. Changing the
 archive digest changes the artifact cache identity.
 
 ```bash
@@ -106,7 +106,9 @@ a made-up digest: provision and verify the complete toolchain first.
 
 Current global recipe **9** changes cache identity for every platform compared
 with older recipes. Android also includes toolchain recipe 1; macOS includes
-cross-toolchain recipe 1 and its operator-supplied archive SHA-256. Older artifacts
+cross-toolchain recipe 2 and its operator-supplied archive SHA-256. Recipe 2 passes
+`LD_LIBRARY_PATH` into SCons subprocesses so relocated linkers can load the bundled
+BlocksRuntime, libdispatch and TAPI libraries. Older artifacts
 remain downloadable but are not reused by new identities. Architecture and
 selected kinds remain part of normalized configuration. Bump the relevant platform identity whenever
 its toolchain or compilation/packaging semantics change. See

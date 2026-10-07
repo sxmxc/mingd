@@ -27,7 +27,9 @@ export function toSconsArgs(input: unknown, kind: TemplateKind): string[] {
     "debug_symbols=no",
     "c_compiler_launcher=ccache",
     "cpp_compiler_launcher=ccache",
-    "import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG",
+    // Godot does not inherit LD_LIBRARY_PATH into compiler/linker subprocesses.
+    // Relocated OSXCross binaries need it to load the bundled host libraries.
+    `import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG${config.platform === "macos" ? ",LD_LIBRARY_PATH" : ""}`,
     `disable_3d=${yn(!f.engine3d)}`,
     `disable_advanced_gui=${yn(!f.advancedGui)}`,
     `disable_physics_2d=${yn(!f.physics2d)}`,

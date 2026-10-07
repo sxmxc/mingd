@@ -44,6 +44,7 @@ test("platform arguments match Godot and universal macOS expands into thin build
     assert.ok(toSconsArgs(config, "release").includes("metal=no"));
     assert.ok(toSconsArgs(config, "release").includes("vulkan=no"));
     assert.ok(toSconsArgs(config, "release").includes("osxcross_sdk=darwin27"));
+    assert.ok(toSconsArgs(config, "release").includes("import_env_vars=CCACHE_DIR,CCACHE_BASEDIR,CCACHE_STATSLOG,LD_LIBRARY_PATH"));
     assert.equal(compiledTemplateFilename(config, "release"), `godot.macos.template_release.${architecture}`);
   }
   assert.equal(expectedTemplateFilename(mac, "release"), "macos.zip");
@@ -53,5 +54,8 @@ test("platform toolchains separate cache keys without invalidating existing reci
   assert.match(canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, platform: "android", architecture: "arm64" }), /android-1:ndk-29\.0\.14206865/);
   assert.throws(() => canonicalBuildCacheInput(mac), /toolchain SHA-256/);
   assert.notEqual(canonicalBuildCacheInput(mac, undefined, "a".repeat(64)), canonicalBuildCacheInput(mac, undefined, "b".repeat(64)));
+  const macRecipe = canonicalBuildCacheInput(mac, undefined, "a".repeat(64));
+  assert.match(macRecipe, /\nmacos-2:/);
+  assert.notEqual(macRecipe, macRecipe.replace("\nmacos-2:", "\nmacos-1:"));
   assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^9\nhttps:/);
 });

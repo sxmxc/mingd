@@ -98,7 +98,7 @@ excluding wrapper/support overhead. Downloads use the recorded TPZ basename.
 
 Current global recipe **9** includes exact source URL/checksum and normalized
 version/platform/architecture/kinds/features/Web threads. Android adds pinned
-platform recipe 1; macOS adds platform recipe 1 and its archive digest.
+platform recipe 1; macOS adds platform recipe 2 and its archive digest.
 Equivalent inputs share artifacts; changes to these identities produce different
 keys. Older recipe artifacts remain downloadable but are not reused by new keys.
 See [cache architecture](architecture.md#cache-identity).
