@@ -65,12 +65,16 @@ AGENTS.md                  repository guardrails for coding agents
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 24.21.0 LTS for development and CI (`.nvmrc`; existing Docker images use Node 22)
 - npm 10+
 - Docker / Docker Compose
 - Supabase CLI for local development
 
 For production self-hosting, use Supabase's maintained self-hosted Docker distribution rather than exposing the CLI development stack.
+
+GitHub Actions validates pull requests and pushes to `main` with application
+checks, disposable database tests, and web/maintenance Docker builds. See
+[continuous integration](docs/ci.md) for coverage and required-check setup.
 
 ## Local setup
 
