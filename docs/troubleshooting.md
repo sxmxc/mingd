@@ -72,6 +72,22 @@ and workers are from incompatible revisions. Drain jobs and deploy matched
 revisions; do not remove integrity guards. Exhausted builds can be resubmitted
 through the visible retry action.
 
+`Build configuration hash does not match the queued payload` occurs before
+compilation. Even a valid Lean 2D/Lean 3D recipe fails when the submitting web
+image and worker disagree on recipe version, normalization, source identity or
+macOS toolchain digest. A successful cached Standard request does not establish
+that a worker is compatible. Rebuild web and every enabled worker from the same
+checkout using the [deployment procedure](deployment.md#command-reference),
+then submit a new build. Pulling code or restarting an old image is insufficient.
+
+For macOS, `libBlocksRuntime.so: cannot open shared object file` can occur even
+when the library exists in `/opt/osxcross/target/lib`: Godot's SCons environment
+does not inherit `LD_LIBRARY_PATH` by default. macOS platform recipe 2 explicitly
+imports that variable. Deploy matched web/macOS-worker images and retry; the
+operator toolchain archive does not need repackaging for this environment fix.
+The preflight now launches both architecture linkers, so missing host dependencies
+are detected before compilation.
+
 A dry-run archive is not installable. Confirm `BUILDER_DRY_RUN=false` and rebuild/
 recreate the worker if its environment changed.
 

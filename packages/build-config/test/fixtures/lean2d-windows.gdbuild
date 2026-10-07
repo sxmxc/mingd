@@ -1,0 +1,38 @@
+{
+  "format": "gdbuild",
+  "version": 1,
+  "name": "Godot 4.7.2 — windows",
+  "config": {
+    "godotVersion": "4.7.2",
+    "platform": "windows",
+    "architecture": "x86_64",
+    "templateKinds": ["debug", "release"],
+    "optimization": "size",
+    "lto": false,
+    "webThreads": false,
+    "features": {
+      "engine3d": false,
+      "advancedGui": true,
+      "physics2d": true,
+      "physics3d": false,
+      "jolt": false,
+      "navigation2d": true,
+      "navigation3d": false,
+      "multiplayer": true,
+      "enet": true,
+      "websocket": true,
+      "webrtc": true,
+      "openxr": false,
+      "gltf": false,
+      "csg": false,
+      "gridmap": false,
+      "tilemap": true,
+      "svg": true,
+      "oggVorbis": true,
+      "mp3": true,
+      "theora": true,
+      "zip": true,
+      "textServer": "advanced"
+    }
+  }
+}
