@@ -139,8 +139,10 @@ the host's loopback. Browser-safe `NEXT_PUBLIC_*` values are embedded at image
 build time, so rebuild the web image when changing them. The privileged key is
 passed only at runtime and is never a Docker build argument.
 
-Let existing jobs finish on the old workers before deploying recipe 8. Deploy
+Let existing jobs finish on the old workers before deploying recipe 9. Deploy
 the web app and workers together so queued hashes use matching recipe semantics.
+Recipe 9 corrects base stable release identifiers (`4.7.stable`, not
+`4.7.0.stable`) in template packages and invalidates earlier artifact hashes.
 Apply pending migrations before starting the expanded workers, including
 `20261005064025_build_matrix.sql`. Then run:
 
@@ -326,6 +328,9 @@ delivery paths, and retired paths cannot be reused by older workers.
 Cron only requests backend work. The maintenance service polls every 30 seconds,
 claims tasks atomically with a 20-minute lease, bounds release imports to 15
 minutes, and retries failures after 15 minutes. Tasks survive service outages and
+the worker logs safe failure details to `docker compose logs maintenance` and
+stores the same reason for the admin dashboard. Raw upstream errors and child
+process output are not logged because they can include credentials. Tasks with
 expired leases are recovered. Storage deletion uses the Storage API; metadata
 retirement and deletion records commit together. Deletion records remain as
 path tombstones after success to protect concurrent uploads. Cleanup is bounded

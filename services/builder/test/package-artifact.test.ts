@@ -95,7 +95,7 @@ test("Linux Lean 2D packages original ELF bytes and reports packaging after vali
     assert.equal(packaging, true);
     assert.equal(result.binarySizeBytes, 512);
     assert.equal(basename(result.artifactPath), "mingd-4.5-linux-x86_64-release.tpz");
-    assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.5.0.stable\n");
+    assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.5.stable\n");
     assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, "linux_release.x86_64"]), binary);
     binary.writeUInt16LE(3, 18);
     await writeFile(path, binary);

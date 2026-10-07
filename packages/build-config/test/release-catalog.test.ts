@@ -8,7 +8,7 @@ function release(id: string, digest = "a".repeat(64)) {
 }
 
 test("discovery accepts official stable sources and excludes old, prerelease, foreign and unverified assets", () => {
-  assert.equal(releaseSource(release("4.6"))?.versionIdentifier, "4.6.0.stable");
+  assert.equal(releaseSource(release("4.6"))?.versionIdentifier, "4.6.stable");
   assert.equal(releaseSource(release("4.8.1"))?.id, "4.8.1");
   assert.equal(releaseSource(release("4.5.2"))?.id, "4.5.2");
   for (const id of ["3.6.3", "4.4.2", "5.0", "4.6.0", "4.06", "4.6-rc1", "../../source"]) assert.equal(releaseSource(release(id)), null);
@@ -73,6 +73,8 @@ test("discovered versions require resolved integrity metadata and separate hashe
   assert.notEqual(hash, canonicalBuildCacheInput(config, { ...source, sourceSha256: "b".repeat(64) }));
   assert.throws(() => canonicalBuildCacheInput(config, { ...source, id: "4.7" }), /Resolve official/);
   assert.equal(godotVersionIdentifier("4.6.1"), "4.6.1.stable");
+  assert.equal(godotVersionIdentifier("4.7"), "4.7.stable");
+  assert.equal(godotVersionIdentifier("4.5"), "4.5.stable");
   const pinned = SUPPORTED_GODOT_VERSIONS[DEFAULT_BUILD_CONFIG.godotVersion];
   const discovered = releaseSource(release(pinned.id, pinned.sourceSha256))!;
   assert.equal(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG, discovered), canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG));

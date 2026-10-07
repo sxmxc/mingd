@@ -53,5 +53,5 @@ test("platform toolchains separate cache keys without invalidating existing reci
   assert.match(canonicalBuildCacheInput({ ...DEFAULT_BUILD_CONFIG, platform: "android", architecture: "arm64" }), /android-1:ndk-29\.0\.14206865/);
   assert.throws(() => canonicalBuildCacheInput(mac), /toolchain SHA-256/);
   assert.notEqual(canonicalBuildCacheInput(mac, undefined, "a".repeat(64)), canonicalBuildCacheInput(mac, undefined, "b".repeat(64)));
-  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^8\nhttps:/);
+  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^9\nhttps:/);
 });
