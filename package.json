@@ -19,6 +19,7 @@
     "compose:up": "docker compose up -d",
     "compose:up:builders": "docker compose --profile builder up -d",
     "compose:down": "docker compose down",
+    "compose:down:all": "docker compose --profile builder --profile macos-builder down",
     "compose:ps": "docker compose ps",
     "compose:logs": "docker compose logs -f",
     "compose:redis": "docker compose up -d redis",
