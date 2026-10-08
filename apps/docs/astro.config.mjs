@@ -13,6 +13,8 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'min.gd',
+      logo: { src: '../web/public/web-app-manifest-512x512.png', alt: '' },
+      favicon: '/favicon.ico',
       description: 'Build only the Godot your game needs. Setup, build guides, and operations documentation.',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/sxmxc/mingd' }],
       markdown: { processedDirs: ['../../docs'] },
