@@ -17,7 +17,7 @@ test("technical package names and workspace links use mingd without the brand pe
     if (name !== "build-config") assert.equal(workspace.dependencies["@mingd/build-config"], "*");
   }
   for (const value of Object.values(manifest.scripts)) assert.doesNotMatch(String(value), /@gdslimmer|@min\.gd/);
-  assert.match(read("compose.yml"), /image: \$\{IMAGE_PREFIX:-mingd\}\/builder:\$\{IMAGE_TAG:-latest\}\s/);
+  assert.match(read("compose.yml"), /image: \$\{IMAGE_PREFIX:-mingd\}\/builder:/);
   assert.match(read("services/builder/Dockerfile"), /@mingd\/builder/);
 });
 

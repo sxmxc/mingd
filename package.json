@@ -14,7 +14,7 @@
     "dev:worker-gateway": "dotenv -- npm run dev --workspace @mingd/worker-gateway",
     "workers": "dotenv -- npm run operator --workspace @mingd/worker-gateway --",
     "dev:web-builder": "BUILDER_TARGET=web BUILDER_QUEUE_NAME=godot-web-builds dotenv -- npm run dev --workspace @mingd/builder",
-    "build": "npm run build --workspaces --if-present",
+    "build": "node scripts/publish-images.mjs build",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && node --test scripts/test/*.test.mjs",
     "db:migration:new": "npx supabase migration new",
@@ -27,7 +27,8 @@
     "docs:build": "npm run build --workspace @mingd/docs --",
     "docs:preview": "npm run preview --workspace @mingd/docs --",
     "compose": "docker compose",
-    "publish": "node scripts/publish-images.mjs"
+    "publish": "node scripts/publish-images.mjs publish",
+    "push": "node scripts/publish-images.mjs push"
   },
   "engines": {
     "node": ">=22"

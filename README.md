@@ -1,6 +1,7 @@
 # min.gd
 
 [![CI](https://github.com/sxmxc/mingd/actions/workflows/ci.yml/badge.svg)](https://github.com/sxmxc/mingd/actions/workflows/ci.yml)
+[![Documentation](https://github.com/sxmxc/mingd/actions/workflows/docs.yml/badge.svg)](https://github.com/sxmxc/mingd/actions/workflows/docs.yml)
 
 **Build only the Godot your game needs.**
 
@@ -25,7 +26,7 @@ account management, an admin area, and scheduled maintenance.
 
 All targets offer release, debug, or both kinds, using size optimization with
 LTO disabled. Standard, Lean 2D, Offline 2D, and Lean 3D are editable presets.
-See [build profiles](docs/build-profiles.md) for restrictions and acceptance
+See [build profiles](https://sxmxc.github.io/mingd/build-profiles/) for restrictions and acceptance
 records. Desktop smoke results are owner-confirmed; the expanded version/Web/
 mobile matrix still needs its own runtime acceptance.
 
@@ -37,36 +38,35 @@ commands are outside the supported build contract.
 Use npm workspaces and Node **24.21.0**, pinned in [.nvmrc](.nvmrc). Docker images
 currently use Node 22 independently of the host runtime.
 
-- **Develop locally:** follow [getting started](docs/getting-started.md) for
+- **Develop locally:** follow [getting started](https://sxmxc.github.io/mingd/getting-started/) for
   local Supabase, Next.js development, and workers.
-- **Deploy to a dedicated server:** follow [deployment](docs/deployment.md) and
-  [self-hosted Supabase](docs/self-hosted-supabase.md). Supabase runs separately
+- **Deploy to a dedicated server:** follow [deployment](https://sxmxc.github.io/mingd/deployment/) and
+  [self-hosted Supabase](https://sxmxc.github.io/mingd/self-hosted-supabase/). Supabase runs separately
   from this project's Compose stack.
-- **Configure processes:** use the [environment reference](docs/configuration.md).
+- **Configure processes:** use the [environment reference](https://sxmxc.github.io/mingd/configuration/).
   Next.js development reads `apps/web/.env.local`; Compose reads the root `.env`.
 
 Production uses `compose.web.prod.yml` on the application host and
 `compose.workers.prod.yml` on dedicated build hosts, each with its own `.env`.
 Workers connect over authenticated HTTPS; Redis stays private. Builds and
-migrations run from an authorized checkout. See [production deployment](docs/deployment.md#production-with-only-compose-and-env)
+migrations run from an authorized checkout. See [production deployment](https://sxmxc.github.io/mingd/deployment/#production-with-only-compose-and-env)
 for setup, updates, optional macOS workers, and rollback.
 
 ## Documentation
 
-The [documentation index](docs/README.md) groups every guide by task.
-The Starlight site is configured for [GitHub Pages](https://sxmxc.github.io/mingd/);
-see [documentation site setup](docs/documentation.md) for publishing and local preview.
+Browse the [documentation site](https://sxmxc.github.io/mingd/) for guides grouped by task.
+See [documentation site setup](https://sxmxc.github.io/mingd/documentation/) for publishing and local preview.
 
 | I want to… | Guide |
 | --- | --- |
-| Understand the components and build lifecycle | [Architecture](docs/architecture.md) |
-| Pick features and install templates | [Build profiles](docs/build-profiles.md), [smoke tests](docs/smoke-tests.md) |
-| Save/share recipes and understand comparisons | [Recipes and comparisons](docs/recipes-and-comparisons.md) |
-| Import recipes or provision mobile workers | [Recipe files and mobile templates](docs/recipe-files-and-mobile-templates.md) |
-| Understand activity and cache measurements | [Workbench](docs/workbench.md), [performance](docs/performance.md) |
-| Manage accounts and administrators | [Accounts and administration](docs/accounts-and-admin.md) |
-| Operate jobs or diagnose failures | [Maintenance](docs/maintenance.md), [troubleshooting](docs/troubleshooting.md) |
-| Validate changes and understand CI | [Development and validation](docs/development.md), [CI](docs/ci.md) |
+| Understand the components and build lifecycle | [Architecture](https://sxmxc.github.io/mingd/architecture/) |
+| Pick features and install templates | [Build profiles](https://sxmxc.github.io/mingd/build-profiles/), [smoke tests](https://sxmxc.github.io/mingd/smoke-tests/) |
+| Save/share recipes and understand comparisons | [Recipes and comparisons](https://sxmxc.github.io/mingd/recipes-and-comparisons/) |
+| Import recipes or provision mobile workers | [Recipe files and mobile templates](https://sxmxc.github.io/mingd/recipe-files-and-mobile-templates/) |
+| Understand activity and cache measurements | [Workbench](https://sxmxc.github.io/mingd/workbench/), [performance](https://sxmxc.github.io/mingd/performance/) |
+| Manage accounts and administrators | [Accounts and administration](https://sxmxc.github.io/mingd/accounts-and-admin/) |
+| Operate jobs or diagnose failures | [Maintenance](https://sxmxc.github.io/mingd/maintenance/), [troubleshooting](https://sxmxc.github.io/mingd/troubleshooting/) |
+| Validate changes and understand CI | [Development and validation](https://sxmxc.github.io/mingd/development/), [CI](https://sxmxc.github.io/mingd/ci/) |
 
 ## Repository
 
@@ -80,7 +80,7 @@ docs/                   Setup, product behavior, operations, and validation
 ```
 
 Technical identifiers use `mingd` and `@mingd/`; visible branding uses `min.gd`.
-See [naming](docs/naming.md). Contributor and agent workflow rules live in
+See [naming](https://sxmxc.github.io/mingd/naming/). Contributor and agent workflow rules live in
 [AGENTS.md](AGENTS.md).
 
 No project `LICENSE` file is currently included. Godot and dependencies retain

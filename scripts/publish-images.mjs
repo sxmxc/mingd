@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-const args = process.argv.slice(2);
+const [operation, ...args] = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const operands = args.filter(value => value !== "--dry-run" && value !== "--");
 const [selection, tag] = operands;
@@ -36,9 +36,16 @@ function rememberTag(service, tag) {
 }
 
 try {
+  // Preserve the existing application build command used by CI and contributors.
+  if (operation === "build" && args.length === 0) {
+    const result = spawnSync("npm", ["run", "build", "--workspaces", "--if-present"], { stdio: "inherit" });
+    if (result.error) throw result.error;
+    process.exit(result.status ?? 1);
+  }
+  if (!["build", "push", "publish"].includes(operation)) throw new Error("Unknown image operation.");
   if ((all && operands.length !== 1) || (!all && (operands.length !== 2 ||
       !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(tag ?? "") || tag === "latest"))) {
-    throw new Error("Usage: npm run publish -- all [--dry-run], or npm run publish -- <service> -- <versiontag> [--dry-run]. 'all' does not accept a version tag.");
+    throw new Error("Usage: npm run build|push|publish -- all [--dry-run], or npm run build|push|publish -- <service> -- <versiontag> [--dry-run]. 'all' does not accept a version tag.");
   }
   const env = all ? process.env : { ...process.env, [tagVariable(selection)]: tag };
   const config = JSON.parse(docker([
@@ -51,13 +58,14 @@ try {
   const selected = all ? services : services.filter(([name]) => name === selection);
   if (!selected.length) throw new Error("No application images selected.");
   for (const [, service] of selected) {
-    if (!service.image?.startsWith("ghcr.io/")) {
+    if (operation !== "build" && !service.image?.startsWith("ghcr.io/")) {
       throw new Error("Set IMAGE_PREFIX=ghcr.io/sxmxc/mingd in root .env before publishing.");
     }
   }
-  if (!all && !dryRun) docker(["compose", "build", selection], { env });
+
   const images = selected.filter(([name, service]) => {
     if (!all) return true;
+    if (operation === "build" && name !== "macos-builder") return true;
     const id = docker(["image", "inspect", service.image, "--format", "{{.Id}}"], {
       capture: true, allowMissing: name === "macos-builder",
     });
@@ -67,15 +75,18 @@ try {
     }
     return true;
   });
+  if ((operation === "build" || (operation === "publish" && !all)) && !dryRun) {
+    docker(["compose", "build", ...images.map(([name]) => name)], { env });
+  }
   for (const [name, service] of images) {
-    console.log(`${dryRun ? "Would publish" : "Publishing"} ${name}: ${service.image}`);
+    console.log(`${dryRun ? "Would " : ""}${operation} ${name}: ${service.image}`);
   }
   if (dryRun) {
     console.log("Preflight passed; nothing built, tagged, pushed, or recorded.");
   } else {
-    for (const [, service] of images) docker(["push", service.image]);
+    if (operation !== "build") for (const [, service] of images) docker(["push", service.image]);
     if (!all) rememberTag(selection, tag);
-    console.log(`Published ${images.length} images with their individual tags.`);
+    console.log(`Completed ${operation} for ${images.length} images with their individual tags.`);
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Image publication failed.");

@@ -18,32 +18,65 @@ and rollback. Do not run direct and distributed workers against the same queues.
 
 ## Build here, pull on production (GHCR)
 
-From a matching build/migration checkout, use `.nvmrc`, run `npm ci` and pass the
-[CI checks](ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in its root `.env`.
-`IMAGE_TAG` identifies the local images being built/published, normally `latest`.
-Authenticate with `docker login ghcr.io` using Docker's credential storage.
+From an authorized source checkout, use `.nvmrc`, run `npm ci`, and pass the
+[CI checks](ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the checkout's root
+`.env`. Authenticate with `docker login ghcr.io` using Docker's credential storage.
+
+### Build, push, and publish
+
+All three commands use a service name or `all`:
 
 ```bash
-npm run images:build
-npm run images:publish -- v0.2.2 --dry-run
-npm run images:publish -- v0.2.2
+# Build and push only web, then remember its tag in root .env.
+npm run publish -- web -- v0.2.4
+
+# Or build and push in separate steps.
+npm run build -- web -- v0.2.4
+npm run push -- web -- v0.2.4
+
+# Push every image at its own recorded tag. No shared version argument.
+npm run publish -- all
 ```
 
-Default build/push/publication includes web, gateway, maintenance, desktop, Web
-and Android workers (**six images**). With a provisioned and verified macOS
-archive, use `images:build:all` and `images:publish:all -- v0.2.2` (**seven images**).
-The publisher derives services from Compose build entries and excludes only macOS
-by default; `:all` includes every build service. Redis is not republished.
-Preflight verifies all local images before tagging or pushing. Successful push
-digests and the final published-image count establish publication; the initial
-tag-plan lines alone do not.
+`publish <service> -- <tag>` builds and pushes only that service. `build` builds
+without pushing; `push` pushes without building. After a successful targeted
+operation, the helper records the service's tag in the build checkout's `.env`,
+using the same variables as production (`WEB_IMAGE_TAG`, `BUILDER_IMAGE_TAG`, etc.).
+Other settings and service tags are preserved. A failed targeted build or push
+is not recorded as successful.
 
-Use a **fresh immutable release identifier** matching workspace versions. Do not
-reuse historical `v0.1.2` for this 0.2.2 release. Publication tags existing
-local images with the release and `latest`, without rebuilding. It pins image IDs,
-pushes the complete release before promoting `latest`, and fails on registry errors.
-Promotion across repositories is not atomic; deploy immutable release tags and
-record digests. `images:push`/`:all` only push the configured `IMAGE_TAG`.
+`publish all` and `push all` push the configured local images without rebuilding
+or retagging them. For example, with `IMAGE_TAG=v0.2.2` and
+`WEB_IMAGE_TAG=v0.2.4`, web stays at **v0.2.4** and unchanged workers stay at
+**v0.2.2**. `all` rejects a version argument. Nothing automatically updates
+`latest`, workspace versions, or Git tags. Choose a new tag when replacing a
+service's image; image tags do not have to match the application's version.
+
+To build the full set first, run `npm run build -- all`. It builds images under
+their currently configured tags; use this when those tags are the ones you intend
+to build. The optional macOS image participates in `all` only when its configured
+local image already exists. Build/publish `macos-builder` explicitly after
+provisioning its SDK/toolchain. Redis is never built or published by these helpers.
+
+The available services are `web` (Next.js app), `worker-gateway`, `maintenance`,
+`builder` (desktop compiler), `web-builder` (Godot Web compiler), `android-builder`,
+and `macos-builder`. To update multiple services, run targeted commands for each:
+
+```bash
+npm run publish -- builder -- v0.2.3
+npm run publish -- web-builder -- v0.2.3
+npm run publish -- android-builder -- v0.2.3
+```
+
+Add `--dry-run` to preview an operation without building, pushing, or editing
+`.env`. For `all`, preflight checks required local images before any push. A
+successful push and final completion message establish publication; plan lines
+alone do not. Registry pushes across services are not atomic.
+
+The build checkout's root `.env` is the record used by subsequent operations.
+If images were previously published manually, set their per-service tags there
+before using `all`. Exported Compose variables take precedence over `.env`;
+keep image selection in `.env` rather than leaving older exported overrides.
 
 GHCR publishing requires a classic PAT with `write:packages`; private-image pulls
 need `read:packages`. Keep tokens out of `.env`, Docker build arguments and source.
@@ -51,79 +84,30 @@ All application Dockerfiles carry the repository source label; worker variants
 inherit it. Keep macOS images private because they include the operator Apple SDK.
 The current cross-compilation images target Linux x86_64 build hosts.
 
-### Build and publish only selected images
+### Deploy only what changed
 
-For a partial update, use explicit Compose service names. `web` is the Next.js
-application; `web-builder` is the Godot Web compiler. The remote worker images
-are `builder` (desktop), `web-builder`, `android-builder`, and `macos-builder`.
-The `worker-gateway` and `maintenance` services run on the application host and
-are separate images.
-
-On the build checkout, set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in root `.env` and
-authenticate with `docker login ghcr.io`. Choose a fresh image tag for each
-publication. The example `v0.2.2-web.1` identifies a web-only revision of the
-0.2.2 application; it is illustrative, not an already published release.
-
-Build and push only the application web image:
-
-```bash
-IMAGE_TAG=v0.2.2-web.1 docker compose build web
-IMAGE_TAG=v0.2.2-web.1 docker compose push web
-```
-
-The build creates `ghcr.io/sxmxc/mingd/web:v0.2.2-web.1` locally; the push uploads
-that exact tag. Use the same `IMAGE_TAG` on both commands. These commands do not
-start containers or update `latest`. Docker image tags are independent of Git
-tags and `package.json` versions: the command does not create a Git release or
-change workspace versions. Record the source commit and pushed digest alongside
-the image tag. Do not reuse a tag for a different image.
-
-On the application host, keep `IMAGE_TAG` at the existing shared release and set
-only `WEB_IMAGE_TAG=v0.2.2-web.1` in its `.env`, then:
+Publishing does not restart production. On the application host, set the
+published tag in its separate `.env`, for example `WEB_IMAGE_TAG=v0.2.4`, then:
 
 ```bash
 docker compose -f compose.web.prod.yml pull web
 docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never web
 ```
 
-For only the desktop, Web, and Android workers, on the build checkout:
+Other application services and workers remain on their selected tags. On worker
+hosts, set the corresponding variables, such as `BUILDER_IMAGE_TAG=v0.2.3`.
+Drain affected workers and wait for active assignments to finish, then:
 
 ```bash
-IMAGE_TAG=v0.2.2-workers.1 docker compose build builder web-builder android-builder
-IMAGE_TAG=v0.2.2-workers.1 docker compose push builder web-builder android-builder
+docker compose -f compose.workers.prod.yml pull builder
+docker compose -f compose.workers.prod.yml up -d --no-deps --no-build --pull never builder
 ```
 
-Include `macos-builder` explicitly only when its SDK/toolchain is provisioned.
-To update only one worker, list only its service in both commands. Explicit
-service names select profiled services without requiring `--profile`.
-
-On each affected worker host, keep its shared `IMAGE_TAG` and set the overrides
-for the workers being updated:
-
-```dotenv
-BUILDER_IMAGE_TAG=v0.2.2-workers.1
-WEB_BUILDER_IMAGE_TAG=v0.2.2-workers.1
-ANDROID_BUILDER_IMAGE_TAG=v0.2.2-workers.1
-```
-
-Drain affected workers and wait for active assignments to finish before
-recreating them. Then, from that worker host's deployment directory:
-
-```bash
-docker compose -f compose.workers.prod.yml pull builder web-builder android-builder
-docker compose -f compose.workers.prod.yml up -d --no-deps --no-build --pull never builder web-builder android-builder
-```
-
-If the production file is named `compose.yml`, use that filename instead.
-Review [release compatibility](distributed-workers.md#release-compatibility)
-when mixing versions, especially changes to shared packages, protocol, recipe,
-or toolchain. Roll back by restoring each affected override to its prior tag
-and repeating the targeted pull/up commands.
-
-`npm run images:build` and `images:publish` select the full default image set.
-Appending `web` to those commands does not select only web. The publisher expects
-a single release identifier and tags/pushes all selected images as that release
-and `latest`; use the targeted Compose commands above for partial publication.
+Use the actual deployment filename if renamed to `compose.yml`. Review
+[release compatibility](distributed-workers.md#release-compatibility) before
+mixing versions. Roll back by selecting the prior service tag and repeating
+pull/up. Copy only the desired image-tag settings between hosts; their `.env`
+files also contain different credentials and process configuration.
 
 ## Database migrations
 
@@ -315,7 +299,7 @@ Back up Postgres and Storage together with protected deployment settings and tok
 Redis uses append-only persistence. Compiler/source caches are rebuildable; build
 records/artifacts are user data. Test restores away from production.
 
-For subsequent releases, publish a new shared release and review migrations/settings.
+For subsequent updates, publish the changed services and review migrations/settings.
 Update the relevant host's `IMAGE_TAG` or service override, drain affected workers,
 and repeat pull/up/acceptance for the selected services. Existing overrides stay
 pinned when `IMAGE_TAG` changes. Keep existing tokens for application-only upgrades; re-enroll
@@ -330,24 +314,28 @@ compiler/source caches; see [performance](performance.md) and [maintenance](main
 
 ## Source-checkout command reference
 
-These commands require `package.json`; production directories use Docker commands
-above. Root Compose direct builders remain useful for local development.
+The operator entry points are `build`, `push`, `publish`, `compose`, and `workers`.
+They require a source checkout with `package.json`; image-only production hosts
+use Docker commands directly.
 
 | Command | Effect |
 | --- | --- |
-| `npm run compose:build` / `compose:up` | Build/start default web, maintenance and Redis |
-| `npm run compose:up:builders` | Start defaults plus direct desktop/Web/Android workers |
-| `npm run compose:builders:build` | Build/start direct desktop/Web/Android and Redis |
-| `npm run compose:worker-gateway:build` | Build/start gateway; enable flags control dispatch |
-| `npm run images:build` / `images:push` | Six application images including gateway, excluding macOS |
-| `npm run images:build:all` / `images:push:all` | All seven application images |
-| `npm run images:publish[:all] -- <release>` | Tag/publish release and latest; `:all` adds macOS |
-| `npm run images:pull` / `images:up` | Direct builder and gateway profiles; execution must remain off while direct builders run |
-| `npm run images:pull:all` / `images:up:all` | Every root Compose profile |
-| `npm run compose:down:all` | Stop all root services, preserving volumes |
-| `npm run workers -- <command>` | Operator enrollment/list/drain/rotation/revocation |
+| `npm run build -- <service> -- <tag>` | Build one image and remember its tag |
+| `npm run push -- <service> -- <tag>` | Push one existing image and remember its tag |
+| `npm run publish -- <service> -- <tag>` | Build and push one image and remember its tag |
+| `npm run build -- all` | Build the full image set using each service's configured tag |
+| `npm run push -- all` / `npm run publish -- all` | Push each service's configured image without rebuilding or retagging |
+| `npm run compose -- up -d --build` | Build/start root Compose's default services |
+| `npm run compose -- up -d --build builder web-builder android-builder` | Build/start direct workers and their Redis dependency |
+| `npm run compose -- logs -f web` | Follow one service's logs |
+| `npm run compose -- --profile '*' down` | Stop all root services, preserving volumes |
+| `npm run workers -- <command>` | Worker enrollment/list/drain/rotation/revocation |
 
-Explicit service targets can start profiled services without enabling profiles.
-Exported `COMPOSE_PROFILES` also changes default selections. Use target-specific
-`compose:<service>:build`/`:logs` scripts as needed. For local source setup, see
+`npm run build` **without arguments** retains the application validation build:
+web, docs, and shared/service TypeScript checks. Passing a service or `all`
+selects container image building instead.
+
+`compose` forwards its arguments to Docker Compose, replacing the previous
+`compose:<service>:build`/`:logs` and `images:*` aliases. Explicit service names
+select profiled services without enabling profiles. For local source setup, see
 [getting started](getting-started.md).
