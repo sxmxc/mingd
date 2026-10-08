@@ -26,11 +26,12 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
-| `IMAGE_TAG` | `latest` | Shared release tag for web, gateway, maintenance and every worker |
+| `IMAGE_TAG` | `latest` | Fallback image tag for services without an individual tag |
 
-Production Compose defaults to `v0.2.2` and accepts optional per-service overrides:
+Root and production Compose accept per-service tags. Production defaults to
+`v0.2.2`; the root checkout defaults to `latest`:
 
-| Variable | Service | Production file |
+| Variable | Service | Production file (also supported in root Compose) |
 | --- | --- | --- |
 | `WEB_IMAGE_TAG` | `web` | `compose.web.prod.yml` |
 | `WORKER_GATEWAY_IMAGE_TAG` | `worker-gateway` | `compose.web.prod.yml` |
@@ -40,26 +41,22 @@ Production Compose defaults to `v0.2.2` and accepts optional per-service overrid
 | `ANDROID_BUILDER_IMAGE_TAG` | `android-builder` | `compose.workers.prod.yml` |
 | `MACOS_BUILDER_IMAGE_TAG` | `macos-builder` | `compose.workers.prod.yml` |
 
-Selection is service override, then `IMAGE_TAG`, then the production default.
-Unset or empty overrides fall back to `IMAGE_TAG`. Remove an override to return
-that service to shared upgrades. Overrides apply only to the production files;
-the root build/publish Compose continues using the shared `IMAGE_TAG`.
+Selection is service tag, then `IMAGE_TAG`, then the Compose default.
+Unset or empty service tags fall back to `IMAGE_TAG`. Remove a service tag to
+return that service to the fallback. These settings apply to root Compose as
+well as the corresponding production file.
 
-These are Compose settings, read from root `.env` or exported environment.
-They do not change the upstream Redis image. `images:publish -- <release>`
-publishes the built `IMAGE_TAG` images under both that release identifier and
-`latest`. Production can select either tag with `IMAGE_TAG`, using the same
-prefix. See [registry deployment](deployment.md#build-here-pull-on-production-ghcr)
-for publishing. Production uses separate image-only `compose.web.prod.yml` and
-`compose.workers.prod.yml` files, each with its host-specific `.env`; use the
-[direct Docker commands](deployment.md#production-with-only-compose-and-env) there.
+`npm run build|push|publish -- <service> -- <tag>` records the service tag in the
+build checkout's root `.env` after success. `npm run publish -- all` uses each
+service's configured tag and never assigns a shared version or updates `latest`.
+The application's package version is independent of these selections.
+See [image publication](deployment.md#build-here-pull-on-production-ghcr) for commands.
+
+Production uses separate image-only `compose.web.prod.yml` and
+`compose.workers.prod.yml` files with their own host-specific `.env`. Publishing
+from a source checkout does not change those files or restart deployed services;
+select the published service tag on the affected host, then pull/recreate it.
 `WEB_PORT` is optional; omit it to keep the default host port `3000`.
-
-For partial publication, set `IMAGE_TAG` on explicit `docker compose build` and
-`docker compose push` commands, then select the resulting tag with the affected
-service's production override. See [web-only and worker-only updates](deployment.md#build-and-publish-only-selected-images)
-for complete examples. Changing `WEB_IMAGE_TAG` on production selects an existing
-image; it does not build or publish one.
 
 ## Web and shared services
 

@@ -85,7 +85,7 @@ verifies source but creates a diagnostic archive with no compiled template.
 ## Start the app and desktop worker
 
 ```bash
-npm run compose:redis
+npm run compose -- up -d redis
 npm run dev:web
 ```
 
@@ -93,7 +93,7 @@ Leave the web process running. In another terminal, start the desktop worker,
 which handles both Linux and Windows:
 
 ```bash
-npm run compose:builder:build
+npm run compose -- up -d --build builder
 docker compose ps redis builder
 docker compose logs --tail=100 builder
 ```
@@ -121,18 +121,18 @@ administration, follow
 Start additional workers only for the targets you want to build:
 
 ```bash
-npm run compose:web-builder:build      # Web
-npm run compose:android-builder:build  # Android
+npm run compose -- up -d --build web-builder      # Web
+npm run compose -- up -d --build android-builder  # Android
 ```
 
-`npm run compose:builders:build` starts desktop, Web, Android, and Redis together.
+`npm run compose -- up -d --build builder web-builder android-builder` starts desktop, Web, Android, and Redis together.
 macOS requires [toolchain provisioning](recipe-files-and-mobile-templates.md#macos-on-linux).
 
 For template-size comparisons and scheduled artifact cleanup, start maintenance.
 It also refreshes the official release catalog:
 
 ```bash
-npm run compose:maintenance:build
+npm run compose -- up -d --build maintenance
 ```
 
 See [maintenance](maintenance.md) for schedules and task status.
@@ -156,7 +156,7 @@ Stop the development web process with Ctrl+C. To stop containers while preservin
 Compose volumes:
 
 ```bash
-npm run compose:down:all
+npm run compose -- --profile '*' down
 npx supabase stop
 ```
 

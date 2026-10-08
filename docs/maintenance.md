@@ -49,8 +49,8 @@ Python 3 for reference measurements and has a 1 GiB memory limit, one CPU, and
 64-process limit in Compose.
 
 ```bash
-npm run compose:maintenance:build
-npm run compose:maintenance:logs
+npm run compose -- up -d --build maintenance
+npm run compose -- logs -f maintenance
 ```
 
 A rebuild/redeploy means rebuilding this image and recreating its container on

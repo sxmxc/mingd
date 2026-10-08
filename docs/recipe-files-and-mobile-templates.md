@@ -40,7 +40,7 @@ Apply all pending migrations and deploy compatible frontend/workers using
 Android worker with:
 
 ```bash
-npm run compose:android-builder:build
+npm run compose -- up -d --build android-builder
 ```
 
 Root `compose.yml` groups desktop, Web, and Android under the `builder` profile.
@@ -128,8 +128,8 @@ For local development with the Compose web service:
 
 ```bash
 sha256sum toolchains/macos-toolchain.tar.xz
-npm run compose:macos-builder:build
-npm run compose:web:build
+npm run compose -- up -d --build macos-builder
+npm run compose -- up -d --build web
 ```
 
 For a host-run development app, put the same digest in `apps/web/.env.local`
