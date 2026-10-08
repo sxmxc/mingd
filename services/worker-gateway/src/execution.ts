@@ -6,6 +6,7 @@ import { BUILD_RECIPE_VERSION, canonicalBuildCacheInput, cachedArtifactPerforman
 import { AssignmentSchema, CompletionReceiptSchema, WORKER_PROTOCOL_VERSION, type Assignment, type WorkerHello, type BuildHeartbeat } from "@mingd/worker-protocol";
 import { AssignmentStore, type AssignmentLease, type WorkerIdentity } from "./assignments.js";
 import { validateUpload } from "./validate-upload.js";
+import { ArtifactOperationError, DeliveryError, UploadCapacityError } from "./execution-errors.js";
 
 export type QueuedBuild = { buildId: string; userId: string; configHash: string; config: unknown };
 type Task = {
@@ -99,7 +100,7 @@ export class ExecutionBroker implements ExecutionControl {
   private async process(job: Job<QueuedBuild>, target: WorkerHello["target"], signal?: AbortSignal) {
     let task: Task | undefined;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const cancel = () => task?.reject(new Error("Queue ownership lost or gateway stopping."));
+    const cancel = () => task?.reject(new DeliveryError("Queue ownership lost or gateway stopping."));
     try {
       const record = await this.db.from("builds").select("id,user_id,config_hash,config,status").eq("id", job.data.buildId).maybeSingle();
       if (record.error) throw new Error("Build record unavailable.");
@@ -127,12 +128,13 @@ export class ExecutionBroker implements ExecutionControl {
       this.tasks.set(job.data.buildId, task!);
       signal?.addEventListener("abort", cancel, { once: true });
       if (signal?.aborted || this.closing) cancel();
-      timeout = setTimeout(() => task?.reject(new Error("Worker build exceeded gateway time budget.")), this.options.maxJobMs);
+      timeout = setTimeout(() => task?.reject(new DeliveryError("Worker build exceeded gateway time budget.")), this.options.maxJobMs);
       await completed;
     } catch (error) {
       const terminal = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
       if (task?.lease) {
-        await this.db.rpc("recover_worker_assignment", { p_assignment_id: task.lease.id, p_error: "Worker delivery failed or disconnected.", p_terminal: terminal });
+        await this.db.rpc("recover_worker_assignment", { p_assignment_id: task.lease.id,
+          p_error: error instanceof DeliveryError ? error.message : "Worker delivery failed or disconnected.", p_terminal: terminal });
       } else {
         await this.db.from("builds").update({ status: terminal ? "failed" : "queued", stage: terminal ? "Build failed" : "Waiting for worker", progress: 0,
           error: "Build could not be dispatched. Check queue, source catalog and worker compatibility.", completed_at: terminal ? new Date().toISOString() : null })
@@ -162,7 +164,7 @@ export class ExecutionBroker implements ExecutionControl {
         task.lease = lease; task.identity = identity;
         const cache = await this.db.rpc("complete_worker_cache", { p_worker_id: identity.workerId, p_hash: identity.credentialHash,
           p_assignment_id: lease.id, p_artifact_hash: task.artifactHash, p_metrics: cachedArtifactPerformance() });
-        if (cache.error) { task.reject(new Error("Artifact cache unavailable.")); return null; }
+        if (cache.error) { task.reject(new DeliveryError("Artifact cache unavailable.")); return null; }
         if (cache.data) { task.done = true; task.resolve(); continue; }
         return AssignmentSchema.parse({ protocolVersion: WORKER_PROTOCOL_VERSION, assignmentId: lease.id, buildId: lease.build_id,
           configHash: task.job.data.configHash, config: task.config, release: this.options.release, recipeVersion: BUILD_RECIPE_VERSION,
@@ -195,7 +197,7 @@ export class ExecutionBroker implements ExecutionControl {
     if (!task || !auth || auth.artifactId) return false;
     // Do not store a worker's unchecked exception; compiler details are in its
     // bounded sanitized diagnostics, and operator secrets stay server-only.
-    task.reject(new Error("Remote compilation failed."));
+    task.reject(new DeliveryError("Remote worker reported a build failure. See compiler output for the failing stage and reason."));
     return true;
   }
 
@@ -215,7 +217,8 @@ export class ExecutionBroker implements ExecutionControl {
 
   async complete(identity: WorkerIdentity, assignmentId: string, path: string, digest: string, size: number) {
     const task = this.task(assignmentId);
-    if (!task || task.uploadBusy || this.uploadCount >= this.options.maxUploads) return null;
+    if (!task) return null;
+    if (task.uploadBusy || this.uploadCount >= this.options.maxUploads) throw new UploadCapacityError();
     task.uploadBusy = true; this.uploadCount++;
     try {
       const binarySize = await validateUpload(path, task.config, this.options.dryRun);
@@ -224,22 +227,32 @@ export class ExecutionBroker implements ExecutionControl {
       const storagePath = `distributed/${assignmentId}/${uploadId}/${digest}.tpz`;
       const reserved = await this.db.rpc("reserve_worker_upload", { p_worker_id: identity.workerId, p_hash: identity.credentialHash,
         p_assignment_id: assignmentId, p_upload_id: uploadId, p_path: storagePath, p_sha256: digest, p_size: size });
-      if (reserved.error) throw new Error("Artifact reservation unavailable.");
-      if (!reserved.data) return null;
+      if (reserved.error) throw new ArtifactOperationError("reservation");
+      if (!reserved.data) {
+        // The RPC also refuses a fourth pending reservation after interrupted
+        // uploads. Capacity is retryable while this delivery still owns its lease.
+        const ownership = await this.authorizeUpload(identity, assignmentId);
+        if (!ownership || task.done) return null;
+        if (ownership.artifactId) return ownership.artifactId;
+        throw new UploadCapacityError();
+      }
       const stream = createReadStream(path);
       try {
         const uploaded = await this.storage.storage.from(this.options.artifactBucket).upload(storagePath, stream, { contentType: "application/zip", upsert: false, duplex: "half" });
-        if (uploaded.error) throw new Error("Artifact storage upload failed.");
+        if (uploaded.error) throw new ArtifactOperationError("storage_upload");
+      } catch (error) {
+        if (error instanceof ArtifactOperationError) throw error;
+        throw new ArtifactOperationError("storage_upload");
       } finally { stream.destroy(); }
       // A restarted gateway/replaced assignment cannot commit an old upload.
       if (task.done) return null;
       const build = await this.db.from("builds").select("performance_metrics").eq("id", task.job.data.buildId).single();
-      if (build.error) throw new Error("Build measurements unavailable.");
+      if (build.error) throw new ArtifactOperationError("measurements");
       const completed = await this.db.rpc("complete_worker_build", { p_worker_id: identity.workerId, p_hash: identity.credentialHash,
         p_assignment_id: assignmentId, p_upload_id: uploadId, p_artifact_hash: task.artifactHash,
         p_config: task.config, p_source_sha256: task.sourceSha256, p_binary_size: binarySize,
         p_dry_run: this.options.dryRun, p_metrics: build.data.performance_metrics });
-      if (completed.error) throw new Error("Artifact commit unavailable.");
+      if (completed.error) throw new ArtifactOperationError("commit");
       if (!completed.data) return null;
       CompletionReceiptSchema.parse({ protocolVersion: 1, assignmentId, artifactId: completed.data });
       task.done = true; task.resolve();
@@ -254,7 +267,7 @@ export class ExecutionBroker implements ExecutionControl {
       for (const task of this.tasks.values()) {
         if (!task.lease || !task.identity || task.done) continue;
         const auth = await this.db.rpc("lock_worker_assignment", { p_worker_id: task.identity.workerId, p_hash: task.identity.credentialHash, p_assignment_id: task.lease.id });
-        if (!auth.error && !auth.data?.length) task.reject(new Error("Worker lease expired or credential revoked."));
+        if (!auth.error && !auth.data?.length) task.reject(new DeliveryError("Worker lease expired or credential revoked."));
       }
       await this.db.rpc("cleanup_worker_uploads");
       // Repair a submission whose DB insert succeeded but enqueue failed, and
@@ -285,7 +298,7 @@ export class ExecutionBroker implements ExecutionControl {
     const force = !this.ready;
     this.closing = true; this.ready = false;
     if (this.timer) clearInterval(this.timer);
-    for (const task of this.tasks.values()) task.reject(new Error("Gateway stopping."));
+    for (const task of this.tasks.values()) task.reject(new DeliveryError("Gateway stopping."));
     await Promise.allSettled(this.workers.map(worker => worker.close(force)));
     await Promise.allSettled([...this.queues.values()].map(queue => queue.close()));
   }

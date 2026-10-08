@@ -7,6 +7,7 @@ import { workerRoutes } from "./worker-routes.js";
 import { executionRoutes } from "./execution-routes.js";
 import type { ExecutionControl } from "./execution.js";
 import { ArtifactValidationError } from "./validate-upload.js";
+import { ArtifactOperationError, UploadCapacityError } from "./execution-errors.js";
 
 export function buildServer(options: { logger?: boolean; logLevel?: GatewayLogLevel; logStream?: Writable; workers?: WorkerControl; execution?: ExecutionControl; workDir?: string; maxUploads?: number } = {}) {
   const server = Fastify({
@@ -43,14 +44,16 @@ export function buildServer(options: { logger?: boolean; logLevel?: GatewayLogLe
     const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
     let status = 500;
     let message = "internal_error";
-    if (error instanceof ArtifactValidationError) { status = 422; message = "invalid_template_package"; }
+    if (error instanceof UploadCapacityError) { status = 429; message = "upload_capacity"; reply.header("retry-after", "10"); }
+    else if (error instanceof ArtifactValidationError) { status = 422; message = "invalid_template_package"; }
     else if (code === "FST_ERR_CTP_BODY_TOO_LARGE") { status = 413; message = "request_too_large"; }
     else if (code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") { status = 415; message = "unsupported_media_type"; }
     else if (["FST_ERR_CTP_INVALID_JSON_BODY", "FST_ERR_CTP_EMPTY_JSON_BODY", "FST_ERR_CTP_INVALID_CONTENT_LENGTH", "FST_ERR_VALIDATION"].includes(String(code))) {
       status = 400; message = "invalid_request";
     }
     // Backend messages and parser excerpts can contain credentials or request bodies.
-    if (status === 500) request.log.error({ failure: "gateway_request_failed" }, "Gateway request failed");
+    if (status === 500) request.log.error({ failure: "gateway_request_failed",
+      ...(error instanceof ArtifactOperationError ? { operation: error.operation } : {}) }, "Gateway request failed");
     return reply.code(status).send({ error: message });
   });
 

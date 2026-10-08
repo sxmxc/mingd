@@ -93,6 +93,9 @@ export async function executionRoutes(server: FastifyInstance, options: { execut
       } });
       request.raw.setTimeout?.(30_000, () => request.raw.destroy());
       await pipeline(request.body as Readable, guard, createWriteStream(path, { flags: "wx", mode: 0o600 }), { signal: AbortSignal.timeout(300_000) });
+      // The transfer idle timeout must not close the response while validation
+      // or the subsequent private Storage upload is still running.
+      request.raw.setTimeout?.(0);
       if (size !== expectedSize || digest.digest("hex") !== request.headers["x-artifact-sha256"]) return reply.code(400).send({ error: "artifact_integrity_mismatch" });
       const artifactId = await execution.complete(parseWorkerAuthorization(request.headers.authorization)!, request.params.assignmentId, path, request.headers["x-artifact-sha256"] as string, size);
       if (!artifactId) return reply.code(410).send({ error: "assignment_lost" });

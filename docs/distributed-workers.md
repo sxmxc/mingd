@@ -232,7 +232,11 @@ parsing is followed by database authentication; private network reachability alo
 is not authorization. JSON polling returns 401 for invalid/revoked credentials,
 409 for incompatible enrollment, 400 for malformed input and 503 when dispatch
 is unavailable. Assignment mutations return 410 for lost ownership. Upload
-capacity returns 429, allowing bounded retries while the lease is live.
+capacity (including pending reservation limits after interrupted uploads) returns
+429, allowing bounded retries while the lease is live. The 30-second transfer
+idle timeout ends once the request body is received; it does not cover package
+validation or publication to Storage. Gateway publication errors log a safe
+operation category (`reservation`, `storage_upload`, `measurements`, or `commit`).
 
 Each route group has a bounded in-process pre-authentication budget of 600 requests
 per minute per socket peer, with at most 4096 peers. Fastify does not trust forwarded
