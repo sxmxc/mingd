@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
+import { credentialFilePath } from "./credential-file.js";
 import { BUILD_RECIPE_VERSION } from "@mingd/build-config";
 import { WorkerHelloSchema, WORKER_PROTOCOL_VERSION } from "@mingd/worker-protocol";
 import { probeWorkerGateway } from "./probe.js";
@@ -17,7 +18,7 @@ async function main() {
   const release = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
   const hello = WorkerHelloSchema.parse({ protocolVersion: WORKER_PROTOCOL_VERSION, release,
     recipeVersion: BUILD_RECIPE_VERSION, target: values.target, toolchainSha256: values["toolchain-sha256"] ?? null });
-  const credential = readFileSync(values["credential-file"], "utf8").trim();
+  const credential = readFileSync(credentialFilePath(values["credential-file"]), "utf8").trim();
   console.log(JSON.stringify(await probeWorkerGateway(values.gateway, credential, hello)));
 }
 main().catch(() => {

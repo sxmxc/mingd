@@ -70,7 +70,9 @@ Apply migrations from an authorized matching checkout first; see
 assignment and upload records, atomic ownership RPCs and upload cleanup.
 
 Enrollment is an operator command using server-only Supabase access. No public
-HTTP enrollment/admin endpoint exists. Create a private output directory first:
+HTTP enrollment/admin endpoint exists. Relative credential-file paths resolve from
+the directory where you invoke npm, including workspace commands. Create a
+private output directory first:
 
 ```bash
 mkdir -m 700 worker-tokens
