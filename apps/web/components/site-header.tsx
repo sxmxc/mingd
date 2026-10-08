@@ -17,7 +17,7 @@ export async function SiteHeader() {
       <div className="site-header-inner">
         <Link href="/" className="header-brand">
           <span className="header-brand-icon" aria-hidden="true">
-            <Image src={brandIcon} alt="" width={128} height={128} unoptimized />
+            <Image src={brandIcon} alt="" width={36} height={36} unoptimized />
           </span>
           <span className="font-mono text-xl" aria-label="min.gd">min<span className="text-[var(--accent)]">.</span>gd</span>
         </Link>
