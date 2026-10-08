@@ -1,13 +1,21 @@
-# Getting started locally
+# Local development setup
 
-This guide uses local Supabase, a host-run Next.js app, and direct Docker workers.
-For separate production build hosts, use [distributed deployment](deployment.md).
-For a dedicated server with separate Supabase, use [deployment](deployment.md).
+Use this guide to run min.gd from a checkout and make your first Linux build.
+Supabase and Redis run in Docker, Next.js runs on the host, and a direct Docker
+worker compiles Godot. The example assumes you open the browser on the same
+machine. For access from another computer, see
+[development browser access](development.md#browser-access-to-the-dev-server)
+and [URLs and networking](configuration.md#urls-and-networking); review the app
+origin and Supabase Auth redirects for the address you use.
+
+For production with separate application and build hosts and a separately managed
+Supabase installation, follow the [deployment guide](deployment.md).
 
 ## Prerequisites
 
 - Node 24.21.0 and npm; `.nvmrc` pins the host/CI version.
 - Docker Engine with Docker Compose v2, accessible to your account.
+- A Linux x86_64 build host for the current cross-compilation images.
 - Git and outbound access for npm, container images, and official Godot releases.
 - CPU, RAM, and disk for compilation. Worker concurrency and parallel SCons jobs
   multiply resource demand; start with the example defaults.
@@ -36,18 +44,18 @@ The local project ID is `mingd-local`. The API normally uses port 54321,
 Postgres 54322, and Studio 54323. Read actual status output for API keys and the
 local mail viewer URL. Do not commit or share the privileged key.
 
-For a fresh disposable development database, reproduce all migrations:
+For a fresh disposable development database, reproduce all migrations. This
+removes local project data:
 
 ```bash
 npm run db:local:reset
-npx supabase test db --local
 ```
 
-Reset removes local project data. To preserve an existing development database,
-inspect `npm run db:local:status` and apply pending migrations with
+To preserve an existing development database, inspect `npm run db:local:status`
+and apply pending migrations with
 `npx supabase db push --local --skip-vault` instead. Never reset production.
 
-## Configure web and workers
+## Configure the web app and worker
 
 In `apps/web/.env.local`, set:
 
@@ -62,40 +70,69 @@ REDIS_URL=redis://127.0.0.1:6379
 In root `.env`, replace the key placeholders with the same project's keys.
 Leave `SUPABASE_URL=http://host.docker.internal:54321` for Docker workers when
 Supabase runs on this host. Compose supplies a host-gateway mapping; confirm
-host networking/firewall rules allow containers to reach the API. For remote
-Supabase, use its reachable HTTPS API origin instead.
+host networking/firewall rules allow containers to reach the API. Keep the public
+URL/key and privileged key populated in root `.env` as well: Compose reads these
+settings even when you start only selected services.
 
 Keep `BUILDER_DRY_RUN=false` for usable templates. Dry-run still fetches and
 verifies source but creates a diagnostic archive with no compiled template.
 
-## Start development
+## Start the app and desktop worker
 
 ```bash
 npm run compose:redis
 npm run dev:web
 ```
 
-In another terminal, start the workers you need:
+Leave the web process running. In another terminal, start the desktop worker,
+which handles both Linux and Windows:
 
 ```bash
-npm run compose:builder:build          # Linux and Windows
-npm run compose:web-builder:build      # Web
-npm run compose:android-builder:build  # Android
-npm run compose:maintenance:build      # References and cleanup
+npm run compose:builder:build
+docker compose ps redis builder
+docker compose logs --tail=100 builder
 ```
 
-Or use `npm run compose:builders:build` for all three non-macOS workers and Redis.
-These targeted commands do not start the Compose frontend; the development app
-already occupies port 3000. Avoid starting the full default stack on that port.
-macOS requires [toolchain provisioning](recipe-files-and-mobile-templates.md#macos-on-linux).
+Check that Redis is healthy, the worker is running, and its logs show no startup
+or connection errors. The startup commands select Redis and the desktop worker.
+The host-run development app occupies port 3000; starting the Compose `web`
+service on that port will conflict with it.
+
+## Make your first build
 
 Open `http://localhost:3000`, create an account, and confirm it through the local
-mail viewer. Start with a Linux Standard build and follow the
-[smoke procedure](smoke-tests.md). A complete job alone does not establish that
-an exported game runs. For administration, follow
+mail viewer whose URL appears in `npx supabase status`. Sign in and submit a
+Linux x86_64 Standard release build. Follow its status and compiler output, then
+download the completed template package.
+
+The first build downloads source and compiles Godot; allow time and disk space
+for both. To install the template and check an exported game, follow the
+[smoke procedure](smoke-tests.md) with the matching Godot editor. For
+administration, follow
 [initial SuperAdmin setup](accounts-and-admin.md#initial-superadmin).
 
-## Checks and shutdown
+## Optional services
+
+Start additional workers only for the targets you want to build:
+
+```bash
+npm run compose:web-builder:build      # Web
+npm run compose:android-builder:build  # Android
+```
+
+`npm run compose:builders:build` starts desktop, Web, Android, and Redis together.
+macOS requires [toolchain provisioning](recipe-files-and-mobile-templates.md#macos-on-linux).
+
+For template-size comparisons and scheduled artifact cleanup, start maintenance.
+It also refreshes the official release catalog:
+
+```bash
+npm run compose:maintenance:build
+```
+
+See [maintenance](maintenance.md) for schedules and task status.
+
+## Development checks
 
 ```bash
 npm exec --workspace @mingd/web -- next typegen
@@ -105,6 +142,10 @@ npm test
 
 Builder tests need archive/Python tools and optionally compilers. See
 [development and validation](development.md) for image-based and opt-in checks.
+To validate the local database migrations and access policies, run
+`npx supabase test db --local`.
+
+## Shutdown
 
 Stop the development web process with Ctrl+C. To stop containers while preserving
 Compose volumes:

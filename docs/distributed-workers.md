@@ -35,42 +35,31 @@ semantics; `packages/worker-protocol` owns strict HTTP schemas;
 `services/builder` runs isolated compilation with either `BUILDER_MODE=remote`
 or the retained direct mode for local development/rollback.
 
-## Release milestones and compatibility
+## Release compatibility
 
-| Version | Capability delivered |
-| --- | --- |
-| 0.1.1 | Compiler boundary, protocol schemas, durable assignment ownership, Fastify listener |
-| 0.1.2 | Enrollment, authentication, rotation/revocation, idle heartbeats, operator listing |
-| 0.1.3 | Queue dispatch, remote compilation, build heartbeats, cancellation, worker deployment |
-| 0.1.4 | Streaming uploads, validated completion, retries and durable recovery |
-| **0.2.0** | Combined distributed implementation, local acceptance tests and production runbook |
-| **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, extraction capability troubleshooting, contract-based upgrade compatibility, and admin worker health/cache/container telemetry |
-| **0.2.2** | Landing page and worker dashboard refinements, brand icons, and development origin configuration |
+Deploy web, gateway, and workers from a tested release set, preferably one
+immutable release tag. All workspace manifests currently use **0.2.2**.
+Existing worker IDs and credentials survive routine application upgrades.
+Compatibility requires protocol **v1**, recipe **9**, the enrolled target, and
+macOS toolchain identity. Changing a recipe, target, or toolchain requires a
+matching enrollment; token rotation changes only the secret.
 
-These describe implementation gates, not claims that every intermediate image
-was published. All workspace manifests now use **0.2.2**. Deploy web, gateway
-and workers from a tested release set, preferably one immutable release tag.
-Application release is informational and is updated on successful worker activity;
-existing IDs and credentials survive routine application upgrades. Compatibility
-requires protocol **v1**, recipe **9**, enrolled target and macOS toolchain identity.
-Changing a recipe, target or toolchain requires a matching enrollment; rotating a
-token only changes its secret. Bump the protocol for incompatible HTTP changes
-and the recipe when artifact equivalence changes. Version numbers alone do not
-establish compatibility. Do not overwrite an already published release tag. Previously published `v0.1.2` images are historical
-and do not contain this completed transport.
+Bump the protocol for incompatible HTTP changes and the recipe when binary
+inputs or packaging change. Keep published release tags immutable. See
+[worker release history](worker-release-history.md) for earlier rollout details.
 
 Container Node remains **22 / Debian Bookworm**; operator Node is **24.21.0** via
 `.nvmrc`. Fastify is exactly **5.12.5**. The lockfile retains BullMQ **6.3.11**,
 ioredis **6.0.0**, Supabase JS **2.117.2** and Next.js **16.3.8**. Redis retains the
-existing **8** major image policy. Record image digests when publishing; floating
-base tags do not establish reproducible patch versions. No Godot compiler flags,
-source identities or platform toolchain semantics changed in this release, so
-recipe 9 remains valid. NPM and production Supabase remain owner-managed.
+existing **8** major image policy. Record image digests when publishing because
+base tags can change.
+Release 0.2.2 retains recipe 9 and the previous compiler/toolchain settings.
+NPM and production Supabase are managed separately.
 
 ## Authentication and operator controls
 
 Apply migrations from an authorized matching checkout first; see
-[database deployment](deployment.md#database-migrations). The new migrations are
+[database deployment](deployment.md#database-migrations). Worker support uses
 `20261008023352_worker_assignments.sql`, `20261008041647_worker_heartbeat.sql`,
 `20261008043446_distributed_execution.sql`,
 `20261008070551_worker_release_compatibility.sql`, and
@@ -91,7 +80,7 @@ npm run workers -- list
 ```
 
 Enroll only targets you intend to start. Android uses `--target android`; macOS
-uses `--target macos --toolchain-sha256 <verified-image-digest>`. Enrollment defaults
+uses `--target macos --toolchain-sha256 <toolchain-archive-sha256>`. Enrollment defaults
 to capacity 1; `--capacity` supports 1–16 and must cover the worker's configured
 `BUILDER_CONCURRENCY`. Each process/container gets its own identity. Transfer only
 its token file to the worker host through your secure transfer method. Tokens are
@@ -285,25 +274,10 @@ Use a disposable local Redis database and a running local Supabase stack. The
 runner creates/removes its own users, builds, workers and artifacts. Set
 `MINGD_INTEGRATION_WORKER_IMAGE` to a newly built desktop image to run workers in
 separate Node 22 containers instead of host processes; each gets only its own token
-and test files. It does not
-compile Godot or prove physical multi-host/native acceptance. CLI 2.119.0 is used
-for local database validation because installed 2.120.0 failed during base-schema
-initialization; application migrations are source controlled.
+and test files. These runs use diagnostic archives. Test compiled templates
+with the [export and launch procedure](smoke-tests.md), and check multi-host
+recovery using the [cutover procedure](deployment.md#distributed-cutover-and-rollback).
+Earlier results are recorded in [worker release history](worker-release-history.md#recorded-validation).
 
-Local validation has passed workspace typechecks/tests, 291 SQL checks, database
-function lint, web/maintenance/gateway/desktop image builds, the gateway tests on
-Node 22, and the HTTPS integration flow with host processes and two isolated
-Node 22 worker containers. Those integration builds use diagnostic source fixtures
-and dry-run archives, not compiled templates.
-
-The 0.2.1 compatibility acceptance flow also uses 0.2.0 enrollments, 0.2.1 workers
-and a different gateway release declaration, verifying that original credentials
-survive upgrades while queue, lease, upload and recovery behavior still works.
-It also verifies idle cache/container snapshots and credential-free admin statistics.
-The Workers page has been checked in local development for SuperAdmin rendering,
-ordinary-user denial, signed-out redirects, and desktop/mobile layouts.
-
-The owner has verified production HTTPS `/healthz` through NPM. Production remote
-builds and fault recovery still need the [cutover acceptance steps](deployment.md#distributed-cutover-and-rollback).
 Shared remote compiler caching, pending-recipe deduplication, autoscaling,
 gateway replication and distributed compilation of a single build remain later work.

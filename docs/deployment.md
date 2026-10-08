@@ -158,23 +158,12 @@ For a deployed file named `compose.yml` with those targets enabled:
 docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
 ```
 
-For the 0.2.1 upgrade, apply
-`20261008070551_worker_release_compatibility.sql` and
-`20261008071856_worker_telemetry.sql` before deploying the updated web,
-worker gateway and workers. These preserve existing worker IDs and token hashes;
-keep the mounted token files. Older code still enforces exact releases until its
-images are updated, so drain active work before the initial migration/cutover.
-Once gateway and workers run this compatibility implementation, application
-version changes alone do not require re-enrollment. Protocol, recipe, target and
-toolchain compatibility remain enforced. Set `IMAGE_TAG=v0.2.1` explicitly on
-hosts pinned to an older tag. If you use `latest`, pull before recreating services;
-a restart does not fetch or apply a new image. This upgrade adds two database migrations. Check `/admin/workers` for live
-health/cache/container snapshots after deployment; initial CPU usage needs two
-30-second samples.
-
-The 0.2.2 release adds UI and branding refinements and development origin
-configuration. It adds no migrations or protocol/recipe changes beyond 0.2.1.
-Deploy using `IMAGE_TAG=v0.2.2`; existing worker enrollments remain compatible.
+Release 0.2.2 uses `IMAGE_TAG=v0.2.2` and adds no migrations or protocol/recipe
+changes beyond 0.2.1. Apply the full migration history before deployment.
+Existing compatible enrollments keep their tokens; initial CPU readings at
+`/admin/workers` need two 30-second samples. See
+[worker release history](worker-release-history.md#upgrading-from-before-021)
+for deployments predating release-independent enrollment compatibility.
 
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate

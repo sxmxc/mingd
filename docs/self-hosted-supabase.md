@@ -1,16 +1,18 @@
 # Self-hosted Supabase
 
-Supabase runs on its own dedicated Docker server. This project's Compose file
-runs the application, Redis, workers, and maintenance; it does not install or
-reconfigure that Supabase server. Use the official
+Production uses separate application and build hosts, plus a separately managed
+Supabase server. `compose.web.prod.yml` runs web, the worker gateway, Redis, and
+maintenance; `compose.workers.prod.yml` runs the remote compiler workers.
+Use the official
 [self-hosted distribution](https://supabase.com/docs/guides/self-hosting/docker)
 for production. `npx supabase start` is the separate local development stack.
 
-## Two servers, two sets of configuration
+## Configuration ownership
 
 | Change | Where to make it |
 | --- | --- |
-| App URL, public API key, worker connectivity | min.gd root `.env` for Compose; web `.env.local` for development |
+| App URL, public API key, privileged Supabase key, gateway settings | Application host `.env`; `apps/web/.env.local` for web development |
+| Worker gateway URL, token files, target resource limits | Worker host `.env` and private `worker-tokens/`; no Supabase keys |
 | Auth site URL, allowed redirects, SMTP, email template URLs | Supabase server's deployment environment/Compose |
 | Application tables, policies, bucket, scheduled jobs | This repo's migrations, applied to Supabase Postgres |
 | Local mail/templates/ports | `supabase/config.toml`, affecting only local CLI Supabase |
