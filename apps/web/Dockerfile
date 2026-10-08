@@ -14,6 +14,7 @@ RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web
 
 FROM node:22-bookworm-slim AS runtime
+LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
