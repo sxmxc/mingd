@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS dependencies
+FROM node:25-bookworm-slim AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
@@ -16,7 +16,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
 WORKDIR /app
 ENV NODE_ENV=production \
