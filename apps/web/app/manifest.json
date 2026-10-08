@@ -1,6 +1,6 @@
 {
   "name": "min.gd",
-  "short_name": "min.gd",
+  "short_name": "mingd",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,8 +15,8 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#151e28",
-  "background_color": "#151e28",
+  "theme_color": "#0a0e13",
+  "background_color": "#0a0e13",
   "display": "standalone",
   "start_url": "/",
   "scope": "/"
