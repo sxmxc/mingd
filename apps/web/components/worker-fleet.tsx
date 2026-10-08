@@ -28,16 +28,15 @@ function WorkerRow({ worker, now }: { worker: Worker; now: number }) {
     <div className={styles.row}>
       <div className={styles.identity}>
         <span className={styles.icon}><PlatformIcon platform={worker.target} /></span>
-        <div><h3>{worker.name}</h3><p>{worker.target} <span>· v{worker.release} · recipe {worker.recipeVersion}</span></p></div>
+        <div>
+          <div className={styles.nameLine}><h3>{worker.name}</h3><span className={styles.badge} data-health={health}>{health}</span></div>
+          <p title={worker.lastSeenAt && lastSeen !== null ? time(worker.lastSeenAt) : undefined}>{worker.target} · {lastSeen === null ? "Never seen" : `Seen ${elapsed(lastSeen / 1000)} ago`}</p>
+        </div>
       </div>
-      <div className={styles.health}>
-        <span className={styles.badge} data-health={health}>{health}</span>
-        <span title={worker.lastSeenAt && lastSeen !== null ? time(worker.lastSeenAt) : undefined}>{lastSeen === null ? "Never seen" : `Seen ${elapsed(lastSeen / 1000)} ago`}</span>
-      </div>
-      <div className={styles.metric}><span>Build slots</span><strong>{worker.activeBuilds.length} <small>/ {worker.capacity}</small></strong><span>{worker.activeBuilds.length ? "In use" : "Idle"}</span></div>
-      <div className={styles.metric}><span>CPU usage</span><strong>{container?.cpuCoresUsed == null ? "—" : container.cpuCoresUsed.toFixed(2)} <small>{container?.cpuCoresUsed == null ? "" : "cores"}</small></strong><span>{container ? container.cpuLimitCores === null ? "No quota" : `${container.cpuLimitCores.toFixed(2)} core quota` : "Not reported"}</span></div>
-      <div className={styles.metric}><span>Memory</span><strong>{container ? bytes(container.memoryBytes) : "—"}</strong><span>{container ? container.memoryLimitBytes === null ? "No limit" : `of ${bytes(container.memoryLimitBytes)}` : "Not reported"}</span></div>
-      <div className={styles.metric}><span>Cache hit rate</span><strong>{cache ? cacheHitRate(cache.hits, cache.misses) : "—"}</strong><span>{cache ? `${bytes(cache.sizeBytes)} stored` : "Not reported"}</span></div>
+      <div className={styles.metric}><span>Build slots</span><strong>{worker.activeBuilds.length} <small>/ {worker.capacity}</small></strong></div>
+      <div className={styles.metric}><span>CPU usage</span><strong>{container?.cpuCoresUsed == null ? <span title={container ? "Waiting for next sample" : "Not reported"}>—</span> : container.cpuCoresUsed.toFixed(2)} <small>{container?.cpuCoresUsed == null ? "" : "cores"}</small></strong></div>
+      <div className={styles.metric}><span>Memory</span><strong>{container ? bytes(container.memoryBytes) : <span title="Not reported">—</span>}</strong></div>
+      <div className={styles.metric}><span>Cache hit rate</span><strong>{cache ? cacheHitRate(cache.hits, cache.misses) : <span title="Not reported">—</span>}</strong></div>
     </div>
     <div className={styles.activity}>
       {worker.activeBuilds.length ? <ul>{worker.activeBuilds.map(build => <li key={build.id}>
@@ -46,9 +45,9 @@ function WorkerRow({ worker, now }: { worker: Worker; now: number }) {
       <span className={styles.sample} data-stale={age !== null && !fresh}>{telemetryLabel}</span>
     </div>
     <details className={styles.details}>
-      <summary><span>Telemetry & build diagnostics</span><ChevronDown size={14} aria-hidden="true" /></summary>
+      <summary><span>Worker details</span><ChevronDown size={14} aria-hidden="true" /></summary>
       <div className={styles.detailContent}>
-        <p className={styles.timestamps}>Last seen: {worker.lastSeenAt && lastSeen !== null ? time(worker.lastSeenAt) : "Never"}. Telemetry: {telemetryLabel}.</p>
+        <p className={styles.timestamps}>App v{worker.release} · recipe {worker.recipeVersion}. Last seen: {worker.lastSeenAt && lastSeen !== null ? time(worker.lastSeenAt) : "Never"}. Telemetry: {telemetryLabel}.</p>
         <div className={styles.detailGrid}>
           <section><h4>Compiler cache <span>Cumulative totals</span></h4>{cache ? <Values values={[
             ["Hits / misses", `${cache.hits.toLocaleString()} / ${cache.misses.toLocaleString()}`],

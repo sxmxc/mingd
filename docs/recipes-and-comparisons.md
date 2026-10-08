@@ -65,8 +65,27 @@ The reference migration seeds eight verified 4.7.2 desktop/Web measurements.
 Maintenance backfills the current inventory: 22 rows for 4.6.3/4.7.2 including
 Android/macOS, eight for releases without those build targets. The measured 4.7.2
 Windows release executable is 109,268,480 bytes (104.21 MiB), distinct from its
-103,176,704-byte debug executable. The homepage's 15.47 MiB custom example is the
-owner's rounded measurement; build results use exact recorded bytes.
+103,176,704-byte debug executable. Build results use exact recorded bytes.
+
+The homepage uses a static snapshot of real, non-dry-run **Offline 2D** builds
+(the Minimal 2D recipe without multiplayer networking), read on October 8, 2026.
+All use Godot 4.7.2, size optimization, and LTO disabled. The recorded features
+match the current Offline 2D preset, retaining advanced text, GUI, 2D physics,
+navigation, tiles, and audio. The snapshot contains only measured targets:
+
+| Target | Template kinds | Official bytes | min.gd bytes |
+| --- | --- | ---: | ---: |
+| Windows x86_64 | Release | 109,268,480 | 44,993,536 |
+| Linux x86_64 | Debug + release combined | 147,223,216 | 98,584,992 |
+| Web wasm32, threads enabled | Release | 38,820,072 | 30,035,934 |
+| Android arm64 | Release | 71,114,944 | 51,304,968 |
+
+No matching macOS build was recorded at snapshot time. The previous Windows-only
+15.47 MiB owner-reported example has been replaced by the recorded Offline 2D
+measurement. Tiles calculate percentages and MiB from the byte counts in
+`apps/web/components/landing-comparisons.tsx`; the homepage does not query private
+artifacts to populate them. Update the snapshot only from real artifacts with
+matching normalized features and complete official references.
 
 Official/min.gd toolchains and features may differ. A size comparison measures
 resulting engine bytes, not runtime performance or final game download size.

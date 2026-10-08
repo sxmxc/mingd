@@ -4,6 +4,21 @@ Use [getting started](getting-started.md) to configure development services.
 Use [AGENTS.md](../AGENTS.md) for repository boundaries and change rules.
 Commands here run from the repository root.
 
+## Browser access to the dev server
+
+Run `npm run dev:web` and open `http://localhost:3000` on the server, or
+`http://docker01.voidmoose.local:3000` from the local network. The web config
+explicitly allows that LAN hostname and `127.0.0.1` for Next.js development
+assets and the `/_next/hmr` WebSocket; localhost is allowed by Next.js itself.
+If you use a different LAN hostname, add its hostname (without scheme or port)
+to `allowedDevOrigins` in `apps/web/next.config.ts`.
+
+A blocked HMR origin can prevent client hydration, leaving navbar menus
+unresponsive. After changing the allowlist, let the dev server restart (or
+restart `npm run dev:web`) and reload the browser. A reverse proxy must also
+forward WebSocket upgrades. This allowlist is development-only and does not
+change production origins or Supabase configuration.
+
 ## Baseline checks
 
 ```bash
