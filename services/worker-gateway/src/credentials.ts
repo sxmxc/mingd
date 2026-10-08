@@ -7,8 +7,8 @@ export function hashWorkerCredential(credential: string): string {
 }
 
 /** Enrollment must store only credentialHash; display credential once to the operator. */
-export function createWorkerCredential() {
-  const workerId = randomUUID();
+export function createWorkerCredential(workerId: string = randomUUID()) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(workerId)) throw new Error("Invalid worker identity.");
   const credential = `mingd_worker_${workerId}.${randomBytes(32).toString("base64url")}`;
   return { workerId, credential, credentialHash: hashWorkerCredential(credential) };
 }

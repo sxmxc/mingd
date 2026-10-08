@@ -1,0 +1,97 @@
+services:
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${IMAGE_TAG:-v0.2.0}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL in .env}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+      REDIS_URL: redis://redis:6379
+      BUILDER_QUEUE_NAME: ${BUILDER_QUEUE_NAME:-godot-builds}
+      WEB_BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+      ANDROID_BUILDER_QUEUE_NAME: ${ANDROID_BUILDER_QUEUE_NAME:-godot-android-builds}
+      MACOS_BUILDER_QUEUE_NAME: ${MACOS_BUILDER_QUEUE_NAME:-godot-macos-builds}
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+      ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
+      SIGNED_DOWNLOAD_TTL_SECONDS: ${SIGNED_DOWNLOAD_TTL_SECONDS:-900}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login', {signal: AbortSignal.timeout(5000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      start_period: 20s
+      retries: 3
+
+  worker-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${IMAGE_TAG:-v0.2.0}
+    restart: unless-stopped
+    environment:
+      WORKER_GATEWAY_HOST: 0.0.0.0
+      WORKER_GATEWAY_PORT: 3001
+      WORKER_GATEWAY_LOG_LEVEL: ${WORKER_GATEWAY_LOG_LEVEL:-info}
+      WORKER_GATEWAY_WORKERS_ENABLED: ${WORKER_GATEWAY_WORKERS_ENABLED:-false}
+      WORKER_GATEWAY_EXECUTION_ENABLED: ${WORKER_GATEWAY_EXECUTION_ENABLED:-false}
+      REDIS_URL: redis://redis:6379
+      BUILDER_QUEUE_NAME: ${BUILDER_QUEUE_NAME:-godot-builds}
+      WEB_BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+      ANDROID_BUILDER_QUEUE_NAME: ${ANDROID_BUILDER_QUEUE_NAME:-godot-android-builds}
+      MACOS_BUILDER_QUEUE_NAME: ${MACOS_BUILDER_QUEUE_NAME:-godot-macos-builds}
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+      ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
+      BUILDER_DRY_RUN: ${BUILDER_DRY_RUN:-false}
+      WORKER_GATEWAY_QUEUE_CONCURRENCY: ${WORKER_GATEWAY_QUEUE_CONCURRENCY:-16}
+      WORKER_GATEWAY_MAX_UPLOADS: ${WORKER_GATEWAY_MAX_UPLOADS:-2}
+      WORKER_GATEWAY_MAX_JOB_MS: ${WORKER_GATEWAY_MAX_JOB_MS:-43200000}
+      SUPABASE_URL: ${SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL:-}}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WORKER_GATEWAY_PORT:-3001}:3001"
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/healthz', {signal: AbortSignal.timeout(5000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      start_period: 10s
+      retries: 3
+
+  maintenance:
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/maintenance:${IMAGE_TAG:-v0.2.0}
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+      ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 64
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+
+volumes:
+  redis-data:

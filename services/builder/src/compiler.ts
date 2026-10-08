@@ -20,14 +20,16 @@ export async function compileBuild(
   onStage: (stage: BuildStage) => Promise<void> = async () => undefined,
   onOutput?: (chunk: Buffer) => void,
   measurements = new BuildPerformance(),
+  signal?: AbortSignal,
 ): Promise<{ artifactPath: string; binarySizeBytes: number; config: BuildConfig }> {
   const config = normalizeBuildConfig(rawConfig);
+  signal?.throwIfAborted();
   if (!runtime.dryRun) assertRealBuildSupported(config);
   if (workerTargetForPlatform(config.platform) !== runtime.target) {
     throw new Error(`The ${runtime.target} worker cannot compile ${config.platform} jobs.`);
   }
   await onStage("preparing_source");
-  const sourceCache = await ensureGodotSource(config.godotVersion, runtime.godotCacheDir, async () => onStage("verifying_source"));
+  const sourceCache = await ensureGodotSource(config.godotVersion, runtime.godotCacheDir, async () => onStage("verifying_source"), signal);
   const jobDir = join(runtime.workDir, buildId);
   const sourceDir = join(jobDir, "source");
   const outputDir = join(jobDir, "output");
@@ -36,7 +38,7 @@ export async function compileBuild(
   await mkdir(outputDir, { recursive: true });
 
   // --reflink=auto is fast on CoW filesystems and safely falls back to a copy.
-  await runProcess("cp", ["-a", "--reflink=auto", `${sourceCache}/.`, sourceDir]);
+  await runProcess("cp", ["-a", "--reflink=auto", `${sourceCache}/.`, sourceDir], { signal, timeoutMs: 300_000 });
 
   if (runtime.dryRun) {
     await onStage("compiling");
@@ -72,7 +74,7 @@ export async function compileBuild(
       });
       const args = ["-j", String(runtime.sconsJobs), ...toSconsArgs({ ...config, architecture }, kind)];
       await runProcess("scons", args, {
-        cwd: sourceDir, env: processEnv, logFile, timeoutMs: runtime.compileTimeoutMs,
+        cwd: sourceDir, env: processEnv, logFile, timeoutMs: runtime.compileTimeoutMs, signal,
         onOutput: chunk => { onOutput?.(chunk); links.record(chunk); },
         resourceFile: join(outputDir, `resources-${kind}-${architecture}.txt`),
         onPeakRss: value => measurements.recordPeak(value),
@@ -82,7 +84,7 @@ export async function compileBuild(
       await onStage("compiling");
       await runProcess("./gradlew", ["--no-daemon", "--max-workers", String(runtime.sconsJobs), "-Dorg.gradle.jvmargs=-Xmx1536m", "generateGodotTemplates"], {
         cwd: join(sourceDir, "platform/android/java"), env: processEnv, logFile,
-        timeoutMs: runtime.compileTimeoutMs, onOutput,
+        timeoutMs: runtime.compileTimeoutMs, onOutput, signal,
         resourceFile: join(outputDir, "resources-gradle.txt"), onPeakRss: value => measurements.recordPeak(value),
       });
     }
@@ -92,9 +94,11 @@ export async function compileBuild(
     measurements.setCache(diagnostics);
   }
   if (linkingError) throw linkingError;
+  signal?.throwIfAborted();
 
   await onStage("validating");
   // Report packaging only after the ELF/PE and wrapper checks succeed.
   const packaged = await packageArtifact(sourceDir, outputDir, config, () => onStage("packaging"));
+  signal?.throwIfAborted();
   return { artifactPath: packaged.artifactPath, binarySizeBytes: packaged.binarySizeBytes, config };
 }

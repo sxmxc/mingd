@@ -9,10 +9,11 @@ the same ref. No production secrets or private-network access are required.
 
 | Required check name | What runs |
 | --- | --- |
-| `Application checks (Node 24)` | Lockfile install, Next.js route type generation, workspace typecheck/tests, web/builder build |
+| `Application checks (Node 24)` | Lockfile install, Next.js route type generation, workspace typecheck/tests, web/shared/service builds |
 | `Database migrations and SQL tests` | Disposable local Supabase Postgres, full migration reset, pgTAP tests, cleanup even on failure |
 | `Docker build (web)` | Build existing web Dockerfile with BuildKit caching |
 | `Docker build (maintenance)` | Build existing maintenance Dockerfile with BuildKit caching |
+| `Docker build (worker-gateway)` | Build Fastify/Node 22 gateway image with upload validator |
 
 Application/SQL jobs use Node **24.21.0** from `.nvmrc`, matching repository
 operator commands; image-only production hosts need no Node/npm installation.
@@ -41,7 +42,7 @@ and pulling them on production after checks pass; see
 
 ## Branch protection and workflow changes
 
-After a successful GitHub run, configure a `main` ruleset requiring all four check
+After a successful GitHub run, configure a `main` ruleset requiring all five check
 names in the table. The workflow does not configure repository rules itself.
 Actions use immutable commit pins; update their pins and version comments together.
 Keep CI builds isolated from production credentials and services.

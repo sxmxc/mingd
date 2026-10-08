@@ -69,10 +69,11 @@ test("missing gateway image fails the entire preflight before any tags or pushes
   assert.ok(!result.calls.some(call => call[0] === "push" || call[1] === "tag"));
 });
 
-test("default publication preserves the five-image scope", () => {
+test("default publication includes gateway and excludes the optional macOS image", () => {
   const result = runPublisher(["v0.1.2", "--dry-run"]);
   assert.equal(result.status, 0, result.stderr);
   const inspected = result.calls.filter(call => call[0] === "image" && call[1] === "inspect");
-  assert.equal(inspected.length, 5);
-  assert.ok(!inspected.some(call => /worker-gateway|macos-builder|redis/.test(call[2])));
+  assert.equal(inspected.length, 6);
+  assert.ok(inspected.some(call => /worker-gateway/.test(call[2])));
+  assert.ok(!inspected.some(call => /macos-builder|redis/.test(call[2])));
 });

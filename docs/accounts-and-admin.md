@@ -40,7 +40,7 @@ issued signed download URLs remain usable until expiry.
 Pausing submissions prevents new builds; it does not cancel queued/running work.
 Use it to drain jobs before deploying worker/recipe changes. Queue counts reflect
 Redis jobs and can include previous attempts; they are not counts of failed
-build records. See [deployment](deployment.md#updating) and [maintenance](maintenance.md).
+build records. See [deployment](deployment.md#persistence-and-updates) and [maintenance](maintenance.md).
 
 ## Site announcements
 
@@ -78,9 +78,9 @@ Request fresh emails when configuration changes.
 
 ## Queue recovery
 
-A queued database build is the durable submission record. Workers scan unfinished
-builds every 30 seconds and enqueue missing deliveries with the original build
-ID. Redis failure does not discard that record. BullMQ recovers stalled jobs;
+A queued database build is the durable submission record. Direct workers scan
+unfinished builds every 30 seconds; in distributed mode the gateway scans every
+five seconds. They enqueue missing deliveries with the original build ID. Redis failure does not discard that record. BullMQ recovers stalled jobs;
 ordinary failures have two total attempts with exponential backoff. Exhausted
 or inconsistent jobs become failed builds with a retry action that submits a
 new build using the same recipe.
@@ -88,7 +88,8 @@ new build using the same recipe.
 Each delivery has an isolated attempt workspace. Upload identities include the
 content digest, and artifact cache insertion preserves the first committed
 result. Late attempts cannot regress a completed build to working/failed state.
-Keep workers and web on compatible recipe revisions.
+Keep web, gateway and workers on the same release and compatible recipe revisions.
+Remote attempts additionally use database leases; see [distributed recovery](distributed-workers.md#assignment-and-build-lifecycle).
 
 ## Validation and scope
 

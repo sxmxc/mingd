@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 select no_plan();
 
-select is((select count(*) from cron.job where jobname like 'mingd-%'), 5::bigint, 'Five maintenance jobs registered');
+select is((select count(*) from cron.job where jobname like 'mingd-%'), 6::bigint, 'Six maintenance jobs registered');
 select is((select schedule from cron.job where jobname = 'mingd-detect-stalled-builds'), '*/5 * * * *', 'Stall detection runs every five minutes');
 select ok(not has_table_privilege(role_name, table_name, 'SELECT'), role_name || ' cannot read ' || table_name)
 from unnest(array['anon','authenticated']) roles(role_name)

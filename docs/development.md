@@ -21,7 +21,7 @@ configured public frontend settings; neither a successful typecheck nor a build
 establishes working Auth or database connectivity.
 
 Root scripts cover all applicable workspaces. `npm run build` builds web and
-runs the builder TypeScript build check; builder runtime uses `tsx` rather than
+runs all shared/service TypeScript build checks; builder runtime uses `tsx` rather than
 a generated `dist` service. Use workspace commands for focused tests:
 
 ```bash
@@ -31,6 +31,10 @@ npm test --workspace @mingd/builder
 npm test --workspace @mingd/worker-protocol
 npm test --workspace @mingd/worker-gateway
 ```
+
+Gateway enrollment and idle-heartbeat diagnostics are documented in
+[worker control](distributed-workers.md#authentication-and-operator-controls).
+The operator CLI reads root `.env`; the HTTPS probe needs only its worker token.
 
 For Next.js route/UI changes, exercise affected states in development and run the
 web build. For shared build-contract changes, validate both Next/Turbopack and
@@ -43,7 +47,7 @@ Node/tsx consumers, including package resolution and cache semantics.
 | Shared pure tests | Normalization, schemas, recipes/hashes, presets, versions, SCons arguments, comparisons, portable files | Node/npm |
 | Web tests | Rendering/access-flow helpers, request handling, account/UI invariants | Node/npm |
 | Builder tests | Process handling, archive/binary fixtures, performance, recovery, maintenance, reference measurement | Python 3, `zip`, `unzip`; some compiler checks opt in |
-| Worker protocol/gateway tests | Protocol negotiation, credential parsing, ownership RPC adapter, Fastify health/body/error handling | Node/npm; remote assignment transport is not implemented yet |
+| Worker protocol/gateway tests | Protocol negotiation, credential parsing, ownership RPC adapters, HTTPS client, Fastify health/body/error handling | Node/npm and Python 3 for upload-validation fixtures |
 | SQL tests | Migrations, constraints, ownership, roles, sharing, maintenance policies | Docker and disposable local Supabase Postgres |
 | Native smoke tests | Real template install, export, and game launch | Matching Godot editor and target OS/browser/device |
 
@@ -55,7 +59,7 @@ compiler tools are missing:
 
 ```bash
 docker compose build builder
-docker compose run --rm --no-deps -v "$PWD/scripts:/app/scripts:ro" --entrypoint npm builder test --workspace @mingd/builder
+docker compose run --rm --no-deps -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/services/worker-gateway:/app/services/worker-gateway:ro" --entrypoint npm builder test --workspace @mingd/builder
 ```
 
 The image includes builder source/tests and shared configuration. The read-only
@@ -96,9 +100,8 @@ an environment already provisioned with Emscripten:
 BUILDER_TARGET=web BUILDER_QUEUE_NAME=godot-web-builds npx dotenv -- npm run dev:builder
 ```
 
-The current root `dev:web-builder` script references `@mingd/web-builder`, which
-is not a separate workspace. Use the shared builder command with the target
-settings above, or the supported Docker service. Desktop, Web, Android, and macOS
+`npm run dev:web-builder` loads root `.env` and selects the Web target/default
+Web queue. For a custom queue, use the explicit command above. Desktop, Web, Android, and macOS
 all use `services/builder` with different toolchains/targets.
 
 Use `BUILDER_DRY_RUN=true` only for diagnostic pipeline checks in a disposable

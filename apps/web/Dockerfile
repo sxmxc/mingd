@@ -3,8 +3,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/build-config/package.json packages/build-config/package.json
+COPY packages/worker-protocol/package.json packages/worker-protocol/package.json
 COPY services/builder/package.json services/builder/package.json
-RUN npm ci
+COPY services/worker-gateway/package.json services/worker-gateway/package.json
+RUN npm ci --workspace @mingd/web --include-workspace-root
 
 FROM dependencies AS build
 COPY packages/build-config packages/build-config

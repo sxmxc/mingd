@@ -114,10 +114,17 @@ packages/build-config/
   Zod schemas, types, defaults, presets, normalization, supported Godot versions,
   cache recipe semantics, and SCons argument generation.
 
+packages/worker-protocol/
+  Strict versioned HTTPS worker contract, shared by gateway and remote workers.
+
+services/worker-gateway/
+  Fastify gateway on the application host. Owns private Redis/BullMQ,
+  Supabase credentials, enrollment, assignment leases, uploads and recovery.
+
 services/builder/
-  BullMQ worker.
-  Fetches/verifies Godot source, compiles templates, packages artifacts,
-  uploads artifacts, and updates build state.
+  Isolated compiler with direct and remote entrypoints, plus maintenance.
+  Remote workers use HTTPS enrollment tokens and local caches; they must not
+  receive Redis or privileged Supabase configuration.
 
 supabase/
   Local Supabase configuration and source-controlled database/storage migrations.
@@ -193,7 +200,8 @@ Do not use Supabase Studio/dashboard-only edits as the final implementation.
 
 - `NEXT_PUBLIC_SUPABASE_URL` and the publishable key are browser-safe configuration.
 - `SUPABASE_SECRET_KEY` is privileged and must never enter browser bundles or `NEXT_PUBLIC_*` variables.
-- The builder may use privileged Supabase access for artifact writes and build-state updates.
+- Direct builders, the gateway and maintenance may use privileged Supabase access.
+- Remote workers receive only enrollment credentials; the gateway owns their artifact writes and build-state updates.
 - User-facing downloads must be authorized before creating a signed/private download URL.
 
 ### Storage

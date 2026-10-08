@@ -43,11 +43,31 @@ services:
       WORKER_GATEWAY_HOST: 0.0.0.0
       WORKER_GATEWAY_PORT: 3001
       WORKER_GATEWAY_LOG_LEVEL: ${WORKER_GATEWAY_LOG_LEVEL:-info}
+      WORKER_GATEWAY_WORKERS_ENABLED: ${WORKER_GATEWAY_WORKERS_ENABLED:-false}
+      WORKER_GATEWAY_EXECUTION_ENABLED: ${WORKER_GATEWAY_EXECUTION_ENABLED:-false}
+      REDIS_URL: redis://redis:6379
+      BUILDER_QUEUE_NAME: ${BUILDER_QUEUE_NAME:-godot-builds}
+      WEB_BUILDER_QUEUE_NAME: ${WEB_BUILDER_QUEUE_NAME:-godot-web-builds}
+      ANDROID_BUILDER_QUEUE_NAME: ${ANDROID_BUILDER_QUEUE_NAME:-godot-android-builds}
+      MACOS_BUILDER_QUEUE_NAME: ${MACOS_BUILDER_QUEUE_NAME:-godot-macos-builds}
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+      ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
+      BUILDER_DRY_RUN: ${BUILDER_DRY_RUN:-false}
+      WORKER_GATEWAY_QUEUE_CONCURRENCY: ${WORKER_GATEWAY_QUEUE_CONCURRENCY:-16}
+      WORKER_GATEWAY_MAX_UPLOADS: ${WORKER_GATEWAY_MAX_UPLOADS:-2}
+      WORKER_GATEWAY_MAX_JOB_MS: ${WORKER_GATEWAY_MAX_JOB_MS:-43200000}
+      SUPABASE_URL: ${SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL:-}}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${WORKER_GATEWAY_PORT:-3001}:3001"
-    mem_limit: 256m
+    mem_limit: 512m
     cpus: 1
-    pids_limit: 64
+    pids_limit: 128
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/healthz', {signal: AbortSignal.timeout(5000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s

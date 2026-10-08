@@ -15,3 +15,23 @@ export function gatewayConfigFromEnvironment(values: NodeJS.ProcessEnv = process
   }
   return { host, port, logLevel: logLevel as GatewayLogLevel };
 }
+
+export function executionConfigFromEnvironment(release: string, values: NodeJS.ProcessEnv = process.env): import("./execution.js").ExecutionOptions | null {
+  const enabled = values.WORKER_GATEWAY_EXECUTION_ENABLED ?? "false";
+  if (!["true", "false"].includes(enabled)) throw new Error("Invalid execution setting.");
+  if (enabled === "false") return null;
+  if (values.WORKER_GATEWAY_WORKERS_ENABLED !== "true" || !values.REDIS_URL) throw new Error("Execution requires worker control and internal Redis.");
+  const integer = (name: string, fallback: number, max: number) => {
+    const text = values[name] ?? String(fallback); const number = Number(text);
+    if (!/^\d+$/.test(text) || !Number.isSafeInteger(number) || number < 1 || number > max) throw new Error(`Invalid ${name}.`);
+    return number;
+  };
+  return { release, redisUrl: values.REDIS_URL,
+    queues: { desktop: values.BUILDER_QUEUE_NAME ?? "godot-builds", web: values.WEB_BUILDER_QUEUE_NAME ?? "godot-web-builds",
+      android: values.ANDROID_BUILDER_QUEUE_NAME ?? "godot-android-builds", macos: values.MACOS_BUILDER_QUEUE_NAME ?? "godot-macos-builds" },
+    concurrency: integer("WORKER_GATEWAY_QUEUE_CONCURRENCY", 16, 64), maxUploads: integer("WORKER_GATEWAY_MAX_UPLOADS", 2, 4),
+    maxJobMs: integer("WORKER_GATEWAY_MAX_JOB_MS", 12 * 60 * 60 * 1000, 48 * 60 * 60 * 1000),
+    dryRun: values.BUILDER_DRY_RUN === "true", artifactBucket: values.ARTIFACT_BUCKET ?? "build-artifacts",
+    workDir: values.WORKER_GATEWAY_WORK_DIR ?? "/tmp/mingd-gateway", toolchainSha256: values.MACOS_TOOLCHAIN_SHA256 || null,
+  };
+}

@@ -1,3 +1,4 @@
+import { validateUpload } from "../../worker-gateway/src/validate-upload.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -41,6 +42,7 @@ test("debug and release Windows binaries and wrappers stay distinct in one packa
       await writeFile(join(source, "bin", compiledTemplateFilename(config, kind, console)), pe(console));
     }
     const result = await packageArtifact(source, output, config);
+    assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes);
     const names = execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).trim().split("\n");
     for (const kind of config.templateKinds) {
       assert.ok(names.includes(`windows_${kind}_x86_64.exe`));
@@ -65,6 +67,7 @@ test("Web TPZ preserves nested template ZIPs and rejects missing or invalid WASM
       await writeZip(join(source, "bin", compiledTemplateFilename(config, kind)), [...entries, { name: "godot.wasm", contents: wasm }]);
     }
     const result = await packageArtifact(source, output, config);
+    assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes);
     assert.equal(result.binarySizeBytes, wasm.length * 2);
     for (const kind of config.templateKinds) {
       assert.deepEqual(execFileSync("unzip", ["-p", result.artifactPath, `web_nothreads_${kind}.zip`]), await readFile(join(source, "bin", compiledTemplateFilename(config, kind))));

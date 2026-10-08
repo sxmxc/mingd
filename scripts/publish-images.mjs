@@ -28,9 +28,9 @@ try {
   ], true));
   // All application images are defined by Compose build entries, including
   // profiled services. Avoid a second list that can omit a newly added service.
-  const services = includeAll
-    ? Object.entries(config.services).filter(([, service]) => service.build).map(([name]) => name)
-    : ["web", "maintenance", "builder", "web-builder", "android-builder"];
+  const services = Object.entries(config.services)
+    .filter(([name, service]) => service.build && (includeAll || name !== "macos-builder"))
+    .map(([name]) => name);
   if (services.length === 0) throw new Error("No application images selected.");
   console.log(`${dryRun ? "Preflight" : "Publishing"} ${services.length} application images: ${services.join(", ")}`);
   // Inspect every source before modifying tags or publishing. Pin image IDs so

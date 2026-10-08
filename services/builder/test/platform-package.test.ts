@@ -1,3 +1,4 @@
+import { validateUpload } from "../../worker-gateway/src/validate-upload.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -47,6 +48,7 @@ test("Android packages APKs and matching Gradle AARs and counts native engine by
     }
     await writeZip(join(bin, "android_source.zip"), entries);
     const result = await packageArtifact(source, output, config);
+    assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes);
     assert.equal(result.binarySizeBytes, 1024);
     assert.ok(execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).includes("android_source.zip"));
     // Valid APK with a changed library must fail the APK/AAR consistency check.
@@ -67,7 +69,8 @@ test("macOS nested bundle includes exact per-kind names, executable permissions 
     await writeFile(join(source, "misc/dist/macos_template.app/Contents/Info.plist"), "fixture");
     const config = normalizeBuildConfig({ ...DEFAULT_BUILD_CONFIG, platform: "macos", architecture: "arm64", templateKinds: ["release", "debug"] });
     for (const kind of config.templateKinds) await writeFile(join(source, "bin", compiledTemplateFilename(config, kind)), macho("arm64"));
-    const result = await packageArtifact(source, output, config); assert.equal(result.binarySizeBytes, 1024);
+    const result = await packageArtifact(source, output, config);
+    assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes); assert.equal(result.binarySizeBytes, 1024);
     const nested = join(output, "checked.zip"); await writeFile(nested, execFileSync("unzip", ["-p", result.artifactPath, "macos.zip"]));
     const listing = execFileSync("unzip", ["-Z", "-v", nested], { encoding: "utf8" });
     assert.match(listing, /godot_macos_release.arm64/); assert.match(listing, /godot_macos_debug.arm64/); assert.match(listing, /100755/);
