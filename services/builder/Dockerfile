@@ -38,7 +38,7 @@ ENV GODOT_CACHE_DIR=/cache/godot \
 CMD ["node", "--import", "tsx", "services/builder/src/entrypoint.ts"]
 
 # Isolated Web toolchain; recipe 8 pins the Emscripten SDK version.
-FROM emscripten/emsdk:4.0.11@sha256:f8a157011b8fa61bdaab875bb1f0f08695229dffe086448d14b53538cae16bd3 AS web-sdk
+FROM emscripten/emsdk:6.0.11@sha256:cdefec943f04fd4b2b2fe23b0a1a346be9fc560ef5784a83faa27dd351381372 AS web-sdk
 FROM desktop AS web
 COPY --from=web-sdk /emsdk /emsdk
 ENV EMSDK=/emsdk \
