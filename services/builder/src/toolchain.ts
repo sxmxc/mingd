@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { promisify } from "node:util";
 import type { BuildConfig } from "@mingd/build-config";
@@ -19,6 +20,25 @@ export async function verifyPlatformToolchain(config: BuildConfig, sourceDir: st
       // The compiler's version check never launches ld. Verify that the linker
       // itself can load its host dependencies before spending time compiling.
       await exec(join(root, `target/bin/${architecture}-apple-darwin27-ld`), ["-v"], { timeout: 10000 });
+    }
+    // Version checks cannot detect missing Darwin compiler-rt builtins. Match
+    // Godot's deployment targets and force Clang to emit its availability helper.
+    const probeDir = await mkdtemp(join(tmpdir(), "mingd-macos-link-"));
+    try {
+      const probe = join(probeDir, "availability.cpp");
+      await writeFile(probe, "int main() { if (__builtin_available(macOS 27.0, *)) return 0; return 1; }\n");
+      for (const architecture of ["arm64", "x86_64"]) {
+        try {
+          await exec(join(root, `target/bin/${architecture}-apple-darwin27-clang++`), [
+            `-mmacosx-version-min=${architecture === "arm64" ? "11.0" : "10.13"}`,
+            probe, "-o", join(probeDir, architecture),
+          ], { timeout: 30000 });
+        } catch (error) {
+          throw new Error(`macOS ${architecture} availability link preflight failed. Install Darwin compiler-rt (libclang_rt.osx.a) for both architectures into the bundled Clang resource directory, repackage the toolchain, and update MACOS_TOOLCHAIN_SHA256. ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+        }
+      }
+    } finally {
+      await rm(probeDir, { recursive: true, force: true });
     }
     // cctools lipo has no version flag. Check the same PATH used by packaging;
     // the actual create/verify_arch operations validate it there.

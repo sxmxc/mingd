@@ -79,6 +79,27 @@ other target's declarations stay identical. Do not run it against the original
 installer or claim ARM64e/X1 support. The SDK preparation is included in the
 archive identity. Verify both architecture compiler/linker tests before packaging.
 
+The Linux Clang installation also needs **Darwin compiler-rt builtins**. Build
+and install them with the pinned OSXCross checkout's
+[compiler-rt procedure](https://github.com/tpoechtrager/osxcross/blob/27d21e4977c9751d01199c7a226a6faf494c3dd9/README.COMPILER-RT.md),
+using matching LLVM 21.1.8 sources for ARM64 and x86_64. Include the universal
+`libclang_rt.osx.a` in `compiler/lib/clang/21/lib/darwin/` in the archive.
+Check Clang's actual resource directory with
+`arm64-apple-darwin27-clang++ -print-resource-dir` after relocation.
+A version check or an empty `main` link does not verify this runtime. Before
+packaging, compile and link this probe with both wrappers, using
+`-mmacosx-version-min=11.0` for ARM64 and `-mmacosx-version-min=10.13` for Intel
+(the supported Godot deployment targets):
+
+```cpp
+int main() {
+    if (__builtin_available(macOS 27.0, *)) return 0;
+    return 1;
+}
+```
+
+These are cross-link checks; execute the resulting programs only on macOS.
+
 Package the toolchain runtime with `target/` and the complete Clang 21
 installation as `compiler/` at the archive root as
 `toolchains/macos-toolchain.tar.xz`. That directory is git-ignored; `.xip` files
@@ -88,7 +109,8 @@ Bookworm worker and survive relocation to `/opt/osxcross`.
 Calculate its SHA-256 and set `MACOS_TOOLCHAIN_SHA256` in root `.env` to the
 64-character lowercase digest. Both web and worker must use that same value.
 The Docker build verifies the archive before installing it. The worker checks
-the installed identity, required SDK/wrappers, and both linkers before compiling. Changing the
+the installed identity, required SDK/wrappers, both linkers, and both availability
+probe links before compiling. Changing the
 archive digest changes the artifact cache identity.
 
 ```bash

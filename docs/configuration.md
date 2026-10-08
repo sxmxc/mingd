@@ -16,6 +16,20 @@ Direct builder/maintenance npm commands do not automatically load root `.env`.
 Export their variables or use `npx dotenv -- <command>`. Admin grant and reference
 import scripts explicitly load root `.env`. Exported values take precedence.
 
+## Container image selection
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
+| `IMAGE_TAG` | `latest` | Shared release tag for web, maintenance, and every worker |
+
+These are Compose settings, read from root `.env` or exported environment.
+They do not change the upstream Redis image. `images:publish -- <release>`
+publishes the built `IMAGE_TAG` images under both that release identifier and
+`latest`. Production can select either tag with `IMAGE_TAG`, using the same
+prefix. See [registry deployment](deployment.md#build-here-pull-on-production-ghcr)
+for publishing and starting without production builds.
+
 ## Web and shared services
 
 | Variable | Consumer | Default / purpose |

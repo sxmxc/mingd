@@ -1,6 +1,6 @@
 services:
   web:
-    image: mingd/web
+    image: ${IMAGE_PREFIX:-mingd}/web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     build:
       context: .
@@ -37,7 +37,7 @@ services:
       retries: 3
 
   maintenance:
-    image: mingd/maintenance
+    image: ${IMAGE_PREFIX:-mingd}/maintenance:${IMAGE_TAG:-latest}
     restart: unless-stopped
     build:
       context: .
@@ -66,7 +66,7 @@ services:
       retries: 20
 
   builder:
-    image: mingd/builder
+    image: ${IMAGE_PREFIX:-mingd}/builder:${IMAGE_TAG:-latest}
     profiles: ["builder"]
     build:
       context: .
@@ -89,7 +89,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   web-builder:
-    image: mingd/web-builder
+    image: ${IMAGE_PREFIX:-mingd}/web-builder:${IMAGE_TAG:-latest}
     profiles: ["builder"]
     build:
       context: .
@@ -113,7 +113,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   android-builder:
-    image: mingd/android-builder
+    image: ${IMAGE_PREFIX:-mingd}/android-builder:${IMAGE_TAG:-latest}
     profiles: ["builder"]
     build:
       context: .
@@ -138,7 +138,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   macos-builder:
-    image: mingd/macos-builder
+    image: ${IMAGE_PREFIX:-mingd}/macos-builder:${IMAGE_TAG:-latest}
     profiles: ["macos-builder"]
     build:
       context: .
