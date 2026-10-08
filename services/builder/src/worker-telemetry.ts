@@ -6,6 +6,28 @@ import { promisify } from "node:util";
 import { WorkerTelemetrySchema, type WorkerTelemetry } from "@mingd/worker-protocol";
 const exec = promisify(execFile);
 
+async function readCcache(args: string[], cacheDir: string, signal?: AbortSignal) {
+  signal?.throwIfAborted();
+  const command = exec("ccache", args, {
+    env: { ...process.env, CCACHE_DIR: cacheDir }, timeout: 5000, maxBuffer: 64 * 1024,
+  });
+  // A failed spawn can leave Node/libuv's process handle with an invalid PID.
+  // Register cancellation only after spawn succeeds, never on that handle.
+  const cancel = () => {
+    if (command.child.exitCode === null && command.child.signalCode === null) command.child.kill();
+  };
+  const spawned = () => {
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener("abort", cancel, { once: true });
+  };
+  command.child.once("spawn", spawned);
+  try { return await command; }
+  finally {
+    command.child.removeListener("spawn", spawned);
+    signal?.removeEventListener("abort", cancel);
+  }
+}
+
 export function parseCcacheCounters(output: string) {
   const counters: Record<string, number> = {};
   for (const line of output.trim().split("\n")) {
@@ -24,9 +46,8 @@ export class WorkerTelemetrySampler {
     const report: WorkerTelemetry = { schemaVersion: 1, uptimeSeconds: process.uptime(), ccache: null, container: null };
     const cache = async () => {
       try {
-        const options = { env: { ...process.env, CCACHE_DIR: this.cacheDir }, timeout: 5000, maxBuffer: 64 * 1024, signal };
         const [stats, size, version] = await Promise.all([
-          exec("ccache", ["--print-stats"], options), exec("ccache", ["--get-config", "max_size"], options), exec("ccache", ["--version"], options),
+          readCcache(["--print-stats"], this.cacheDir, signal), readCcache(["--get-config", "max_size"], this.cacheDir, signal), readCcache(["--version"], this.cacheDir, signal),
         ]);
         const counters = parseCcacheCounters(stats.stdout);
         report.ccache = { counters, hits: (counters.direct_cache_hit ?? 0) + (counters.preprocessed_cache_hit ?? 0),

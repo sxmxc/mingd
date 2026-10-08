@@ -1,9 +1,51 @@
 import assert from "node:assert/strict";
+import { ChildProcess } from "node:child_process";
 import test from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { WorkerTelemetrySchema } from "@mingd/worker-protocol";
 import { parseCcacheCounters, WorkerTelemetrySampler } from "../src/worker-telemetry.js";
+
+test("aborting telemetry never signals a ccache process that failed to spawn", async t => {
+  const dir = await mkdtemp("/tmp/mingd-telemetry-missing-");
+  const savedPath = process.env.PATH;
+  t.after(async () => {
+    if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
+    await rm(dir, { recursive: true, force: true });
+  });
+  process.env.PATH = dir;
+  // Intercept every kill so the regression cannot signal the test runner itself.
+  const kill = t.mock.method(ChildProcess.prototype, "kill", () => false);
+  const controller = new AbortController();
+  const sampling = new WorkerTelemetrySampler(dir, dir).sample(controller.signal);
+  controller.abort();
+  const report = await sampling;
+  assert.equal(report.ccache, null);
+  assert.equal(kill.mock.callCount(), 0, "Failed spawns have no child to signal");
+});
+
+test("telemetry cancellation still stops ccache children that successfully spawn", async t => {
+  if (process.platform === "win32") return t.skip("Requires an executable shebang fixture");
+  const dir = await mkdtemp("/tmp/mingd-telemetry-abort-");
+  const savedPath = process.env.PATH;
+  t.after(async () => {
+    if (savedPath === undefined) delete process.env.PATH; else process.env.PATH = savedPath;
+    await rm(dir, { recursive: true, force: true });
+  });
+  await writeFile(join(dir, "ccache"), `#!${process.execPath}\nsetInterval(() => {}, 1000);\n`, { mode: 0o755 });
+  process.env.PATH = dir;
+  const originalKill = ChildProcess.prototype.kill;
+  const kill = t.mock.method(ChildProcess.prototype, "kill", function (this: ChildProcess, signal?: NodeJS.Signals | number) {
+    assert.ok(this.pid && this.pid > 0);
+    return originalKill.call(this, signal);
+  });
+  const controller = new AbortController();
+  const sampling = new WorkerTelemetrySampler(dir, dir).sample(controller.signal);
+  // Abort before the asynchronous spawn events to exercise shutdown's race.
+  controller.abort();
+  assert.equal((await sampling).ccache, null);
+  assert.equal(kill.mock.callCount(), 3);
+});
 
 test("ccache machine counters require bounded, complete numeric output", () => {
   assert.deepEqual(parseCcacheCounters("cache_size_kibibyte\t1024\ncache_miss\t2\ndirect_cache_hit\t5"), { cache_size_kibibyte: 1024, cache_miss: 2, direct_cache_hit: 5 });

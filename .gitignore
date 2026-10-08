@@ -21,3 +21,5 @@ toolchains/
 
 # Worker enrollment credentials must never be committed.
 worker-tokens/
+
+tmp/
