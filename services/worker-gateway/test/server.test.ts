@@ -4,6 +4,7 @@ import test from "node:test";
 import { WORKER_JSON_BODY_LIMIT_BYTES } from "@mingd/worker-protocol";
 import { gatewayConfigFromEnvironment } from "../src/config.js";
 import { buildServer } from "../src/server.js";
+import { ArtifactOperationError } from "../src/execution-errors.js";
 
 test("listener defaults to loopback:3001 and rejects invalid settings", () => {
   assert.deepEqual(gatewayConfigFromEnvironment({}), { host: "127.0.0.1", port: 3001, logLevel: "info" });
@@ -54,4 +55,17 @@ test("credentials, URL query values and backend exceptions stay out of responses
     assert.equal(logs.includes(secret), false);
   }
   assert.match(logs, /gateway_request_failed/);
+});
+
+test("publication failures log their operation without exposing backend messages", async t => {
+  let logs = "";
+  const stream = new Writable({ write(chunk, _encoding, callback) { logs += chunk.toString(); callback(); } });
+  const server = buildServer({ logStream: stream });
+  t.after(() => server.close());
+  server.get("/publication-failure", async () => { throw new ArtifactOperationError("storage_upload"); });
+  const response = await server.inject("/publication-failure");
+  assert.equal(response.statusCode, 500);
+  assert.deepEqual(response.json(), { error: "internal_error" });
+  assert.match(logs, /"operation":"storage_upload"/);
+  assert.ok(!response.body.includes("storage_upload"));
 });
