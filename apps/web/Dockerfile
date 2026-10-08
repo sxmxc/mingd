@@ -9,16 +9,8 @@ RUN npm ci
 FROM dependencies AS build
 COPY packages/build-config packages/build-config
 COPY apps/web apps/web
-# These are intentionally public and embedded in the browser bundle.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
-    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
-    NEXT_TELEMETRY_DISABLED=1
-RUN test -n "$NEXT_PUBLIC_SUPABASE_URL" && test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
-    && mkdir -p apps/web/public \
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web
 
 FROM node:22-bookworm-slim AS runtime

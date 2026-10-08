@@ -73,7 +73,7 @@ mail viewer and checked-in `content_path` templates instead.
 Token-hash links at `/auth/confirm` verify the email token and set cookies, even
 when opened in a different browser. Recovery opens `/account/reset-password`.
 `/auth/callback` also supports PKCE exchange using the originating browser.
-Set `NEXT_PUBLIC_APP_URL` to the correct app origin and rebuild web after changes.
+Set `NEXT_PUBLIC_APP_URL` to the correct app origin and recreate web after changes.
 Request fresh emails when configuration changes.
 
 ## Queue recovery

@@ -1,10 +1,18 @@
+function optional(name: string): string | undefined {
+  return process.env[name];
+}
+
 function required(name: string): string {
-  const value = process.env[name];
+  const value = optional(name);
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
+// Dynamic lookups preserve runtime configuration even for the existing
+// NEXT_PUBLIC_* names. Direct references would be replaced by next build.
 export const env = {
+  appUrl: () => (optional("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
+  configuredAppUrl: () => optional("NEXT_PUBLIC_APP_URL"),
   supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
   supabasePublishableKey: () => required("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
   supabaseSecretKey: () => required("SUPABASE_SECRET_KEY"),

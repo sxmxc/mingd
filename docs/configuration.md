@@ -7,8 +7,8 @@ secret in documentation, source control, or a `NEXT_PUBLIC_*` variable.
 
 | Location | Consumer | Applying changes |
 | --- | --- | --- |
-| Root `.env` | Compose, migration scripts, admin/import scripts | Recreate affected containers; rebuild web for public settings |
-| `apps/web/.env.local` | Web workspace Next.js development/build commands | Restart development; rebuild for public settings |
+| Root `.env` | Compose, migration scripts, admin/import scripts | Recreate affected containers |
+| `apps/web/.env.local` | Web workspace Next.js development commands | Restart development after changing settings |
 | Supabase deployment `.env` / Compose | Separately installed production Auth/API/Storage/database | Recreate relevant Supabase services with that installation's launcher |
 | `supabase/config.toml` | Local Supabase CLI stack only | Apply changes to the appropriate local development stack |
 
@@ -35,8 +35,8 @@ for publishing and starting without production builds.
 | Variable | Consumer | Default / purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | Web/Auth | Canonical app origin; Compose fallback `http://localhost:3000` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Browser and web server | Required API origin without `/auth/v1`; reachable by both |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and web server | Required public key for that installation |
+| `NEXT_PUBLIC_SUPABASE_URL` | Web server/Auth | Required API origin without `/auth/v1`; browser-safe configuration |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Web server/Auth | Required browser-safe public key for that installation |
 | `SUPABASE_SECRET_KEY` | Web server, workers, maintenance, operator scripts | Required privileged key; runtime-only in web image |
 | `SUPABASE_URL` | Workers and maintenance | Required directly; Compose default `http://host.docker.internal:54321` |
 | `SUPABASE_DB_URL` | Migration scripts | Private, percent-encoded PostgreSQL URI for self-hosted database |
@@ -51,8 +51,19 @@ backend `service_role` keys under these names. Use keys supported by the install
 API gateway; a privileged key never belongs in the public variable. See
 [Supabase's API key guide](https://supabase.com/docs/guides/self-hosting/self-hosted-auth-keys).
 
-`NEXT_PUBLIC_*` settings are embedded at web image build time. After changing
-one, run `npm run compose:web:build`; recreating an old image is insufficient.
+The current app reads these existing `NEXT_PUBLIC_*` names dynamically on the
+server at runtime. Auth callbacks, recipe origin checks, and Supabase clients
+use the deployment's values; the web image needs no URL/key build arguments.
+Local development can use localhost in `apps/web/.env.local` while the same
+published image uses production's root `.env`. After changing deployment values,
+recreate web with `docker compose up -d --no-deps --no-build --force-recreate web`.
+Deploy the runtime-configuration code once before relying on this behavior;
+older web images still embed their build settings.
+
+Direct `process.env.NEXT_PUBLIC_*` references are still inlined by Next.js.
+Use the server environment helper for runtime reads. The unused browser Supabase
+helper accepts an explicit public URL/key; any future browser caller must receive
+only those public values from the server, never the privileged key.
 
 ## Queue routing
 

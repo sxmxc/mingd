@@ -1,4 +1,5 @@
 "use server";
+import { env } from "@/lib/env";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -6,7 +7,7 @@ import { safeAuthNext } from "@/lib/auth-path";
 export type AuthState = { error?: string; message?: string };
 const emailSchema = z.email().max(254);
 function callback(next = "/dashboard") {
-  return `${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/auth/callback?next=${encodeURIComponent(next)}`;
+  return `${env.appUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
 }
 export async function authenticate(_previous: AuthState, form: FormData): Promise<AuthState> {
   const mode = form.get("mode");

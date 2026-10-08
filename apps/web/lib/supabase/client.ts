@@ -1,8 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-export function createClient() {
+// Pass only the public URL/key supplied by a server at runtime.
+export function createClient(supabaseUrl: string, supabasePublishableKey: string) {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabasePublishableKey,
   );
 }

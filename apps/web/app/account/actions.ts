@@ -1,4 +1,5 @@
 "use server";
+import { env } from "@/lib/env";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAccount } from "@/lib/access";
@@ -17,7 +18,7 @@ export async function updateAccount(_previous: AuthState, form: FormData): Promi
   if (kind === "email") {
     const email = z.email().max(254).safeParse(String(form.get("email") ?? "").trim());
     if (!email.success) return { error: "Enter a valid email address." };
-    const { error } = await supabase.auth.updateUser({ email: email.data }, { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback` });
+    const { error } = await supabase.auth.updateUser({ email: email.data }, { emailRedirectTo: `${env.appUrl()}/auth/callback` });
     return error ? { error: error.message } : { message: "Check your email to confirm the address change." };
   }
   if (kind === "password" || kind === "recovery") {

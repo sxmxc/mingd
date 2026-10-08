@@ -12,14 +12,15 @@ error. Check that `NEXT_PUBLIC_SUPABASE_URL` reaches the intended API gateway an
 that the public key belongs to that installation and is supported by its gateway.
 A response from a proxy's own authentication layer is not an Auth API response.
 
-After correcting a public URL/key, rebuild the frontend:
+After correcting a public URL/key, recreate the frontend:
 
 ```bash
-npm run compose:web:build
+docker compose up -d --no-deps --no-build --force-recreate web
 ```
 
-Recreating an existing image only changes runtime values; public settings are
-embedded at build time. Check DNS/TLS/API reachability from both the browser and
+Current web images read these values at runtime. Older images predating this
+change need a one-time update to the runtime-configuration implementation.
+Check DNS/TLS/API reachability from both the browser and
 web container. Never replace the public key with a privileged key. See
 [configuration](configuration.md) and
 [Supabase debugging guidance](https://supabase.com/docs/guides/monitoring-and-debugging).
@@ -131,7 +132,8 @@ coverage; TPZ size is not main-binary size. See [recipes and comparisons](recipe
 Host Node 24.21.0 and Docker Node 22 are separate runtimes. Pulling source or
 installing host dependencies does not update existing images. Use the affected
 `:build` command; `compose:up:builders` does not force rebuilding. Public frontend
-settings require a web rebuild. See [deployment](deployment.md#command-reference).
+settings are read at runtime by current web images; recreate web after changing
+them. See [deployment](deployment.md#command-reference).
 
 ## Checks fail on a fresh checkout
 
