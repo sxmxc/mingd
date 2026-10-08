@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { SavedRecipeInputSchema } from "@mingd/build-config";
@@ -9,7 +10,7 @@ async function mutate(request: Request, context: { params: Promise<{ id: string 
   const account = await currentAccount();
   if (!account) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!account.enabled) return NextResponse.json({ error: "Account suspended" }, { status: 403 });
-  if (!recipeRequestAllowed(request, process.env.NEXT_PUBLIC_APP_URL)) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  if (!recipeRequestAllowed(request, env.configuredAppUrl())) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: "Recipe not found." }, { status: 404 });
   let query;

@@ -21,9 +21,10 @@ the job does not contact the deployed database.
 
 Dockerfiles currently use Node 22 independently of the host. These image checks
 validate the Dockerfiles as deployed; changing their runtime is a separate rollout.
-Application/image builds use dummy public settings and loopback URLs. Images
-are not pushed or deployed. A production image must be built with its real
-`NEXT_PUBLIC_*` values, keeping privileged keys runtime-only.
+Application checks use dummy public settings and loopback URLs. Docker image
+builds need no deployment URL/key arguments. Images are not pushed or deployed.
+The web app reads deployment configuration on the server at runtime, keeping
+privileged keys server-only.
 
 ## Coverage limits
 

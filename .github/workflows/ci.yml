@@ -86,9 +86,5 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: false
-          build-args: |
-            NEXT_PUBLIC_APP_URL=http://localhost:3000
-            NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
           cache-from: type=gha,scope=ci-${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=ci-${{ matrix.image }}

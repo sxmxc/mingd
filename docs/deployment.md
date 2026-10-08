@@ -118,16 +118,19 @@ with `write:packages` for publishing. New packages default to private; manage
 their permissions in GitHub. See [GHCR authentication and publishing](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 Keep the macOS toolchain image private: it includes the operator-supplied Apple SDK.
 
-Build the web image with production's `NEXT_PUBLIC_*` values on the build host.
-Production runtime variables cannot replace those embedded browser settings.
-Privileged Supabase keys remain runtime configuration. For macOS, production's
+The web image reads app/Supabase URLs and keys from the container environment
+at runtime. It can be built locally and deployed with different production
+settings, without URL/key build arguments. Set the appropriate values in each
+host's environment files; see [configuration](configuration.md#environment-files).
+Privileged Supabase keys remain server-only runtime configuration. For macOS, production's
 `MACOS_TOOLCHAIN_SHA256` must match the archive used to build the published image
 and the web service's runtime setting. The provisioned SDK archive is needed
 only on the build host, not on the production machine pulling that image.
 
 If the images were already built using the default local names, they can be
 tagged into the configured GHCR namespace without rebuilding. Only do this for images known to belong
-to the same release and built with the intended public settings. For example:
+to the same release. Older web images predating runtime configuration still need
+their intended public settings at build time. For example:
 
 ```bash
 docker tag mingd/macos-builder:latest ghcr.io/sxmxc/mingd/macos-builder:latest
@@ -197,7 +200,7 @@ new recipe identity.
 
 Apply migrations, rebuild the affected services or pull the published release
 using the [registry workflow](#build-here-pull-on-production-ghcr), and check logs/admin metrics.
-Rebuild web after any `NEXT_PUBLIC_*` change. Rebuild maintenance when its source
+Recreate web after any deployment URL/key change. Rebuild maintenance when its source
 or importer changes. Resume submissions after checking a build/private download
 and relevant email flows. CI does not deploy or migrate production.
 
