@@ -16,6 +16,8 @@ concurrency:
 jobs:
   application:
     name: Application checks (Node 24)
+    # Pull request branch filters match the base; check the source branch here.
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'doc') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -41,6 +43,7 @@ jobs:
 
   database:
     name: Database migrations and SQL tests
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'doc') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -65,6 +68,7 @@ jobs:
 
   containers:
     name: Docker build (${{ matrix.image }})
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'doc') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:

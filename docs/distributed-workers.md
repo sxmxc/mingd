@@ -115,8 +115,11 @@ last-seen, enrolled capacity, release and drain/revoke state without credentials
 
 SuperAdmins can view `/admin/workers`: authenticated last-seen status, target,
 observed app/recipe versions, capacity, active assignments, drain/revoke state,
-and the latest build's recorded diagnostics. It refreshes every ten seconds
-and pages through 25 workers at a time. This is read-only; enrollment and
+and compact resource readings. The overview pages through 25 workers at a time.
+Open a worker's name or **Worker details** to visit `/admin/workers/<worker-id>`
+for app/recipe information, compiler cache totals, container resources, active
+assignments, and the latest build's recorded diagnostics. Both pages refresh
+every ten seconds. This is read-only; enrollment and
 rotation/drain/revoke remain operator CLI commands. The Metrics page labels
 Redis access as **Queue available**, which does not establish worker health.
 
