@@ -20,13 +20,13 @@ Authenticate with `docker login ghcr.io` using Docker's credential storage.
 
 ```bash
 npm run images:build
-npm run images:publish -- v0.2.1 --dry-run
-npm run images:publish -- v0.2.1
+npm run images:publish -- v0.2.2 --dry-run
+npm run images:publish -- v0.2.2
 ```
 
 Default build/push/publication includes web, gateway, maintenance, desktop, Web
 and Android workers (**six images**). With a provisioned and verified macOS
-archive, use `images:build:all` and `images:publish:all -- v0.2.1` (**seven images**).
+archive, use `images:build:all` and `images:publish:all -- v0.2.2` (**seven images**).
 The publisher derives services from Compose build entries and excludes only macOS
 by default; `:all` includes every build service. Redis is not republished.
 Preflight verifies all local images before tagging or pushing. Successful push
@@ -34,7 +34,7 @@ digests and the final published-image count establish publication; the initial
 tag-plan lines alone do not.
 
 Use a **fresh immutable release identifier** matching workspace versions. Do not
-reuse historical `v0.1.2` for this 0.2.1 release. Publication tags existing
+reuse historical `v0.1.2` for this 0.2.2 release. Publication tags existing
 local images with the release and `latest`, without rebuilding. It pins image IDs,
 pushes the complete release before promoting `latest`, and fails on registry errors.
 Promotion across repositories is not atomic; deploy immutable release tags and
@@ -172,6 +172,10 @@ a restart does not fetch or apply a new image. This upgrade adds two database mi
 health/cache/container snapshots after deployment; initial CPU usage needs two
 30-second samples.
 
+The 0.2.2 release adds UI and branding refinements and development origin
+configuration. It adds no migrations or protocol/recipe changes beyond 0.2.1.
+Deploy using `IMAGE_TAG=v0.2.2`; existing worker enrollments remain compatible.
+
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
 Compose project names and token paths create independent instances/volumes;
@@ -182,7 +186,7 @@ plain `--scale` with one mounted token is not the intended enrollment workflow.
 1. Pause submissions in `/admin/settings` and let queued/active direct builds finish.
    Keep the current release/configuration for rollback. Stopping an active compiler
    interrupts its job; prefer a drained transition.
-2. Apply migrations and publish matching 0.2.1 images. Copy the two production files
+2. Apply migrations and publish matching 0.2.2 images. Copy the two production files
    to their respective hosts. Preserve the application Compose project name and
    Redis volume. Configure NPM upload limits and worker HTTPS reachability.
 3. Stop existing direct builders using their old deployment definition:

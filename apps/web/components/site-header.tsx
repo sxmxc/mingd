@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import brandIcon from "@/public/web-app-manifest-512x512.png";
 import { currentAccount } from "@/lib/access";
 import { gravatarUrl } from "@/lib/avatar";
 import { HeaderNavigation } from "@/components/header-navigation";
@@ -14,6 +16,9 @@ export async function SiteHeader() {
       <a className="skip-link" href="#main-content">Skip to content</a>
       <div className="site-header-inner">
         <Link href="/" className="header-brand">
+          <span className="header-brand-icon" aria-hidden="true">
+            <Image src={brandIcon} alt="" width={128} height={128} unoptimized />
+          </span>
           <span className="font-mono text-xl" aria-label="min.gd">min<span className="text-[var(--accent)]">.</span>gd</span>
         </Link>
         <HeaderNavigation account={account ? {

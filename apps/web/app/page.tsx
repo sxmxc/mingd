@@ -1,87 +1,78 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowRight, Check, Minus } from "lucide-react";
+import { PRESETS } from "@mingd/build-config";
 import { currentAccount } from "@/lib/access";
 import { Card } from "@/components/ui/card";
+import { PlatformIcon } from "@/components/platform-target";
+import { LandingComparisons } from "@/components/landing-comparisons";
 
 const platforms = [
-  { name: "Linux", target: "x86_64", description: "Desktop export templates" },
-  { name: "Windows", target: "x86_64", description: "Desktop export templates" },
-  { name: "Web", target: "wasm32", description: "Browser export templates" },
-  { name: "Android", target: "arm64 · arm32 · x86_64 · x86_32", description: "Mobile export templates" },
-  { name: "macOS", target: "Universal · arm64 · x86_64", description: "Apple desktop templates" },
+  { id: "windows", name: "Windows", target: "x86_64" },
+  { id: "linux", name: "Linux", target: "x86_64" },
+  { id: "web", name: "Web", target: "Single-threaded or threaded" },
+  { id: "android", name: "Android", target: "ARM64 · ARMv7 · x86_64 · x86" },
+  { id: "macos", name: "macOS", target: "Apple Silicon · Intel · Universal" },
+];
+const exampleFeatures = [
+  { label: "2D physics", included: PRESETS.offline2d.features.physics2d },
+  { label: "Advanced text shaping", included: PRESETS.offline2d.features.textServer === "advanced" },
+  { label: "3D engine", included: PRESETS.offline2d.features.engine3d },
+  { label: "Multiplayer networking", included: PRESETS.offline2d.features.multiplayer },
 ];
 
 export default async function HomePage() {
   const account = await currentAccount();
   if (account) redirect(account.enabled ? "/dashboard" : "/account/disabled");
 
-  return <main id="main-content" className="mx-auto max-w-[1120px] px-4 py-9 sm:px-6 sm:py-12">
-    <section className="landing-hero grid items-center gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,.8fr)] lg:gap-12">
+  return <main id="main-content" className="mx-auto max-w-[1120px] px-4 py-10 sm:px-6 sm:py-14">
+    <section className="landing-hero grid items-center gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,.9fr)] lg:gap-14">
       <div className="min-w-0">
-        <p className="section-label">Godot export-template workbench</p>
-        <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight sm:text-5xl">Build only the Godot your game needs.</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--muted)]">Choose the engine features your game uses, build from verified official Godot source, then monitor compiler output and download the matching export template.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="tool-action" href="/login">Sign in</Link>
+        <div className="flex items-center gap-3"><img src="/godot_icon_color.svg" width={44} height={44} alt="" className="h-11 w-11 shrink-0" /><p className="section-label">Custom templates for Godot 4</p></div>
+        <h1 className="mt-5 max-w-2xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">Smaller Godot<br className="hidden sm:block" /> export templates.</h1>
+        <p className="mt-5 max-w-xl text-base leading-7 text-[var(--muted)]">Choose the engine features your game uses. min.gd builds a custom export template from official Godot source, ready to install in your editor.</p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Link className="tool-action" href="/login">Sign in to build <ArrowRight size={16} aria-hidden="true" /></Link>
           <a className="secondary-action" href="#how-it-works">How it works</a>
         </div>
+        <p className="mt-4 text-xs text-[var(--muted)]">No local compiler setup required.</p>
       </div>
-      <Card className="workbench-preview overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-          <span className="font-mono text-xs font-semibold">min.gd / build workflow</span>
-          <span className="text-[10px] text-[var(--muted)]">Workbench overview</span>
+      <Card className="workbench-preview min-w-0 overflow-hidden" role="region" aria-label="Example Offline 2D recipe">
+        <div className="border-b border-[var(--border)] px-5 py-4">
+          <div className="flex items-center justify-between gap-3"><h2 className="text-base font-semibold">{PRESETS.offline2d.label}</h2><span className="font-mono text-[10px] text-[var(--muted)]">Example recipe</span></div>
+          <p className="mt-1 text-xs text-[var(--muted)]">2D features kept. 3D and multiplayer removed.</p>
         </div>
-        <ol className="workbench-preview-steps">
-          <li><span>01</span><div><strong>Configure a recipe</strong><p>Choose a Godot version, target, and feature set.</p></div></li>
-          <li><span>02</span><div><strong>Monitor the build</strong><p>Follow stages, compiler output, and measurements.</p></div></li>
-          <li><span>03</span><div><strong>Inspect and download</strong><p>Review artifact details and get the completed output.</p></div></li>
-        </ol>
+        <dl className="grid grid-cols-3 gap-3 border-b border-[var(--border)] px-5 py-3 text-xs">
+          {[["Godot", "4.7.2"], ["Target", "Windows x64"], ["Template", "Release"]].map(([label, value]) => <div key={label}><dt className="text-[11px] text-[var(--muted)]">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}
+        </dl>
+        <ul className="space-y-3.5 px-5 py-4">
+          {exampleFeatures.map(feature => <li key={feature.label} className="flex items-center justify-between gap-3 text-xs">
+            <span>{feature.label}</span><span className={`inline-flex shrink-0 items-center gap-1.5 ${feature.included ? "text-[var(--success)]" : "text-[var(--muted)]"}`}>{feature.included ? <Check size={13} aria-hidden="true" /> : <Minus size={13} aria-hidden="true" />}{feature.included ? "Included" : "Removed"}</span>
+          </li>)}
+        </ul>
+        <p className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--muted)]">Download as an installable <code className="text-[var(--foreground)]">.tpz</code> archive.</p>
       </Card>
     </section>
 
-    <section aria-labelledby="template-savings" className="mt-9">
-      <Card className="landing-benchmark p-5 sm:p-7">
-        <div className="grid gap-6 lg:grid-cols-[minmax(230px,.8fr)_minmax(0,1.2fr)] lg:items-center lg:gap-12">
-          <div>
-            <p className="section-label">Measured template-size comparison</p>
-            <h2 id="template-savings" className="mt-3 text-4xl font-semibold tracking-tight text-[var(--success)] sm:text-5xl">85.2% <span className="mt-2 block text-lg font-medium tracking-normal text-[var(--foreground)]">smaller Windows template executable</span></h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">Minimal 2D recipe without multiplayer networking.</p>
-          </div>
-          <dl className="space-y-4">
-            <div>
-              <div className="flex items-baseline justify-between gap-4"><dt className="text-sm text-[var(--muted)]">Official template</dt><dd className="font-mono text-sm tabular-nums">104.21 MiB</dd></div>
-              <div aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--border)]"><span className="block h-full w-full rounded-full bg-[#647386]" /></div>
-            </div>
-            <div>
-              <div className="flex items-baseline justify-between gap-4"><dt className="text-sm font-medium">min.gd</dt><dd className="font-mono text-sm tabular-nums text-[var(--success)]">15.47 MiB</dd></div>
-              <div aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--border)]"><span className="block h-full w-[14.8%] rounded-full bg-[var(--success)]" /></div>
-            </div>
-          </dl>
-        </div>
-        <p className="mt-5 border-t border-[var(--border)] pt-4 text-xs leading-5 text-[var(--muted)]">Measured in testing with Godot 4.7.2.stable · Windows x86_64 release executable · Results vary by configuration.</p>
-      </Card>
+    <section aria-labelledby="targets-heading" className="mt-10 sm:mt-12">
+      <h2 id="targets-heading" className="mb-3 text-sm font-semibold">Supported targets</h2>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {platforms.map(platform => <div key={platform.id} className="min-w-0 rounded-md border border-[var(--border)] px-3 py-3">
+          <h3 className="flex items-center gap-2 text-xs font-semibold"><PlatformIcon platform={platform.id} className="h-4 w-4 shrink-0" />{platform.name}</h3>
+          <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">{platform.target}</p>
+        </div>)}
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--muted)]">Android and macOS templates are available for Godot 4.6.3 and 4.7.2.</p>
     </section>
 
-    <section aria-labelledby="targets-heading" className="mt-10">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div><h2 id="targets-heading" className="text-lg font-semibold">Export targets</h2><p className="mt-1 text-sm text-[var(--muted)]">Choose a platform and architecture in the build form.</p></div>
-        <p className="text-xs text-[var(--muted)]">Available version combinations are validated before submission.</p>
-      </div>
-      <div className="landing-platform-grid grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {platforms.map(platform => <Card key={platform.name} className="p-4">
-          <h3 className="text-sm font-semibold">{platform.name}</h3>
-          <code className="mt-2 block break-words text-[11px] text-[var(--accent-strong)]">{platform.target}</code>
-          <p className="mt-2 text-xs text-[var(--muted)]">{platform.description}</p>
-        </Card>)}
-      </div>
-    </section>
+    <LandingComparisons />
 
-    <section id="how-it-works" aria-labelledby="workflow-heading" className="mt-10 border-t border-[var(--border)] pt-6">
-      <h2 id="workflow-heading" className="text-lg font-semibold">From recipe to export</h2>
-      <ol className="landing-workflow mt-4 grid gap-4 sm:grid-cols-3">
-        <li><span>1</span><div><h3>Choose a recipe</h3><p>Start with a preset, then select the engine features and target you need.</p></div></li>
-        <li><span>2</span><div><h3>Watch the build</h3><p>Track build stages, compiler output, and available performance measurements.</p></div></li>
-        <li><span>3</span><div><h3>Use the template</h3><p>Inspect the artifact and download it for the matching Godot editor.</p></div></li>
+    <section id="how-it-works" aria-labelledby="workflow-heading" className="mt-10 scroll-mt-20 border-t border-[var(--border)] pt-7">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="workflow-heading" className="text-xl font-semibold">From build settings to your editor</h2><Link href="/login" className="inline-flex items-center gap-1.5 text-xs text-[var(--accent-strong)]">Sign in to build <ArrowRight size={14} aria-hidden="true" /></Link></div>
+      <ol className="landing-workflow mt-5 grid gap-6 sm:grid-cols-3">
+        <li><span>1</span><div><h3>Choose your features</h3><p>Start with a preset, then keep the rendering, physics, UI, and file formats your project needs.</p></div></li>
+        <li><span>2</span><div><h3>Build the template</h3><p>Follow the compiler output as your template builds. Save the recipe to use those settings again.</p></div></li>
+        <li><span>3</span><div><h3>Install the template</h3><p>Download the .tpz and install it through Manage Export Templates in the matching Godot editor.</p></div></li>
       </ol>
     </section>
   </main>;

@@ -1,6 +1,6 @@
 # Distributed workers
 
-Release **0.2.1** includes the HTTPS gateway and remote workers introduced in 0.2.0,
+Release **0.2.2** includes the HTTPS gateway and remote workers introduced in 0.2.0,
 plus improved failure diagnostics and stable worker identities across application upgrades. Production uses
 separate application and build hosts. Redis stays inside the application Compose
 network; build hosts receive individual worker credentials and no privileged
@@ -45,9 +45,10 @@ or the retained direct mode for local development/rollback.
 | 0.1.4 | Streaming uploads, validated completion, retries and durable recovery |
 | **0.2.0** | Combined distributed implementation, local acceptance tests and production runbook |
 | **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, extraction capability troubleshooting, contract-based upgrade compatibility, and admin worker health/cache/container telemetry |
+| **0.2.2** | Landing page and worker dashboard refinements, brand icons, and development origin configuration |
 
 These describe implementation gates, not claims that every intermediate image
-was published. All workspace manifests now use **0.2.1**. Deploy web, gateway
+was published. All workspace manifests now use **0.2.2**. Deploy web, gateway
 and workers from a tested release set, preferably one immutable release tag.
 Application release is informational and is updated on successful worker activity;
 existing IDs and credentials survive routine application upgrades. Compatibility
