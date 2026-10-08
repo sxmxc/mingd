@@ -23,6 +23,23 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
 | `IMAGE_TAG` | `latest` | Shared release tag for web, gateway, maintenance and every worker |
 
+Production Compose defaults to `v0.2.2` and accepts optional per-service overrides:
+
+| Variable | Service | Production file |
+| --- | --- | --- |
+| `WEB_IMAGE_TAG` | `web` | `compose.web.prod.yml` |
+| `WORKER_GATEWAY_IMAGE_TAG` | `worker-gateway` | `compose.web.prod.yml` |
+| `MAINTENANCE_IMAGE_TAG` | `maintenance` | `compose.web.prod.yml` |
+| `BUILDER_IMAGE_TAG` | `builder` (desktop) | `compose.workers.prod.yml` |
+| `WEB_BUILDER_IMAGE_TAG` | `web-builder` | `compose.workers.prod.yml` |
+| `ANDROID_BUILDER_IMAGE_TAG` | `android-builder` | `compose.workers.prod.yml` |
+| `MACOS_BUILDER_IMAGE_TAG` | `macos-builder` | `compose.workers.prod.yml` |
+
+Selection is service override, then `IMAGE_TAG`, then the production default.
+Unset or empty overrides fall back to `IMAGE_TAG`. Remove an override to return
+that service to shared upgrades. Overrides apply only to the production files;
+the root build/publish Compose continues using the shared `IMAGE_TAG`.
+
 These are Compose settings, read from root `.env` or exported environment.
 They do not change the upstream Redis image. `images:publish -- <release>`
 publishes the built `IMAGE_TAG` images under both that release identifier and
