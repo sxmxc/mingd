@@ -1,7 +1,7 @@
 # min.gd documentation
 
 Start with the guide for your task. Commands assume the repository root unless
-a guide explicitly names the separate Supabase deployment directory.
+a guide names the production deployment directory or separate Supabase directory.
 
 ## Setup and operations
 
@@ -9,7 +9,7 @@ a guide explicitly names the separate Supabase deployment directory.
 | --- | --- |
 | [Getting started](getting-started.md) | Node/npm, local Supabase, development web app, and workers |
 | [Configuration](configuration.md) | Environment files, process-specific variables, queues, and URLs |
-| [Deployment](deployment.md) | Dedicated-server setup, Compose commands, migrations, updates, and backups |
+| [Deployment](deployment.md) | Image-only production setup, local publishing, migrations, updates, and rollback |
 | [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
 | [Maintenance](maintenance.md) | Five cron schedules, two backend tasks, retention, retries, and references |
 | [Troubleshooting](troubleshooting.md) | Auth errors, queued/stalled builds, maintenance failures, and cache issues |

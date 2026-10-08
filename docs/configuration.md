@@ -7,7 +7,7 @@ secret in documentation, source control, or a `NEXT_PUBLIC_*` variable.
 
 | Location | Consumer | Applying changes |
 | --- | --- | --- |
-| Root `.env` | Compose, migration scripts, admin/import scripts | Recreate affected containers |
+| Root/deployment `.env` | Compose; operator scripts when run from a checkout | Recreate affected containers |
 | `apps/web/.env.local` | Web workspace Next.js development commands | Restart development after changing settings |
 | Supabase deployment `.env` / Compose | Separately installed production Auth/API/Storage/database | Recreate relevant Supabase services with that installation's launcher |
 | `supabase/config.toml` | Local Supabase CLI stack only | Apply changes to the appropriate local development stack |
@@ -28,7 +28,9 @@ They do not change the upstream Redis image. `images:publish -- <release>`
 publishes the built `IMAGE_TAG` images under both that release identifier and
 `latest`. Production can select either tag with `IMAGE_TAG`, using the same
 prefix. See [registry deployment](deployment.md#build-here-pull-on-production-ghcr)
-for publishing and starting without production builds.
+for publishing. Production needs only `compose.yml` and `.env`; use the
+[direct Docker commands](deployment.md#production-with-only-compose-and-env) there.
+`WEB_PORT` is optional; omit it to keep the default host port `3000`.
 
 ## Web and shared services
 

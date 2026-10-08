@@ -14,8 +14,9 @@ the same ref. No production secrets or private-network access are required.
 | `Docker build (web)` | Build existing web Dockerfile with BuildKit caching |
 | `Docker build (maintenance)` | Build existing maintenance Dockerfile with BuildKit caching |
 
-Application/SQL jobs use Node **24.21.0** from `.nvmrc`, matching the production
-host. Supabase CLI is installed through the lockfile. Database tests cover access,
+Application/SQL jobs use Node **24.21.0** from `.nvmrc`, matching repository
+operator commands; image-only production hosts need no Node/npm installation.
+Supabase CLI is installed through the lockfile. Database tests cover access,
 recipes, platform constraints, references, and maintenance in `supabase/tests`;
 the job does not contact the deployed database.
 
