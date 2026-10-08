@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
-const includeMacos = args.includes("--all");
-const identifiers = args.filter(value => value !== "--all");
+const includeAll = args.includes("--all");
+const dryRun = args.includes("--dry-run");
+const identifiers = args.filter(value => value !== "--all" && value !== "--dry-run");
 const release = identifiers[0];
 
 function docker(args, capture = false) {
@@ -19,14 +20,19 @@ function docker(args, capture = false) {
 
 try {
   if (identifiers.length !== 1 || !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(release ?? "") || release === "latest") {
-    throw new Error("Usage: npm run images:publish[:all] -- <release-identifier> (e.g. v0.1.0; use a fresh identifier, not latest).");
+    throw new Error("Usage: npm run images:publish[:all] -- <release-identifier> [--dry-run] (use a fresh identifier, not latest).");
   }
-  const services = ["web", "maintenance", "builder", "web-builder", "android-builder"];
-  if (includeMacos) services.push("macos-builder");
   const config = JSON.parse(docker([
-    "compose", "--profile", "builder", "--profile", "macos-builder",
+    "compose", "--profile", "*",
     "config", "--format", "json", "--no-env-resolution",
   ], true));
+  // All application images are defined by Compose build entries, including
+  // profiled services. Avoid a second list that can omit a newly added service.
+  const services = Object.entries(config.services)
+    .filter(([name, service]) => service.build && (includeAll || name !== "macos-builder"))
+    .map(([name]) => name);
+  if (services.length === 0) throw new Error("No application images selected.");
+  console.log(`${dryRun ? "Preflight" : "Publishing"} ${services.length} application images: ${services.join(", ")}`);
   // Inspect every source before modifying tags or publishing. Pin image IDs so
   // a concurrent local build cannot change what a release contains mid-push.
   const images = services.map(service => {
@@ -38,15 +44,21 @@ try {
   });
   for (const { id, source, repository } of images) {
     console.log(`${source} -> ${repository}:${release} and ${repository}:latest`);
-    docker(["image", "tag", id, `${repository}:${release}`]);
-    docker(["image", "tag", id, `${repository}:latest`]);
+    if (!dryRun) {
+      docker(["image", "tag", id, `${repository}:${release}`]);
+      docker(["image", "tag", id, `${repository}:latest`]);
+    }
   }
   // Publish the complete release before promoting latest. Registries cannot
   // update multiple repositories atomically; a latest-phase failure may leave
   // mixed aliases. The complete release tag remains available for deployment.
-  for (const { repository } of images) docker(["push", `${repository}:${release}`]);
-  for (const { repository } of images) docker(["push", `${repository}:latest`]);
-  console.log(`Published ${images.length} images as ${release} and latest.`);
+  if (dryRun) {
+    console.log(`Preflight passed for ${images.length} images; nothing tagged or pushed.`);
+  } else {
+    for (const { repository } of images) docker(["push", `${repository}:${release}`]);
+    for (const { repository } of images) docker(["push", `${repository}:latest`]);
+    console.log(`Published ${images.length} images as ${release} and latest.`);
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Image publication failed.");
   process.exitCode = 1;

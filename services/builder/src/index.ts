@@ -106,7 +106,7 @@ async function processBuild(job: Job<BuildJob>) {
       await updateBuild(buildId, { ...activity.snapshot(), performance_metrics: measurements.snapshot(), status: current.status, stage: current.label, progress: current.progress, stage_started_at: new Date().toISOString(), ...(stage === "preparing_source" ? { started_at: new Date().toISOString() } : {}) });
       await job.updateProgress(current.progress);
     };
-    const { artifactPath, binarySizeBytes } = await compileBuild(deliveryId, config, logFile, updateStage, (chunk) => activity.record(chunk), measurements);
+    const { artifactPath, binarySizeBytes } = await compileBuild(deliveryId, config, logFile, env, updateStage, (chunk) => activity.record(chunk), measurements);
 
     await updateBuild(buildId, { ...activity.snapshot(), performance_metrics: measurements.snapshot(), status: "packaging", stage: "Hashing packaged template", progress: 87 });
     const digest = await sha256(artifactPath);

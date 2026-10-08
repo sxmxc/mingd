@@ -45,9 +45,10 @@ currently use Node 22 independently of the host runtime.
 - **Configure processes:** use the [environment reference](docs/configuration.md).
   Next.js development reads `apps/web/.env.local`; Compose reads the root `.env`.
 
-Production can pull published images with just `compose.yml` and `.env`; the
-application server needs Docker/Compose, while builds and migrations run from an
-authorized checkout. See [production deployment](docs/deployment.md#production-with-only-compose-and-env)
+Production uses `compose.web.prod.yml` on the application host and
+`compose.workers.prod.yml` on dedicated build hosts, each with its own `.env`.
+Workers connect over authenticated HTTPS; Redis stays private. Builds and
+migrations run from an authorized checkout. See [production deployment](docs/deployment.md#production-with-only-compose-and-env)
 for setup, updates, optional macOS workers, and rollback.
 
 ## Documentation

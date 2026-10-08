@@ -1,6 +1,7 @@
 # Getting started locally
 
-This guide uses local Supabase, a host-run Next.js app, and Docker workers.
+This guide uses local Supabase, a host-run Next.js app, and direct Docker workers.
+For separate production build hosts, use [distributed deployment](deployment.md).
 For a dedicated server with separate Supabase, use [deployment](deployment.md).
 
 ## Prerequisites

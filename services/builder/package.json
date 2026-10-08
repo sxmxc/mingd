@@ -1,21 +1,23 @@
 {
   "name": "@mingd/builder",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "start": "node --import tsx src/entrypoint.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "maintenance": "tsx src/maintenance.ts"
+    "maintenance": "tsx src/maintenance.ts",
+    "start:remote": "node --import tsx src/remote.ts"
   },
   "dependencies": {
     "@mingd/build-config": "*",
     "@supabase/supabase-js": "^2.117.2",
     "bullmq": "^6.3.10",
-    "ioredis": "^6.0.0"
+    "ioredis": "^6.0.0",
+    "@mingd/worker-protocol": "*"
   },
   "devDependencies": {
     "@types/node": "^22.18.8",

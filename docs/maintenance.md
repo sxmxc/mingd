@@ -1,7 +1,8 @@
 # Scheduled maintenance
 
 The [scheduled-maintenance migration](../supabase/migrations/20261007051155_scheduled_maintenance.sql)
-creates **five pg_cron schedules**. Three execute SQL directly. Two request durable
+creates five schedules; the distributed-execution migration adds upload cleanup
+for **six pg_cron schedules** total. Four execute SQL directly. Two request durable
 backend tasks processed by the Compose `maintenance` service. Seeing two rows in
 `public.maintenance_tasks` or two backend status entries in admin metrics is normal;
 those are not the complete cron inventory.
@@ -14,6 +15,7 @@ those are not the complete cron inventory.
 | `mingd-prune-build-logs` | Daily 02:15 (`15 2 * * *`) | Clear terminal log tails older than 30 days, up to 5,000 per run; remove cron run history older than 30 days |
 | `mingd-build-statistics` | Daily 02:00 (`0 2 * * *`) | Recompute the previous seven completed-day cohorts; record artifact-storage snapshots |
 | `mingd-artifact-cleanup` | Sunday 03:00 (`0 3 * * 0`) | Request eligible artifact retirement and Storage deletion |
+| `mingd-worker-upload-cleanup` | Every 5 minutes (`*/5 * * * *`) | Queue expired pending remote uploads for Storage deletion |
 | `mingd-release-refresh` | Daily 04:00 (`0 4 * * *`) | Request verified release discovery and official-template measurements |
 
 Clock times use the server's `cron.timezone` (pg_cron defaults to GMT/UTC), not
@@ -110,7 +112,7 @@ Use `/admin/metrics` for daily statistics, backend status, safe failure reason,
 and persisted catalog freshness. `Idle` / `Last completed: Never` is normal for
 artifact cleanup before its first scheduled/manual run.
 
-In privileged SQL on the intended database, inspect `cron.job` for all five
+In privileged SQL on the intended database, inspect `cron.job` for all six
 schedules, `cron.job_run_details` for SQL outcomes, and `public.maintenance_tasks`
 for backend results. SQL schedule success only means the task was requested;
 the Storage/network work can still fail later.

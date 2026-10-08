@@ -1,0 +1,101 @@
+# Dedicated worker host: outbound HTTPS only; no Redis or Supabase credentials.
+x-worker: &worker
+  restart: unless-stopped
+  stop_grace_period: 30s
+  cap_drop: [ALL]
+  # Root must read host-owned mode-0600 tokens and preserve cached-source metadata.
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+  security_opt: [no-new-privileges:true]
+  mem_limit: ${WORKER_MEMORY_LIMIT:-8g}
+  cpus: ${WORKER_CPUS:-4}
+  pids_limit: 512
+x-environment: &environment
+  BUILDER_MODE: remote
+  WORKER_GATEWAY_URL: ${WORKER_GATEWAY_URL:-https://worker.mingd.voidmoose.net}
+  WORKER_TOKEN_FILE: /run/secrets/worker_token
+  BUILDER_CONCURRENCY: ${BUILDER_CONCURRENCY:-1}
+  SCONS_JOBS: ${SCONS_JOBS:-4}
+  BUILDER_COMPILE_TIMEOUT_MS: ${BUILDER_COMPILE_TIMEOUT_MS:-7200000}
+  GODOT_CACHE_DIR: /cache/godot
+  GODOT_WORK_DIR: /work/jobs
+  CCACHE_DIR: /cache/ccache
+services:
+  builder:
+    <<: *worker
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/builder:${IMAGE_TAG:-v0.2.1}
+    environment:
+      <<: *environment
+      BUILDER_TARGET: desktop
+    secrets:
+      - source: desktop_worker_token
+        target: worker_token
+    volumes:
+      - godot-source-cache:/cache/godot
+      - ccache:/cache/ccache
+      - builder-work:/work/jobs
+  web-builder:
+    <<: *worker
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web-builder:${IMAGE_TAG:-v0.2.1}
+    environment:
+      <<: *environment
+      BUILDER_TARGET: web
+    secrets:
+      - source: web_worker_token
+        target: worker_token
+    volumes:
+      - web-godot-source-cache:/cache/godot
+      - web-ccache:/cache/ccache
+      - web-builder-work:/work/jobs
+  android-builder:
+    <<: *worker
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/android-builder:${IMAGE_TAG:-v0.2.1}
+    profiles: ["android"]
+    environment:
+      <<: *environment
+      BUILDER_TARGET: android
+    secrets:
+      - source: android_worker_token
+        target: worker_token
+    volumes:
+      - android-godot-source-cache:/cache/godot
+      - android-ccache:/cache/ccache
+      - android-builder-work:/work/jobs
+      - android-gradle:/cache/gradle
+  macos-builder:
+    <<: *worker
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/macos-builder:${IMAGE_TAG:-v0.2.1}
+    profiles: ["macos"]
+    environment:
+      <<: *environment
+      BUILDER_TARGET: macos
+      MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
+    secrets:
+      - source: macos_worker_token
+        target: worker_token
+    volumes:
+      - macos-godot-source-cache:/cache/godot
+      - macos-ccache:/cache/ccache
+      - macos-builder-work:/work/jobs
+secrets:
+  desktop_worker_token:
+    file: ${DESKTOP_WORKER_TOKEN_FILE:-./worker-tokens/desktop.token}
+  web_worker_token:
+    file: ${WEB_WORKER_TOKEN_FILE:-./worker-tokens/web.token}
+  android_worker_token:
+    file: ${ANDROID_WORKER_TOKEN_FILE:-./worker-tokens/android.token}
+  macos_worker_token:
+    file: ${MACOS_WORKER_TOKEN_FILE:-./worker-tokens/macos.token}
+volumes:
+  godot-source-cache:
+  ccache:
+  builder-work:
+  web-godot-source-cache:
+  web-ccache:
+  web-builder-work:
+  android-godot-source-cache:
+  android-ccache:
+  android-builder-work:
+  android-gradle:
+  macos-godot-source-cache:
+  macos-ccache:
+  macos-builder-work:

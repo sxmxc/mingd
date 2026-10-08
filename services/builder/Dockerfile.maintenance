@@ -4,10 +4,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-cert
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
 COPY packages/build-config/package.json packages/build-config/package.json
+COPY packages/worker-protocol/package.json packages/worker-protocol/package.json
 COPY services/builder/package.json services/builder/package.json
-RUN npm ci --workspaces --include-workspace-root
+COPY services/worker-gateway/package.json services/worker-gateway/package.json
+RUN npm ci --workspace @mingd/builder --include-workspace-root
 COPY packages/build-config packages/build-config
+COPY packages/worker-protocol packages/worker-protocol
 COPY services/builder services/builder
 COPY scripts/import-template-references.mjs scripts/measure-official-templates.py scripts/
 USER node

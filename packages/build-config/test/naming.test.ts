@@ -18,7 +18,7 @@ test("technical package names and workspace links use mingd without the brand pe
   }
   for (const value of Object.values(manifest.scripts)) assert.doesNotMatch(String(value), /@gdslimmer|@min\.gd/);
   assert.match(read("compose.yml"), /image: \$\{IMAGE_PREFIX:-mingd\}\/builder:\$\{IMAGE_TAG:-latest\}\s/);
-  assert.match(read("services/builder/Dockerfile"), /"@mingd\/builder"/);
+  assert.match(read("services/builder/Dockerfile"), /@mingd\/builder/);
 });
 
 test("visible branding retains min.gd and Godot fixture success copy agrees with docs", () => {

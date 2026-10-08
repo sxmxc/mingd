@@ -1,7 +1,12 @@
 # Architecture and build lifecycle
 
 min.gd uses npm workspaces and one shared build contract. The frontend does not
-compile Godot; privileged workers consume validated recipes.
+compile Godot; isolated workers consume validated recipes.
+
+Production uses [distributed HTTPS workers](distributed-workers.md): the gateway
+holds Redis/Supabase credentials on the application host, while dedicated build
+hosts receive individual enrollment tokens. Direct workers remain available for
+local development and rollback.
 
 ```mermaid
 flowchart LR
@@ -9,10 +14,11 @@ flowchart LR
   Web --> Auth[Supabase Auth]
   Web --> DB[Postgres: builds and recipes]
   Web --> Redis[Redis / BullMQ]
-  Redis --> Workers[Desktop, Web, Android, macOS workers]
+  Redis --> Gateway[Fastify worker gateway]
+  Workers[Dedicated desktop, Web, Android, macOS hosts] -->|Authenticated HTTPS| Gateway
+  Gateway --> DB
   Workers --> Official[Official Godot source]
-  Workers --> DB
-  Workers --> Storage[Private Supabase Storage]
+  Gateway --> Storage[Private Supabase Storage]
   Web --> Storage
   Cron[pg_cron] --> DB
   DB --> Maintenance[Maintenance task worker]
@@ -27,7 +33,9 @@ flowchart LR
 | --- | --- |
 | `apps/web` | App Router UI, cookie sessions, account/admin checks, submission/download routes |
 | `packages/build-config` | Schemas, normalization, presets, releases, SCons mappings, cache identity, files, comparisons |
-| `services/builder` | Queue reconciliation, verification, compilation, packaging, upload, maintenance |
+| `services/builder` | Remote/direct worker entrypoints, source verification, compilation, packaging, maintenance |
+| `services/worker-gateway` | Private queue orchestration, enrollment, HTTPS assignments/heartbeats/telemetry, validated upload and recovery |
+| `packages/worker-protocol` | Strict versioned HTTP contract |
 | `supabase/migrations` | Reproducible schema, access policies, Storage, scheduled SQL |
 | `supabase/tests` | pgTAP checks for constraints and authorization |
 | `scripts` | Admin bootstrap, reference measurements, compiler/source audits |
@@ -43,12 +51,14 @@ creating independent frontend and worker contracts.
 2. It computes the canonical hash. An eligible cached artifact completes the
    user-owned build through reuse; otherwise it records the queued build and
    sends its ID and validated recipe to the platform queue.
-3. The worker revalidates configuration, release, and hash. Durable database
-   records let it reconcile missing queue deliveries.
+3. The gateway revalidates configuration, release and hash, reconciles missing
+   deliveries, and claims a durable lease for a compatible enrolled worker. The
+   remote worker independently validates the assignment before compiling.
 4. It verifies source, creates an isolated attempt workspace, generates allowlisted
    SCons arguments, and compiles requested kinds/architectures.
 5. It validates structure, packages the TPZ, computes integrity/size metadata,
-   uploads an immutable object, records the artifact, and completes the build.
+   streams it to the gateway. The gateway revalidates package integrity/ownership,
+   uploads an immutable object and atomically records the artifact and completion.
 6. Download authorization checks ownership or SuperAdmin access before issuing
    a short-lived signed URL for private Storage.
 

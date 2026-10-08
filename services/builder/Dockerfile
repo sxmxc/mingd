@@ -19,11 +19,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
 COPY packages/build-config/package.json packages/build-config/package.json
+COPY packages/worker-protocol/package.json packages/worker-protocol/package.json
 COPY services/builder/package.json services/builder/package.json
-RUN npm install --workspaces --include-workspace-root
+COPY services/worker-gateway/package.json services/worker-gateway/package.json
+RUN npm ci --workspace @mingd/builder --include-workspace-root
 COPY packages/build-config packages/build-config
+COPY packages/worker-protocol packages/worker-protocol
 COPY services/builder services/builder
 
 ENV GODOT_CACHE_DIR=/cache/godot \
@@ -31,7 +35,7 @@ ENV GODOT_CACHE_DIR=/cache/godot \
     CCACHE_DIR=/cache/ccache \
     PATH=/opt/scons/bin:$PATH
 
-CMD ["npm", "run", "start", "--workspace", "@mingd/builder"]
+CMD ["node", "--import", "tsx", "services/builder/src/entrypoint.ts"]
 
 # Isolated Web toolchain; recipe 8 pins the Emscripten SDK version.
 FROM emscripten/emsdk:4.0.11@sha256:f8a157011b8fa61bdaab875bb1f0f08695229dffe086448d14b53538cae16bd3 AS web-sdk

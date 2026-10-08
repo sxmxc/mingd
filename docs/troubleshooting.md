@@ -123,7 +123,7 @@ outbound GitHub/archive access and the displayed safe importer reason.
 Retries wait 15 minutes and leases last 20 minutes. Requesting a task does not
 bypass retry timing. Catalog freshness can update before a subsequent template
 measurement fails. Two backend status entries are expected even though there
-are five cron schedules. See [maintenance](maintenance.md).
+are six cron schedules. See [maintenance](maintenance.md).
 
 ## No template-size comparison appears
 
@@ -140,7 +140,7 @@ dependencies does not update existing images. Publish a fresh release and repeat
 the production pull/start commands. For source deployments, use the affected
 `:build` command from the checkout. Public frontend
 settings are read at runtime by current web images; recreate web after changing
-them. See [deployment](deployment.md#command-reference).
+them. See [deployment](deployment.md#source-checkout-command-reference).
 
 ## Checks fail on a fresh checkout
 
@@ -159,3 +159,22 @@ Supabase database. See [development and validation](development.md).
 If moving the checkout appears to lose data, check the Compose project name and
 local Supabase project ID before creating new volumes or resetting anything.
 See [naming](naming.md#infrastructure-identities).
+
+## Distributed-worker connectivity
+
+If NPM returns 502 while gateway localhost `/healthz` succeeds, check its HTTP
+upstream host/port 3001 and Docker reachability. Production gateway publication
+uses all interfaces; NPM's container loopback is not the application's loopback.
+`acceptingAssignments:false` means dispatch is disabled or not ready; enable both
+gateway flags only after migration and direct-worker cutover. A 401/409 on worker
+polls means rejected enrollment/token or recipe/target/toolchain mismatch.
+Malformed or unsupported protocol declarations are rejected too. After the
+0.2.1 compatibility migration and code rollout, application release alone does
+not invalidate a worker; keep existing token files when updating images.
+Use operator `workers -- list`; remote workers never need Redis/Supabase access.
+
+For upload 413/timeouts, check NPM's body/time settings and gateway's fixed 512 MiB
+limit. For lease loss, check gateway/worker connectivity and host resource pressure;
+workers stop abandoned processes and retries receive fresh identities. Preserve
+logs and distinguish structural validation from native runtime acceptance. See
+[deployment](deployment.md#distributed-cutover-and-rollback).

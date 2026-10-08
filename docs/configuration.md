@@ -21,14 +21,15 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
-| `IMAGE_TAG` | `latest` | Shared release tag for web, maintenance, and every worker |
+| `IMAGE_TAG` | `latest` | Shared release tag for web, gateway, maintenance and every worker |
 
 These are Compose settings, read from root `.env` or exported environment.
 They do not change the upstream Redis image. `images:publish -- <release>`
 publishes the built `IMAGE_TAG` images under both that release identifier and
 `latest`. Production can select either tag with `IMAGE_TAG`, using the same
 prefix. See [registry deployment](deployment.md#build-here-pull-on-production-ghcr)
-for publishing. Production needs only `compose.yml` and `.env`; use the
+for publishing. Production uses separate image-only `compose.web.prod.yml` and
+`compose.workers.prod.yml` files, each with its host-specific `.env`; use the
 [direct Docker commands](deployment.md#production-with-only-compose-and-env) there.
 `WEB_PORT` is optional; omit it to keep the default host port `3000`.
 
@@ -39,12 +40,12 @@ for publishing. Production needs only `compose.yml` and `.env`; use the
 | `NEXT_PUBLIC_APP_URL` | Web/Auth | Canonical app origin; Compose fallback `http://localhost:3000` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Web server/Auth | Required API origin without `/auth/v1`; browser-safe configuration |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Web server/Auth | Required browser-safe public key for that installation |
-| `SUPABASE_SECRET_KEY` | Web server, workers, maintenance, operator scripts | Required privileged key; runtime-only in web image |
-| `SUPABASE_URL` | Workers and maintenance | Required directly; Compose default `http://host.docker.internal:54321` |
+| `SUPABASE_SECRET_KEY` | Web server, gateway, direct workers, maintenance, operator scripts | Required privileged key; runtime-only in web image |
+| `SUPABASE_URL` | Gateway, direct workers and maintenance | Required directly; Compose default `http://host.docker.internal:54321` |
 | `SUPABASE_DB_URL` | Migration scripts | Private, percent-encoded PostgreSQL URI for self-hosted database |
-| `REDIS_URL` | Web and workers | Required; host example `redis://127.0.0.1:6379`; Compose sets `redis://redis:6379` |
+| `REDIS_URL` | Web, gateway and direct workers | Required; host example `redis://127.0.0.1:6379`; Compose sets `redis://redis:6379` |
 | `WEB_PORT` | Compose frontend | Host port, default `3000` |
-| `ARTIFACT_BUCKET` | Web, workers, maintenance | `build-artifacts`; must match the private migrated bucket |
+| `ARTIFACT_BUCKET` | Web, gateway, direct workers, maintenance | `build-artifacts`; must match the private migrated bucket |
 | `SIGNED_DOWNLOAD_TTL_SECONDS` | Download route | `900`; issued links remain usable until expiry |
 | `MACOS_TOOLCHAIN_SHA256` | Web and macOS image/worker | Verified operator archive digest, required for macOS submissions/builds |
 
@@ -76,7 +77,8 @@ only those public values from the server, never the privileged key.
 | `ANDROID_BUILDER_QUEUE_NAME` | `godot-android-builds` | `android-builder` / `android` |
 | `MACOS_BUILDER_QUEUE_NAME` | `godot-macos-builds` | `macos-builder` / `macos` |
 
-Every worker internally reads `BUILDER_QUEUE_NAME`. Compose translates the
+The gateway reads all four queue names; remote workers receive no queue settings.
+Every direct worker internally reads `BUILDER_QUEUE_NAME`. Root Compose translates the
 platform-specific setting into that worker's environment. For a direct worker,
 set `BUILDER_TARGET` and matching `BUILDER_QUEUE_NAME` explicitly. Maintenance
 polls Postgres and does not use Redis queues.
@@ -88,7 +90,7 @@ polls Postgres and does not use Redis queues.
 | `BUILDER_TARGET` | `desktop` | `desktop`, `web`, `android`, or `macos`; Compose sets it |
 | `BUILDER_CONCURRENCY` | `1` | Concurrent jobs per worker process |
 | `SCONS_JOBS` | `4` | Parallel SCons jobs per compilation |
-| `BUILDER_DRY_RUN` | `false` | Exact value `true` produces diagnostic archives |
+| `BUILDER_DRY_RUN` | `false` | Gateway/direct mode owns diagnostic build selection; remote workers follow the assignment |
 | `BUILDER_COMPILE_TIMEOUT_MS` | `7200000` | Compile-command timeout; minimum 60 seconds |
 | `GODOT_CACHE_DIR` | `/cache/godot` | Verified source cache |
 | `GODOT_WORK_DIR` | `/work/jobs` | Isolated workspaces |
@@ -111,3 +113,38 @@ private network; HTTPS does not imply internet accessibility.
 The Auth site URL is the app origin, separate from the API origin. See
 [self-hosted Supabase](self-hosted-supabase.md). Changing `WEB_PORT` does not
 update the canonical URL or allowed Auth redirects automatically.
+
+## Distributed-worker settings
+
+Use [`.env.web.prod.example`](../.env.web.prod.example) on the application host and
+[`.env.workers.prod.example`](../.env.workers.prod.example) on dedicated worker hosts.
+Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.1`; root Compose retains
+`mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
+privileged application configuration to remote hosts.
+
+| Variable | Consumer | Default / meaning |
+| --- | --- | --- |
+| `WORKER_GATEWAY_HOST` | Gateway | Local npm `127.0.0.1`; Compose `0.0.0.0` |
+| `WORKER_GATEWAY_PORT` | Gateway/Compose | 3001; host publication can override the port |
+| `WORKER_GATEWAY_LOG_LEVEL` | Gateway | `info` |
+| `WORKER_GATEWAY_WORKERS_ENABLED` | Gateway | `false`; enable authenticated control after migrations |
+| `WORKER_GATEWAY_EXECUTION_ENABLED` | Gateway | `false`; enable dispatch after stopping direct workers |
+| `WORKER_GATEWAY_QUEUE_CONCURRENCY` | Gateway | 16 pending deliveries per target; 1–64 |
+| `WORKER_GATEWAY_MAX_UPLOADS` | Gateway | 2 simultaneous uploads; 1–4 |
+| `WORKER_GATEWAY_MAX_JOB_MS` | Gateway | 43200000 (12 hours); maximum 48 hours |
+| `WORKER_GATEWAY_WORK_DIR` | Gateway npm | `/tmp/mingd-gateway`; private temporary uploads |
+| `BUILDER_MODE` | Builder | `direct`; worker production Compose forces `remote` |
+| `WORKER_GATEWAY_URL` | Remote worker | `https://worker.mingd.voidmoose.net`; HTTPS origin, no paths/redirects |
+| `WORKER_TOKEN_FILE` | Remote worker | `/run/secrets/worker_token`; per-process enrollment file |
+| `WORKER_CPUS` | Worker Compose | 4 CPU limit per container |
+| `WORKER_MEMORY_LIMIT` | Worker Compose | 8 GiB per container |
+| `DESKTOP_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/desktop.token` |
+| `WEB_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/web.token` |
+| `ANDROID_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/android.token`; android profile |
+| `MACOS_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/macos.token`; macos profile |
+
+Remote concurrency is 1–16, SCons jobs 1–256, and command timeout 60 seconds–48
+hours. Budget CPU/RAM across containers, not just within each. Enrollment capacity
+must cover concurrency. The gateway controls dry-run and Storage settings;
+workers control local paths/toolchain resources. Detailed fixed protocol/upload
+limits and rollout are in [distributed workers](distributed-workers.md).

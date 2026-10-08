@@ -5,8 +5,9 @@ import { readFile } from "node:fs/promises";
 export async function runProcess(
   command: string,
   args: string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv; logFile?: string; timeoutMs?: number; onOutput?: (chunk: Buffer) => void; resourceFile?: string; onPeakRss?: (value: number | null) => void } = {},
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; logFile?: string; timeoutMs?: number; onOutput?: (chunk: Buffer) => void; resourceFile?: string; onPeakRss?: (value: number | null) => void; signal?: AbortSignal } = {},
 ): Promise<void> {
+  options.signal?.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
     const child = spawn(options.resourceFile ? "/usr/bin/time" : command, options.resourceFile ? ["-f", "%M", "-o", options.resourceFile, "--", command, ...args] : args, {
       cwd: options.cwd,
@@ -29,6 +30,7 @@ export async function runProcess(
     child.stdout.on("data", output);
     child.stderr.on("data", output);
     let timedOut = false;
+    let aborted = false;
     let forceKill: ReturnType<typeof setTimeout> | undefined;
     const kill = (signal: NodeJS.Signals) => {
       try { if (process.platform !== "win32" && child.pid) process.kill(-child.pid, signal); else child.kill(signal); } catch { /* Process group has exited. */ }
@@ -38,25 +40,34 @@ export async function runProcess(
       kill("SIGTERM");
       forceKill = setTimeout(() => kill("SIGKILL"), 5000);
     }, options.timeoutMs) : undefined;
+    const cancel = () => {
+      aborted = true;
+      kill("SIGTERM");
+      if (!forceKill) forceKill = setTimeout(() => kill("SIGKILL"), 5000);
+    };
+    options.signal?.addEventListener("abort", cancel, { once: true });
+    if (options.signal?.aborted) cancel();
     child.on("error", (error) => {
       if (timeout) clearTimeout(timeout);
       if (forceKill) clearTimeout(forceKill);
       log?.end();
+      options.signal?.removeEventListener("abort", cancel);
       reject(error);
     });
     child.on("close", async (code) => {
       if (timeout) clearTimeout(timeout);
       // A wrapper can exit before a descendant that ignored TERM. Do not leave
       // that compiler running after the measured command has timed out.
-      if (timedOut) kill("SIGKILL");
+      if (timedOut || aborted) kill("SIGKILL");
       if (forceKill) clearTimeout(forceKill);
       log?.end();
+      options.signal?.removeEventListener("abort", cancel);
       if (options.resourceFile) {
         const content = await readFile(options.resourceFile, "utf8").catch(() => "");
         const value = Number(content.trim().split("\n").at(-1));
         options.onPeakRss?.(content.trim() && Number.isFinite(value) && value >= 0 ? value : null);
       }
-      code === 0 && !timedOut ? resolve() : reject(new Error(timedOut ? `${command} exceeded its ${options.timeoutMs}ms timeout` : `${command} exited with code ${code}`));
+      code === 0 && !timedOut && !aborted ? resolve() : reject(new Error(aborted ? "Compilation cancelled" : timedOut ? `${command} exceeded its ${options.timeoutMs}ms timeout` : `${command} exited with code ${code}`));
     });
   });
 }

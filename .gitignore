@@ -18,3 +18,8 @@ supabase/.temp/
 
 # Operator-supplied macOS SDK/toolchain archives stay local.
 toolchains/
+
+# Worker enrollment credentials must never be committed.
+worker-tokens/
+
+tmp/
