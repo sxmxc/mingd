@@ -1,3 +1,8 @@
+---
+title: "min.gd documentation"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/README.md
+---
+
 # min.gd documentation
 
 Start with the guide for your task. Commands assume the repository root unless
@@ -33,6 +38,7 @@ a guide names the production deployment directory or separate Supabase directory
 | [Architecture](architecture.md) | Component boundaries, lifecycle, cache identity, and authorization |
 | [Distributed workers](distributed-workers.md) | HTTPS gateway, private production topology, enrollment, version targets, health/cache telemetry, resource limits and acceptance |
 | [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
+| [Documentation site](documentation.md) | Starlight preview, guide editing, and GitHub Pages publishing |
 | [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
 | [Naming](naming.md) | Brand, technical names, and infrastructure identities |
 | [Worker release history](worker-release-history.md) | Earlier distributed-worker rollouts and recorded validation results |

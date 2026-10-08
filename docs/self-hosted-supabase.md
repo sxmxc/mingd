@@ -1,3 +1,8 @@
+---
+title: "Self-hosted Supabase"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/self-hosted-supabase.md
+---
+
 # Self-hosted Supabase
 
 Production uses separate application and build hosts, plus a separately managed

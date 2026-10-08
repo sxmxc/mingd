@@ -1,3 +1,8 @@
+---
+title: "Configuration reference"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/configuration.md
+---
+
 # Configuration reference
 
 Use [`.env.example`](../.env.example) as the starting point. Never put a real
@@ -49,6 +54,12 @@ for publishing. Production uses separate image-only `compose.web.prod.yml` and
 `compose.workers.prod.yml` files, each with its host-specific `.env`; use the
 [direct Docker commands](deployment.md#production-with-only-compose-and-env) there.
 `WEB_PORT` is optional; omit it to keep the default host port `3000`.
+
+For partial publication, set `IMAGE_TAG` on explicit `docker compose build` and
+`docker compose push` commands, then select the resulting tag with the affected
+service's production override. See [web-only and worker-only updates](deployment.md#build-and-publish-only-selected-images)
+for complete examples. Changing `WEB_IMAGE_TAG` on production selects an existing
+image; it does not build or publish one.
 
 ## Web and shared services
 

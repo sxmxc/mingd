@@ -1,3 +1,8 @@
+---
+title: "Build performance and compiler cache"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/performance.md
+---
+
 # Build performance and compiler cache
 
 Worker builds persist `builds.performance_metrics` (schema version 1) and expose it only through ownership-checked build detail. Apply the full migration history before deploying either consumer; see [deployment](deployment.md). Older rows without measurements remain null. Cached artifacts report artifact reuse, not invented compilation timings or cache counters.

@@ -54,6 +54,8 @@ for setup, updates, optional macOS workers, and rollback.
 ## Documentation
 
 The [documentation index](docs/README.md) groups every guide by task.
+The Starlight site is configured for [GitHub Pages](https://sxmxc.github.io/mingd/);
+see [documentation site setup](docs/documentation.md) for publishing and local preview.
 
 | I want to… | Guide |
 | --- | --- |

@@ -1,3 +1,8 @@
+---
+title: "Deployment and operations"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/deployment.md
+---
+
 # Deployment and operations
 
 Production uses two image-only deployment files on **separate Docker hosts**:
@@ -45,6 +50,80 @@ need `read:packages`. Keep tokens out of `.env`, Docker build arguments and sour
 All application Dockerfiles carry the repository source label; worker variants
 inherit it. Keep macOS images private because they include the operator Apple SDK.
 The current cross-compilation images target Linux x86_64 build hosts.
+
+### Build and publish only selected images
+
+For a partial update, use explicit Compose service names. `web` is the Next.js
+application; `web-builder` is the Godot Web compiler. The remote worker images
+are `builder` (desktop), `web-builder`, `android-builder`, and `macos-builder`.
+The `worker-gateway` and `maintenance` services run on the application host and
+are separate images.
+
+On the build checkout, set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in root `.env` and
+authenticate with `docker login ghcr.io`. Choose a fresh image tag for each
+publication. The example `v0.2.2-web.1` identifies a web-only revision of the
+0.2.2 application; it is illustrative, not an already published release.
+
+Build and push only the application web image:
+
+```bash
+IMAGE_TAG=v0.2.2-web.1 docker compose build web
+IMAGE_TAG=v0.2.2-web.1 docker compose push web
+```
+
+The build creates `ghcr.io/sxmxc/mingd/web:v0.2.2-web.1` locally; the push uploads
+that exact tag. Use the same `IMAGE_TAG` on both commands. These commands do not
+start containers or update `latest`. Docker image tags are independent of Git
+tags and `package.json` versions: the command does not create a Git release or
+change workspace versions. Record the source commit and pushed digest alongside
+the image tag. Do not reuse a tag for a different image.
+
+On the application host, keep `IMAGE_TAG` at the existing shared release and set
+only `WEB_IMAGE_TAG=v0.2.2-web.1` in its `.env`, then:
+
+```bash
+docker compose -f compose.web.prod.yml pull web
+docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never web
+```
+
+For only the desktop, Web, and Android workers, on the build checkout:
+
+```bash
+IMAGE_TAG=v0.2.2-workers.1 docker compose build builder web-builder android-builder
+IMAGE_TAG=v0.2.2-workers.1 docker compose push builder web-builder android-builder
+```
+
+Include `macos-builder` explicitly only when its SDK/toolchain is provisioned.
+To update only one worker, list only its service in both commands. Explicit
+service names select profiled services without requiring `--profile`.
+
+On each affected worker host, keep its shared `IMAGE_TAG` and set the overrides
+for the workers being updated:
+
+```dotenv
+BUILDER_IMAGE_TAG=v0.2.2-workers.1
+WEB_BUILDER_IMAGE_TAG=v0.2.2-workers.1
+ANDROID_BUILDER_IMAGE_TAG=v0.2.2-workers.1
+```
+
+Drain affected workers and wait for active assignments to finish before
+recreating them. Then, from that worker host's deployment directory:
+
+```bash
+docker compose -f compose.workers.prod.yml pull builder web-builder android-builder
+docker compose -f compose.workers.prod.yml up -d --no-deps --no-build --pull never builder web-builder android-builder
+```
+
+If the production file is named `compose.yml`, use that filename instead.
+Review [release compatibility](distributed-workers.md#release-compatibility)
+when mixing versions, especially changes to shared packages, protocol, recipe,
+or toolchain. Roll back by restoring each affected override to its prior tag
+and repeating the targeted pull/up commands.
+
+`npm run images:build` and `images:publish` select the full default image set.
+Appending `web` to those commands does not select only web. The publisher expects
+a single release identifier and tags/pushes all selected images as that release
+and `latest`; use the targeted Compose commands above for partial publication.
 
 ## Database migrations
 
@@ -242,7 +321,8 @@ and repeat pull/up/acceptance for the selected services. Existing overrides stay
 pinned when `IMAGE_TAG` changes. Keep existing tokens for application-only upgrades; re-enroll
 when enrolled recipe/target/toolchain capabilities change.
 Pull before up: `--no-build --pull never` makes missing images an explicit error.
-No production build, migration or publication is performed by CI.
+Application CI does not build/publish production images or apply migrations.
+The separate documentation workflow publishes the static documentation site.
 
 Monitor queue wait, whole-container CPU/RAM, gateway upload disk, build failures,
 worker last-seen and maintenance errors. Scheduled cleanup does not prune local

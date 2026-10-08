@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${IMAGE_PREFIX:-mingd}/web:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     restart: unless-stopped
     build:
       context: .
@@ -33,7 +33,7 @@ services:
       retries: 3
 
   worker-gateway:
-    image: ${IMAGE_PREFIX:-mingd}/worker-gateway:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     profiles: ["gateway"]
     restart: unless-stopped
     build:
@@ -76,7 +76,7 @@ services:
       retries: 3
 
   maintenance:
-    image: ${IMAGE_PREFIX:-mingd}/maintenance:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/maintenance:${MAINTENANCE_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     restart: unless-stopped
     build:
       context: .
@@ -105,7 +105,7 @@ services:
       retries: 20
 
   builder:
-    image: ${IMAGE_PREFIX:-mingd}/builder:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/builder:${BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     profiles: ["builder"]
     build:
       context: .
@@ -128,7 +128,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   web-builder:
-    image: ${IMAGE_PREFIX:-mingd}/web-builder:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/web-builder:${WEB_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     profiles: ["builder"]
     build:
       context: .
@@ -152,7 +152,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   android-builder:
-    image: ${IMAGE_PREFIX:-mingd}/android-builder:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/android-builder:${ANDROID_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     profiles: ["builder"]
     build:
       context: .
@@ -177,7 +177,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   macos-builder:
-    image: ${IMAGE_PREFIX:-mingd}/macos-builder:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-mingd}/macos-builder:${MACOS_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     profiles: ["macos-builder"]
     build:
       context: .

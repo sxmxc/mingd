@@ -1,3 +1,8 @@
+---
+title: "Scheduled maintenance"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/maintenance.md
+---
+
 # Scheduled maintenance
 
 The [scheduled-maintenance migration](../supabase/migrations/20261007051155_scheduled_maintenance.sql)

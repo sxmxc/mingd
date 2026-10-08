@@ -1,3 +1,8 @@
+---
+title: "Architecture and build lifecycle"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/architecture.md
+---
+
 # Architecture and build lifecycle
 
 min.gd uses npm workspaces and one shared build contract. The frontend does not

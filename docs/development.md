@@ -1,3 +1,8 @@
+---
+title: "Development and validation"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/development.md
+---
+
 # Development and validation
 
 Use [getting started](getting-started.md) to configure development services.
@@ -36,7 +41,7 @@ configured public frontend settings; neither a successful typecheck nor a build
 establishes working Auth or database connectivity.
 
 Root scripts cover all applicable workspaces. `npm run build` builds web and
-runs all shared/service TypeScript build checks; builder runtime uses `tsx` rather than
+runs the Starlight documentation build and shared/service TypeScript build checks; builder runtime uses `tsx` rather than
 a generated `dist` service. Use workspace commands for focused tests:
 
 ```bash

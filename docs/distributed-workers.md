@@ -1,3 +1,8 @@
+---
+title: "Distributed workers"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/distributed-workers.md
+---
+
 # Distributed workers
 
 Release **0.2.2** includes the HTTPS gateway and remote workers introduced in 0.2.0,

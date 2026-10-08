@@ -1,3 +1,8 @@
+---
+title: "Accounts and administration"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/accounts-and-admin.md
+---
+
 # Accounts and administration
 
 The app uses Supabase Auth with cookie-backed sessions. Normal accounts have
