@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { setTimeout as pause } from "node:timers/promises";
 import { BUILD_RECIPE_VERSION, canonicalBuildCacheInput, normalizeBuildConfig, resolveGodotVersion, workerTargetForPlatform } from "@mingd/build-config";
-import { WorkerHelloSchema, WORKER_HEARTBEAT_INTERVAL_MS, WORKER_LEASE_SECONDS, type Assignment, type BuildHeartbeat } from "@mingd/worker-protocol";
+import { WorkerHelloSchema, WORKER_TELEMETRY_INTERVAL_MS, WORKER_HEARTBEAT_INTERVAL_MS, WORKER_LEASE_SECONDS, type Assignment, type BuildHeartbeat } from "@mingd/worker-protocol";
+import { WorkerTelemetrySampler } from "./worker-telemetry.js";
 import { BuildActivity, sanitizeLog } from "./activity.js";
 import { compileBuild } from "./compiler.js";
 import { compilerRuntimeFromEnvironment } from "./compiler-runtime.js";
@@ -75,7 +76,7 @@ export async function runRemoteWorker(values: NodeJS.ProcessEnv = process.env, t
     const watchdog = setInterval(() => { if (!finished && performance.now() >= deadline) controller.abort(new Error("Worker lease expired.")); }, 1000);
     const logFile = join(runtime.workDir, `${assignment.assignmentId}.log`);
     try {
-      if (assignment.release !== hello.release || assignment.recipeVersion !== hello.recipeVersion) throw new Error("Assignment version mismatch.");
+      if (assignment.recipeVersion !== hello.recipeVersion) throw new Error("Assignment recipe mismatch.");
       const config = normalizeBuildConfig(assignment.config);
       if (workerTargetForPlatform(config.platform) !== runtime.target) throw new Error("Assignment target mismatch.");
       const source = await resolveGodotVersion(config.godotVersion);
@@ -124,23 +125,50 @@ export async function runRemoteWorker(values: NodeJS.ProcessEnv = process.env, t
       await rm(logFile, { force: true });
     }
   }
-  while (!shutdown.signal.aborted) {
-    try {
-      if (running.size < concurrency) {
-        const assignment = await client.next(hello, shutdown.signal);
-        if (assignment && !activeIds.has(assignment.assignmentId)) {
-          activeIds.add(assignment.assignmentId);
-          const task = execute(assignment).finally(() => { running.delete(task); activeIds.delete(assignment.assignmentId); });
-          running.add(task); continue;
-        }
+  const sampler = new WorkerTelemetrySampler(runtime.ccacheDir);
+  let telemetryTask: Promise<void> | undefined;
+  let telemetrySupported = true;
+  let telemetryFatal: Error | undefined;
+  const reportTelemetry = () => {
+    if (telemetryTask || !telemetrySupported || shutdown.signal.aborted) return;
+    telemetryTask = (async () => {
+      try { await client.telemetry(hello, await sampler.sample(shutdown.signal), shutdown.signal); }
+      catch (error) {
+        if (shutdown.signal.aborted) return;
+        if (error instanceof GatewayError && error.status === 404) { telemetrySupported = false; return; }
+        if (error instanceof GatewayError && error.fatal) {
+          telemetryFatal = new Error("Worker telemetry authentication or compatibility rejected.");
+          shutdown.abort(telemetryFatal);
+        } else console.error(JSON.stringify({ event: "worker_telemetry_unavailable" }));
       }
-      await pause(5000, undefined, { signal: shutdown.signal });
-    } catch (error) {
-      if (shutdown.signal.aborted) break;
-      if (error instanceof GatewayError && error.fatal) { shutdown.abort(); await Promise.allSettled(running); throw new Error("Worker enrollment or version rejected."); }
-      console.error(JSON.stringify({ event: "worker_gateway_unavailable" }));
-      await pause(5000, undefined, { signal: shutdown.signal }).catch(() => undefined);
+    })().finally(() => { telemetryTask = undefined; });
+  };
+  const telemetryTimer = setInterval(reportTelemetry, WORKER_TELEMETRY_INTERVAL_MS);
+  reportTelemetry();
+  try {
+    while (!shutdown.signal.aborted) {
+      try {
+        if (running.size < concurrency) {
+          const assignment = await client.next(hello, shutdown.signal);
+          if (assignment && !activeIds.has(assignment.assignmentId)) {
+            activeIds.add(assignment.assignmentId);
+            const task = execute(assignment).finally(() => { running.delete(task); activeIds.delete(assignment.assignmentId); });
+            running.add(task); continue;
+          }
+        }
+        await pause(5000, undefined, { signal: shutdown.signal });
+      } catch (error) {
+        if (shutdown.signal.aborted) break;
+        if (error instanceof GatewayError && error.fatal) { shutdown.abort(); await Promise.allSettled(running); throw new Error("Worker enrollment or compatibility rejected."); }
+        console.error(JSON.stringify({ event: "worker_gateway_unavailable" }));
+        await pause(5000, undefined, { signal: shutdown.signal }).catch(() => undefined);
+      }
     }
+  } finally {
+    clearInterval(telemetryTimer);
+    shutdown.abort();
+    await Promise.allSettled(running);
+    await telemetryTask;
   }
-  await Promise.allSettled(running);
+  if (telemetryFatal) throw telemetryFatal;
 }

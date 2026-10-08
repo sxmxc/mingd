@@ -6,11 +6,11 @@ export type AssignmentLease = { id: string; build_id: string; worker_id: string;
 
 /** The database owns authentication, clocks, capacity checks and mutation serialization. */
 export class AssignmentStore {
-  constructor(private readonly database: SupabaseClient, private readonly expectedRelease: string, private readonly recipeVersion: string) {}
+  constructor(private readonly database: SupabaseClient, private readonly recipeVersion: string) {}
 
   async claim(identity: WorkerIdentity, buildId: string, configHash: string, rawHello: unknown): Promise<AssignmentLease | null> {
     const hello = WorkerHelloSchema.parse(rawHello);
-    if (hello.release !== this.expectedRelease || hello.recipeVersion !== this.recipeVersion) return null;
+    if (hello.recipeVersion !== this.recipeVersion) return null;
     const { data, error } = await this.database.rpc("claim_worker_assignment", {
       p_worker_id: identity.workerId, p_credential_hash: identity.credentialHash,
       p_build_id: buildId, p_config_hash: configHash, p_release: hello.release,

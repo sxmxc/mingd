@@ -22,6 +22,6 @@ async function main() {
   console.log(JSON.stringify(await probeWorkerGateway(values.gateway, credential, hello)));
 }
 main().catch(() => {
-  console.error("Worker heartbeat probe failed. Check HTTPS connectivity, enrollment, release/target/toolchain compatibility and credential file.");
+  console.error("Worker heartbeat probe failed. Check HTTPS connectivity, enrollment, protocol/recipe/target/toolchain compatibility and credential file.");
   process.exitCode = 1;
 });

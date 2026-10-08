@@ -74,7 +74,7 @@ export default async function AdminMetricsPage() {
       {queues.map(queue => <Card key={queue.label} className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <h4 className="text-sm font-medium">{queue.label}</h4>
-          <span className={`queue-indicator ${queue.counts ? "available" : "unavailable"}`}>{queue.counts ? "Connected" : "Unavailable"}</span>
+          <span className={`queue-indicator ${queue.counts ? "available" : "unavailable"}`}>{queue.counts ? "Queue available" : "Queue unavailable"}</span>
         </div>
         {queue.counts ? <dl className="grid grid-cols-4 divide-x divide-[var(--border)]">
           {([["Wait", queue.counts.wait], ["Active", queue.counts.active], ["Delayed", queue.counts.delayed], ["Failed jobs", queue.counts.failed]] as const).map(([label, count]) => <div key={label} className="min-w-0 px-3 py-3 text-center">

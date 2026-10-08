@@ -51,7 +51,7 @@ export class ExecutionBroker implements ExecutionControl {
   private uploadCount = 0;
 
   constructor(private readonly db: SupabaseClient, private readonly storage: SupabaseClient, private readonly options: ExecutionOptions) {
-    this.assignments = new AssignmentStore(db, options.release, BUILD_RECIPE_VERSION);
+    this.assignments = new AssignmentStore(db, BUILD_RECIPE_VERSION);
   }
   accepting() { return this.ready && !this.closing && this.connections.size === this.workers.length
     && [...this.connections].every(connection => connection.status === "ready"); }

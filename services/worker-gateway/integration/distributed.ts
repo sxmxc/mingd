@@ -32,9 +32,9 @@ const storage = createGatewayDatabase({ SUPABASE_URL:local.API_URL, SUPABASE_SEC
 const directory = await mkdtemp("/tmp/mingd-distributed-");
 const release = JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8")).version;
 const runId = randomUUID(); const queues = {desktop:`integration-${runId}-desktop`,web:`integration-${runId}-web`,android:`integration-${runId}-android`,macos:`integration-${runId}-macos`};
-const brokerOptions={release,redisUrl,queues,concurrency:4,dryRun:true,artifactBucket:"build-artifacts",maxUploads:2,workDir:join(directory,"uploads"),toolchainSha256:null,maxJobMs:120_000};
+const brokerOptions={release:`${release}-gateway-fixture`,redisUrl,queues,concurrency:4,dryRun:true,artifactBucket:"build-artifacts",maxUploads:2,workDir:join(directory,"uploads"),toolchainSha256:null,maxJobMs:120_000};
 let broker = new ExecutionBroker(db,storage,brokerOptions);
-let gateway = buildServer({logger:false,workers:new WorkerStore(db,release,BUILD_RECIPE_VERSION,()=>broker.accepting()),execution:broker,workDir:join(directory,"uploads"),maxUploads:2});
+let gateway = buildServer({logger:false,workers:new WorkerStore(db,brokerOptions.release,BUILD_RECIPE_VERSION,()=>broker.accepting()),execution:broker,workDir:join(directory,"uploads"),maxUploads:2});
 const queue = new Queue(queues.desktop,{connection:redisConnection(redisUrl)});
 const operator = new WorkerOperator(db);
 const hello = {protocolVersion:1 as const,release,recipeVersion:BUILD_RECIPE_VERSION,target:"desktop" as const,toolchainSha256:null};
@@ -70,7 +70,7 @@ async function enqueue(kind: "release"|"debug", configOverride={}, missingDelive
 try {
  const created=await db.auth.admin.createUser({email:`worker-${runId}@example.com`,password:randomUUID(),email_confirm:true});
  assert.equal(created.error,null);userId=created.data.user!.id;
- for(let index=0;index<2;index++){const enrollment=await operator.enroll(`Integration ${runId} ${index}`,hello);await operator.saveEnrollment(enrollment);enrollments.push(enrollment);}
+ for(let index=0;index<2;index++){const enrollment=await operator.enroll(`Integration ${runId} ${index}`,{...hello,release:"0.2.0"});await operator.saveEnrollment(enrollment);enrollments.push(enrollment);}
  const cert=join(directory,"cert.pem"),key=join(directory,"key.pem");
  const certResult=spawnSync("openssl",["req","-x509","-newkey","rsa:2048","-nodes","-keyout",key,"-out",cert,"-days","1","-subj","/CN=localhost","-addext","subjectAltName=DNS:localhost,IP:127.0.0.1"],{stdio:"ignore"});assert.equal(certResult.status,0);
  await broker.start();await gateway.listen({host:"127.0.0.1",port:0});
@@ -112,7 +112,22 @@ try {
   assert.equal(artifact.is_dry_run,true);const file=await check(storage.storage.from("build-artifacts").download(artifact.storage_path));
   const bytes=Buffer.from(await file.arrayBuffer());assert.equal(createHash("sha256").update(bytes).digest("hex"),artifact.sha256);assert.equal(bytes.length,artifact.size_bytes);
  }
+ for(const enrollment of enrollments){const observed=await check(db.from("build_workers").select("credential_hash,software_release").eq("id",enrollment.workerId).single());assert.equal(observed.credential_hash,enrollment.credentialHash);assert.equal(observed.software_release,release);}
  const reused=await enqueue("release");const cached=await until(async()=>{const row=await check(db.from("builds").select("status,artifact_id,performance_metrics").eq("id",reused.id).single());return row.status==="complete"?row:undefined;});assert.equal(cached.performance_metrics.artifactCacheHit,true);
+ // Idle workers keep cache/container snapshots fresh without active builds.
+ const firstSnapshots = new Map<string,string>();
+ for(const enrollment of enrollments){
+  const observed=await until(async()=>{const row=await check(db.from("build_workers").select("telemetry,telemetry_at").eq("id",enrollment.workerId).single());return row.telemetry_at?row:undefined;});
+  assert.equal(observed.telemetry.schemaVersion,1);
+  if(workerImage){assert.ok(observed.telemetry.ccache);assert.ok(observed.telemetry.container);}
+  firstSnapshots.set(enrollment.workerId,observed.telemetry_at);
+ }
+ for(const enrollment of enrollments){
+  const observed=await until(async()=>{const row=await check(db.from("build_workers").select("telemetry,telemetry_at").eq("id",enrollment.workerId).single());return row.telemetry_at>firstSnapshots.get(enrollment.workerId)!?row:undefined;},45_000);
+  if(workerImage)assert.equal(typeof observed.telemetry.container.cpuCoresUsed,"number");
+ }
+ const adminStats=await check(db.rpc("admin_worker_stats",{p_limit:100,p_offset:0}));
+ for(const enrollment of enrollments){const row=adminStats.workers.find((worker: {id:string})=>worker.id===enrollment.workerId);assert.ok(row);assert.ok(row.telemetryAt);assert.equal(row.activeBuilds.length,0);assert.ok(row.latestBuild);assert.equal(JSON.stringify(row).includes(enrollment.credentialHash),false);}
  // Stop both workers. Test manual delivery fencing and retry ownership.
  if(workerImage)for(let index=0;index<workers.length;index++)spawnSync("docker",["stop","-t","15",`mingd-acceptance-${runId}-${index}`],{stdio:"ignore"});
  else for(const worker of workers)worker.kill("SIGTERM");await Promise.all(workers.map(worker=>worker.exitCode!==null?Promise.resolve():once(worker,"exit")));
@@ -125,13 +140,13 @@ try {
  // Graceful gateway restart must durably invalidate the in-flight attempt.
  await gateway.close();
  broker=new ExecutionBroker(db,storage,brokerOptions);
- gateway=buildServer({logger:false,workers:new WorkerStore(db,release,BUILD_RECIPE_VERSION,()=>broker.accepting()),execution:broker,workDir:join(directory,"uploads"),maxUploads:2});
+ gateway=buildServer({logger:false,workers:new WorkerStore(db,brokerOptions.release,BUILD_RECIPE_VERSION,()=>broker.accepting()),execution:broker,workDir:join(directory,"uploads"),maxUploads:2});
  await broker.start();await gateway.listen({host:"127.0.0.1",port:address.port});
  await assert.rejects(client.status(replacement.assignmentId));
  // The restarted delivery had exhausted its two attempts; it must stay failed.
  await until(async()=>{const row=await check(db.from("builds").select("status").eq("id",interrupted.id).single());return row.status==="failed"?true:undefined;},30_000);
  await operator.setState(enrollments[0].workerId,"revoke");await assert.rejects(client.next(hello));
- console.log("Distributed acceptance passed: real HTTPS, two credential-only worker processes, queue dispatch, stages/leases, streamed private artifacts, checksum verification, cache reuse, missing-delivery reconciliation, expiry/replacement, gateway restart and revocation.");
+ console.log("Distributed acceptance passed: real HTTPS, two credential-only worker processes, queue dispatch, stages/leases, streamed private artifacts, checksum verification, cache reuse, missing-delivery reconciliation, expiry/replacement, gateway restart, revocation, idle telemetry and credential-free admin statistics.");
 } finally {
  if(workerImage)for(let index=0;index<workers.length;index++)spawnSync("docker",["rm","-f",`mingd-acceptance-${runId}-${index}`],{stdio:"ignore"});
  for(const worker of workers)if(worker.exitCode===null)worker.kill("SIGKILL");

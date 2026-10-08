@@ -16,7 +16,7 @@ test("heartbeat RPC owns authentication, compatibility and time, with safe error
   let result: { data: unknown; error: unknown } = { data: [{ outcome: "ok", received_at: "2026-10-08T00:00:00+00:00", draining: true }], error: null };
   const calls: unknown[] = [];
   const database = { rpc: async (name: string, args: unknown) => { calls.push({ name, args }); return result; } } as unknown as SupabaseClient;
-  const store = new WorkerStore(database, "0.1.1", "9");
+  const store = new WorkerStore(database, "0.2.1", "9");
   const identity = { workerId: credential.workerId, credentialHash: credential.credentialHash };
   const accepted = await store.heartbeat(identity, hello);
   assert.equal(accepted.outcome, "ok");
@@ -28,7 +28,7 @@ test("heartbeat RPC owns authentication, compatibility and time, with safe error
   assert.deepEqual(calls[0], { name: "record_worker_heartbeat", args: {
     p_worker_id: identity.workerId, p_credential_hash: identity.credentialHash,
     p_release: "0.1.1", p_recipe_version: "9", p_target: "desktop", p_toolchain_sha256: null,
-    p_expected_release: "0.1.1", p_expected_recipe_version: "9",
+    p_expected_release: "0.2.1", p_expected_recipe_version: "9",
   } });
   result = { data: [], error: null };
   assert.deepEqual(await store.heartbeat(identity, hello), { outcome: "unauthorized" });
@@ -45,7 +45,7 @@ test("worker routes reject missing auth, unknown fields and incompatible declara
     calls++;
     assert.equal(identity.workerId, credential.workerId);
     assert.equal(identity.credentialHash, credential.credentialHash);
-    if (incoming.release !== hello.release) return { outcome: "incompatible" };
+    if (incoming.recipeVersion !== hello.recipeVersion) return { outcome: "incompatible" };
     return { outcome: "ok", receipt: { protocolVersion: 1, workerId: identity.workerId,
       receivedAt: new Date().toISOString(), heartbeatIntervalMs: 10000, draining: false, acceptingAssignments: false } };
   } } });
@@ -57,7 +57,7 @@ test("worker routes reject missing auth, unknown fields and incompatible declara
     assert.equal((await send(payload)).statusCode, 400);
   }
   assert.equal(calls, 0);
-  assert.equal((await send({ ...hello, release: "0.0.1" })).statusCode, 409);
+  assert.equal((await send({ ...hello, recipeVersion: "8" })).statusCode, 409);
   const accepted = await send(hello);
   assert.equal(accepted.statusCode, 200);
   assert.equal(accepted.json().workerId, credential.workerId);
@@ -138,4 +138,32 @@ test("heartbeat probe uses HTTPS, blocks redirects and validates the enrolled id
   assert.equal(calls, 0);
   assert.equal((await probeWorkerGateway("https://worker.example.com", token.credential, hello, transport)).workerId, token.workerId);
   await assert.rejects(probeWorkerGateway("https://worker.example.com", token.credential, hello, async () => new Response("x".repeat(4097))));
+});
+
+test("telemetry routes authenticate and validate snapshots before persisting", async t => {
+  const credential = createWorkerCredential();
+  let calls = 0;
+  const server = buildServer({ logger: false, workers: {
+    heartbeat: async () => ({ outcome: "unauthorized" }),
+    telemetry: async (identity, incoming, snapshot) => {
+      calls++;
+      assert.equal(identity.credentialHash, credential.credentialHash);
+      assert.equal(snapshot.ccache, null);
+      if (incoming.recipeVersion !== "9") return { outcome: "incompatible" };
+      return { outcome: "ok", receipt: { protocolVersion: 1, workerId: identity.workerId, receivedAt: new Date().toISOString(), heartbeatIntervalMs: 10000, draining: false, acceptingAssignments: true } };
+    },
+  } });
+  t.after(() => server.close());
+  const payload = { hello, telemetry: { schemaVersion: 1, uptimeSeconds: 10, ccache: null, container: null } };
+  const headers = { authorization: `Bearer ${credential.credential}` };
+  const send = (body: unknown, auth = true) => server.inject({ method: "POST", url: "/v1/workers/telemetry", headers: auth ? headers : {}, payload: body as object });
+  assert.equal((await send(payload, false)).statusCode, 401);
+  assert.equal((await send({ ...payload, telemetry: { ...payload.telemetry, uptimeSeconds: -1 } })).statusCode, 400);
+  assert.equal((await send({ ...payload, telemetry: { ...payload.telemetry, credential: "secret" } })).statusCode, 400);
+  assert.equal(calls, 0);
+  assert.equal((await send({ ...payload, hello: { ...hello, recipeVersion: "8" } })).statusCode, 409);
+  const response = await send(payload);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().workerId, credential.workerId);
+  assert.equal(response.body.includes(credential.credentialHash), false);
 });

@@ -9,7 +9,7 @@ select ok(not has_function_privilege(role,'public.record_worker_heartbeat(uuid,t
 set local role service_role;
 select is((select count(*) from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('b',64),'0.1.1','9','desktop',null,'0.1.1','9')),0::bigint,'Invalid credentials are rejected');
 select ok((select last_seen_at is null from public.build_workers where id='00000000-0000-4000-8000-00000000f001'),'Rejected heartbeat cannot timestamp activity');
-select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.1.1','9','desktop',null,'0.1.2','9')),'incompatible','Gateway release mismatch rejected');
+select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.1.1','9','desktop',null,'0.1.2','8')),'incompatible','Gateway recipe mismatch rejected');
 select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.1.1','9','web',null,'0.1.1','9')),'incompatible','Enrolled target cannot be changed by the worker');
 select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.1.1','8','desktop',null,'0.1.1','9')),'incompatible','Recipe mismatch rejected');
 select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.1.1','9','desktop',repeat('c',64),'0.1.1','9')),'incompatible','Toolchain mismatch rejected');
@@ -18,6 +18,9 @@ create temporary table receipt as select * from public.record_worker_heartbeat('
 select is((select outcome from receipt),'ok','Compatible worker authenticated');
 select ok((select received_at between clock_timestamp()-interval '5 seconds' and clock_timestamp() from receipt),'Database timestamps receipt');
 select is((select last_seen_at from public.build_workers where id='00000000-0000-4000-8000-00000000f001'),(select received_at from receipt),'Registry visibility records receipt time');
+select is((select outcome from public.record_worker_heartbeat('00000000-0000-4000-8000-00000000f001',repeat('a',64),'0.2.1','9','desktop',null,'0.3.0','9')),'ok','Worker release can differ from enrollment and gateway without changing credentials');
+select is((select software_release from public.build_workers where id='00000000-0000-4000-8000-00000000f001'),'0.2.1','Successful heartbeat records latest observed software release');
+select is((select credential_hash from public.build_workers where id='00000000-0000-4000-8000-00000000f001'),repeat('a',64),'Release telemetry preserves credential hash');
 select is((select count(*) from public.worker_assignments),0::bigint,'Idle heartbeat cannot create an assignment');
 reset role;
 insert into auth.users(id) values ('00000000-0000-4000-8000-00000000f002');

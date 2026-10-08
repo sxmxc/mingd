@@ -35,6 +35,16 @@ verified cached source path. Source-cache paths include version **and SHA-256**;
 without the opt-in path, the normal suite skips this audit. It does not compile a
 full template or publish artifacts.
 
+## Live worker snapshots
+
+SuperAdmins can view cumulative local ccache totals and container resource samples
+at `/admin/workers`, including while workers are idle. Reports arrive every
+30 seconds; the page shows their age and labels stale readings. These totals
+may reset and must not be subtracted to estimate individual builds when jobs run
+concurrently. Existing per-build statistics continue using isolated job logs.
+Container memory is current cgroup usage, while recorded per-build RSS measures
+the largest child process. See [worker telemetry](distributed-workers.md#admin-worker-health-and-telemetry) for measurement scope and availability.
+
 ## Benchmark procedure
 
 1. Record platform, normalized recipe, recipe version, compiler versions, SCons job count and host CPU/RAM/storage. Do not compare unlike toolchains or recipes as though only cache changed.

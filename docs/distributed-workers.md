@@ -1,7 +1,7 @@
 # Distributed workers
 
 Release **0.2.1** includes the HTTPS gateway and remote workers introduced in 0.2.0,
-plus improved failure diagnostics. Production uses
+plus improved failure diagnostics and stable worker identities across application upgrades. Production uses
 separate application and build hosts. Redis stays inside the application Compose
 network; build hosts receive individual worker credentials and no privileged
 Supabase key. No VPN, public-IP change or new backend platform is required.
@@ -44,15 +44,18 @@ or the retained direct mode for local development/rollback.
 | 0.1.3 | Queue dispatch, remote compilation, build heartbeats, cancellation, worker deployment |
 | 0.1.4 | Streaming uploads, validated completion, retries and durable recovery |
 | **0.2.0** | Combined distributed implementation, local acceptance tests and production runbook |
-| **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, and extraction capability troubleshooting |
+| **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, extraction capability troubleshooting, contract-based upgrade compatibility, and admin worker health/cache/container telemetry |
 
 These describe implementation gates, not claims that every intermediate image
 was published. All workspace manifests now use **0.2.1**. Deploy web, gateway
-and workers from the same immutable release tag. Exact application release,
-protocol **v1**, recipe **9**, target and macOS toolchain identity must match
-worker enrollment before assignment. Re-enroll identities when changing release
-or capabilities; rotating a token only changes its secret. Do not overwrite an
-already published release tag. Previously published `v0.1.2` images are historical
+and workers from a tested release set, preferably one immutable release tag.
+Application release is informational and is updated on successful worker activity;
+existing IDs and credentials survive routine application upgrades. Compatibility
+requires protocol **v1**, recipe **9**, enrolled target and macOS toolchain identity.
+Changing a recipe, target or toolchain requires a matching enrollment; rotating a
+token only changes its secret. Bump the protocol for incompatible HTTP changes
+and the recipe when artifact equivalence changes. Version numbers alone do not
+establish compatibility. Do not overwrite an already published release tag. Previously published `v0.1.2` images are historical
 and do not contain this completed transport.
 
 Container Node remains **22 / Debian Bookworm**; operator Node is **24.21.0** via
@@ -67,9 +70,12 @@ recipe 9 remains valid. NPM and production Supabase remain owner-managed.
 
 Apply migrations from an authorized matching checkout first; see
 [database deployment](deployment.md#database-migrations). The new migrations are
-`20261008023352_worker_assignments.sql`, `20261008041647_worker_heartbeat.sql`, and
-`20261008043446_distributed_execution.sql`. They add private RLS-protected worker,
-assignment and upload records, atomic ownership RPCs and upload cleanup.
+`20261008023352_worker_assignments.sql`, `20261008041647_worker_heartbeat.sql`,
+`20261008043446_distributed_execution.sql`,
+`20261008070551_worker_release_compatibility.sql`, and
+`20261008071856_worker_telemetry.sql`. They add private RLS-protected worker,
+assignment and upload records, atomic ownership RPCs, upload cleanup and
+release-independent worker compatibility and private telemetry snapshots.
 
 Enrollment is an operator command using server-only Supabase access. No public
 HTTP enrollment/admin endpoint exists. Relative credential-file paths resolve from
@@ -114,6 +120,41 @@ npm run probe --workspace @mingd/worker-gateway -- --gateway https://worker.ming
 
 The worker process itself polls continuously; the probe is optional. `list` exposes
 last-seen, enrolled capacity, release and drain/revoke state without credentials.
+
+## Admin worker health and telemetry
+
+SuperAdmins can view `/admin/workers`: authenticated last-seen status, target,
+observed app/recipe versions, capacity, active assignments, drain/revoke state,
+and the latest build's recorded diagnostics. It refreshes every ten seconds
+and pages through 25 workers at a time. This is read-only; enrollment and
+rotation/drain/revoke remain operator CLI commands. The Metrics page labels
+Redis access as **Queue available**, which does not establish worker health.
+
+Workers send authenticated, bounded snapshots to `POST /v1/workers/telemetry`
+every **30 seconds**, including while idle. This additive protocol-v1 endpoint
+uses the same credential and capability checks as worker heartbeats. Gateway
+receipt time is authoritative. Telemetry cannot renew an assignment lease or
+change build activity. A worker disables this optional report when an older
+gateway returns 404; it continues processing builds.
+
+The page distinguishes Online (receipt within 45 seconds), Stale (45–90 seconds),
+Offline (over 90 seconds or never seen), Draining, and Revoked. Snapshot age is
+shown separately; readings older than 90 seconds remain visibly stale rather
+than appearing current or becoming invented zeroes.
+
+Ccache totals are cumulative per local cache volume: hits, misses, hit rate,
+size, configured maximum, file count, version, and recorded reset time. Clearing
+counters changes their baseline; containers sharing one volume report the same
+cache. Per-build hit/miss deltas, usage verification, stage durations and measured
+peak child RSS remain separate from these totals. An artifact-cache hit can skip
+compilation entirely.
+
+Resource samples report the worker container's private cgroup-v2 CPU usage/quota,
+memory usage/limit and process/thread count, plus worker process uptime. CPU
+cores in use need two samples. This does not measure the entire host; memory
+includes what the kernel charges to the group. Unsupported/inaccessible cgroup
+controllers and failed ccache measurements are unavailable. No additional
+credentials, host mounts, Docker socket or environment settings are needed.
 
 ## Assignment and build lifecycle
 
@@ -248,11 +289,18 @@ compile Godot or prove physical multi-host/native acceptance. CLI 2.119.0 is use
 for local database validation because installed 2.120.0 failed during base-schema
 initialization; application migrations are source controlled.
 
-Local validation has passed workspace typechecks/tests, 258 SQL checks, database
+Local validation has passed workspace typechecks/tests, 291 SQL checks, database
 function lint, web/maintenance/gateway/desktop image builds, the gateway tests on
 Node 22, and the HTTPS integration flow with host processes and two isolated
 Node 22 worker containers. Those integration builds use diagnostic source fixtures
 and dry-run archives, not compiled templates.
+
+The 0.2.1 compatibility acceptance flow also uses 0.2.0 enrollments, 0.2.1 workers
+and a different gateway release declaration, verifying that original credentials
+survive upgrades while queue, lease, upload and recovery behavior still works.
+It also verifies idle cache/container snapshots and credential-free admin statistics.
+The Workers page has been checked in local development for SuperAdmin rendering,
+ordinary-user denial, signed-out redirects, and desktop/mobile layouts.
 
 The owner has verified production HTTPS `/healthz` through NPM. Production remote
 builds and fault recovery still need the [cutover acceptance steps](deployment.md#distributed-cutover-and-rollback).

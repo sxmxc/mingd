@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { AssignmentPollReceiptSchema, AssignmentStatusSchema, BuildHeartbeatSchema, CompletionReceiptSchema, LeaseReceiptSchema, WorkerHelloSchema, type Assignment, type BuildHeartbeat, type WorkerHello } from "@mingd/worker-protocol";
+import { AssignmentPollReceiptSchema, AssignmentStatusSchema, BuildHeartbeatSchema, CompletionReceiptSchema, LeaseReceiptSchema, WorkerHelloSchema, WorkerHeartbeatReceiptSchema, WorkerTelemetryReportSchema, type WorkerTelemetry, type Assignment, type BuildHeartbeat, type WorkerHello } from "@mingd/worker-protocol";
 
 export class GatewayError extends Error {
   constructor(readonly status: number) { super(`Worker gateway returned HTTP ${status}.`); }
@@ -44,6 +44,11 @@ export class RemoteClient {
     const value = AssignmentStatusSchema.parse(await this.json(`/v1/assignments/${id}/status`));
     if (value.assignmentId !== id) throw new Error("Unexpected assignment receipt.");
     return value;
+  }
+  async telemetry(hello: WorkerHello, telemetry: WorkerTelemetry, signal?: AbortSignal) {
+    const receipt = WorkerHeartbeatReceiptSchema.parse(await this.json("/v1/workers/telemetry", WorkerTelemetryReportSchema.parse({ hello, telemetry }), signal));
+    if (receipt.workerId !== this.credential.slice("mingd_worker_".length).split(".")[0]) throw new Error("Unexpected worker telemetry receipt.");
+    return receipt;
   }
   async fail(id: string, signal?: AbortSignal) { await this.json("/v1/assignments/failure", { protocolVersion: 1, assignmentId: id, error: "Remote compilation failed. See bounded build diagnostics." }, signal); }
   async upload(id: string, path: string, digest: string, size: number, signal: AbortSignal) {

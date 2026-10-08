@@ -13,7 +13,7 @@ a guide names the production deployment directory or separate Supabase directory
 | [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
 | [Maintenance](maintenance.md) | Six cron schedules, two backend tasks, retention, retries, and references |
 | [Troubleshooting](troubleshooting.md) | Auth errors, queued/stalled builds, maintenance failures, and cache issues |
-| [Accounts and administration](accounts-and-admin.md) | First SuperAdmin, access controls, site settings, and account emails |
+| [Accounts and administration](accounts-and-admin.md) | First SuperAdmin, access controls, worker telemetry, site settings, and account emails |
 
 ## Building and using templates
 
@@ -31,7 +31,7 @@ a guide names the production deployment directory or separate Supabase directory
 | Guide | Covers |
 | --- | --- |
 | [Architecture](architecture.md) | Component boundaries, lifecycle, cache identity, and authorization |
-| [Distributed workers](distributed-workers.md) | HTTPS gateway, private production topology, enrollment, version targets, resource limits and acceptance |
+| [Distributed workers](distributed-workers.md) | HTTPS gateway, private production topology, enrollment, version targets, health/cache telemetry, resource limits and acceptance |
 | [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
 | [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
 | [Naming](naming.md) | Brand, technical names, and infrastructure identities |

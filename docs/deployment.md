@@ -63,7 +63,7 @@ npm run db:status
 Scripts use `--db-url` and skip Vault synchronization; no Cloud project link is
 required. Dry-run lists pending migrations without proving they will succeed.
 Distributed workers require the assignment, heartbeat and execution migrations
-through `20261008043446_distributed_execution.sql`. Keep migration history intact.
+through `20261008071856_worker_telemetry.sql`. Keep migration history intact.
 Postgres need only be reachable from the migration host, not exposed publicly.
 
 ## Production with only Compose and .env
@@ -158,13 +158,19 @@ For a deployed file named `compose.yml` with those targets enabled:
 docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
 ```
 
-Updating from 0.2.0 to 0.2.1 also requires matching gateway/worker images and new
-worker enrollments from the 0.2.1 checkout: enrollment stores the exact application
-release. Drain old identities, allow active builds to finish, then replace their
-tokens with new enrollment files and recreate workers at the new release. Revoke
-the old identities after cutover. Set `IMAGE_TAG=v0.2.1` explicitly in each deployed
-host's `.env` if it currently pins an older release; example/default changes do not
-override existing values. No new database migration accompanies this patch.
+For the 0.2.1 upgrade, apply
+`20261008070551_worker_release_compatibility.sql` and
+`20261008071856_worker_telemetry.sql` before deploying the updated web,
+worker gateway and workers. These preserve existing worker IDs and token hashes;
+keep the mounted token files. Older code still enforces exact releases until its
+images are updated, so drain active work before the initial migration/cutover.
+Once gateway and workers run this compatibility implementation, application
+version changes alone do not require re-enrollment. Protocol, recipe, target and
+toolchain compatibility remain enforced. Set `IMAGE_TAG=v0.2.1` explicitly on
+hosts pinned to an older tag. If you use `latest`, pull before recreating services;
+a restart does not fetch or apply a new image. This upgrade adds two database migrations. Check `/admin/workers` for live
+health/cache/container snapshots after deployment; initial CPU usage needs two
+30-second samples.
 
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
@@ -211,8 +217,9 @@ Redis uses append-only persistence. Compiler/source caches are rebuildable; buil
 records/artifacts are user data. Test restores away from production.
 
 For subsequent releases, drain workers, publish a new matching release, review
-migrations/settings, update both hosts' `IMAGE_TAG`, re-enroll release-bound workers,
-and repeat pull/up/acceptance. Rotation alone does not change enrolled release.
+migrations/settings, update both hosts' `IMAGE_TAG` when pinned, and repeat
+pull/up/acceptance. Keep existing tokens for application-only upgrades; re-enroll
+when enrolled recipe/target/toolchain capabilities change.
 Pull before up: `--no-build --pull never` makes missing images an explicit error.
 No production build, migration or publication is performed by CI.
 

@@ -12,7 +12,7 @@ const DigestSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const ReleaseSchema = z.string().max(64).regex(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/);
 const RecipeVersionSchema = z.string().min(1).max(32);
 
-/** Gateway checks these declarations against its release and enrolled worker. */
+/** Protocol, recipe and enrolled capabilities define compatibility; release is telemetry. */
 export const WorkerHelloSchema = z.object({
   protocolVersion: z.literal(WORKER_PROTOCOL_VERSION),
   release: ReleaseSchema,
@@ -87,6 +87,22 @@ export const AssignmentPollReceiptSchema = z.object({ protocolVersion: z.literal
 export const WorkerFailureSchema = z.object({ protocolVersion: z.literal(1), assignmentId: WorkerIdSchema, error: z.string().min(1).max(2000) }).strict();
 export const CompletionReceiptSchema = z.object({ protocolVersion: z.literal(1), assignmentId: WorkerIdSchema, artifactId: WorkerIdSchema }).strict();
 export const AssignmentStatusSchema = z.object({ protocolVersion: z.literal(1), assignmentId: WorkerIdSchema, artifactId: WorkerIdSchema.nullable() }).strict();
+
+export const WORKER_TELEMETRY_INTERVAL_MS = 30_000;
+export const WorkerTelemetrySchema = z.object({
+  schemaVersion: z.literal(1), uptimeSeconds: CounterSchema,
+  ccache: z.object({ hits: CounterSchema, misses: CounterSchema, sizeBytes: CounterSchema,
+    files: CounterSchema, maxSize: z.string().max(40).regex(/^[0-9.]+[A-Za-z]*$/), version: z.string().max(200),
+    counters: z.record(z.string().regex(/^[a-z][a-z0-9_]{0,99}$/), CounterSchema)
+      .refine(value => Object.keys(value).length <= 100),
+  }).strict().nullable(),
+  container: z.object({ cpuUsageUsec: CounterSchema, cpuCoresUsed: CounterSchema.nullable(),
+    cpuLimitCores: CounterSchema.nullable(), memoryBytes: CounterSchema, memoryLimitBytes: CounterSchema.nullable(),
+    pids: CounterSchema,
+  }).strict().nullable(),
+}).strict();
+export const WorkerTelemetryReportSchema = z.object({ hello: WorkerHelloSchema, telemetry: WorkerTelemetrySchema }).strict();
+export type WorkerTelemetry = z.infer<typeof WorkerTelemetrySchema>;
 
 export type WorkerHello = z.infer<typeof WorkerHelloSchema>;
 export type Assignment = z.infer<typeof AssignmentSchema>;

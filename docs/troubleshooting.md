@@ -167,7 +167,10 @@ upstream host/port 3001 and Docker reachability. Production gateway publication
 uses all interfaces; NPM's container loopback is not the application's loopback.
 `acceptingAssignments:false` means dispatch is disabled or not ready; enable both
 gateway flags only after migration and direct-worker cutover. A 401/409 on worker
-polls means rejected enrollment/token or release/recipe/target/toolchain mismatch.
+polls means rejected enrollment/token or recipe/target/toolchain mismatch.
+Malformed or unsupported protocol declarations are rejected too. After the
+0.2.1 compatibility migration and code rollout, application release alone does
+not invalidate a worker; keep existing token files when updating images.
 Use operator `workers -- list`; remote workers never need Redis/Supabase access.
 
 For upload 413/timeouts, check NPM's body/time settings and gateway's fixed 512 MiB

@@ -28,6 +28,7 @@ blocks self-disable/self-demotion through its admin controls.
 | --- | --- |
 | `/admin` | Active/all/completed/failed builds and individual inspection |
 | `/admin/users` | Enable/disable accounts and manage application roles |
+| `/admin/workers` | Worker health, capacity, active builds, live compiler cache/container telemetry, and latest-build diagnostics |
 | `/admin/metrics` | Build, artifact, queue, daily-statistics, and maintenance metrics |
 | `/admin/settings` | Pause new submissions and manage site announcements |
 
@@ -41,6 +42,11 @@ Pausing submissions prevents new builds; it does not cancel queued/running work.
 Use it to drain jobs before deploying worker/recipe changes. Queue counts reflect
 Redis jobs and can include previous attempts; they are not counts of failed
 build records. See [deployment](deployment.md#persistence-and-updates) and [maintenance](maintenance.md).
+
+Worker snapshots arrive every 30 seconds, including while idle; the Workers page
+refreshes every ten seconds and labels stale readings. Live cache totals belong
+to the local worker cache volume, while per-build diagnostics measure that build.
+Container resources are not whole-host monitoring. See [worker telemetry](distributed-workers.md#admin-worker-health-and-telemetry).
 
 ## Site announcements
 
@@ -88,7 +94,9 @@ new build using the same recipe.
 Each delivery has an isolated attempt workspace. Upload identities include the
 content digest, and artifact cache insertion preserves the first committed
 result. Late attempts cannot regress a completed build to working/failed state.
-Keep web, gateway and workers on the same release and compatible recipe revisions.
+Prefer matching web, gateway and worker releases when deploying; application version
+changes alone do not require re-enrollment once the 0.2.1 compatibility migration
+and code are installed. Protocol, recipe and enrolled capabilities must match.
 Remote attempts additionally use database leases; see [distributed recovery](distributed-workers.md#assignment-and-build-lifecycle).
 
 ## Validation and scope

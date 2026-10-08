@@ -10,6 +10,7 @@ RUN npm ci --workspace @mingd/web --include-workspace-root
 
 FROM dependencies AS build
 COPY packages/build-config packages/build-config
+COPY packages/worker-protocol packages/worker-protocol
 COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p apps/web/public \

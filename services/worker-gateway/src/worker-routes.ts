@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { WorkerHelloSchema, WORKER_PROTOCOL_VERSION, WORKER_HEARTBEAT_INTERVAL_MS } from "@mingd/worker-protocol";
+import { WorkerHelloSchema, WorkerTelemetryReportSchema, WORKER_PROTOCOL_VERSION, WORKER_HEARTBEAT_INTERVAL_MS } from "@mingd/worker-protocol";
 import { parseWorkerAuthorization } from "./credentials.js";
 import type { WorkerControl } from "./workers.js";
 
@@ -39,4 +39,20 @@ export async function workerRoutes(server: FastifyInstance, options: { workers: 
     if (result.outcome === "incompatible") return reply.code(409).send({ error: "incompatible_worker" });
     return result.receipt;
   });
+  server.post("/telemetry", { schema: { response: { 200: {
+    type: "object", additionalProperties: false, properties: {
+      protocolVersion: { type: "integer", const: WORKER_PROTOCOL_VERSION }, workerId: { type: "string", format: "uuid" },
+      receivedAt: { type: "string", format: "date-time" }, heartbeatIntervalMs: { type: "integer", const: WORKER_HEARTBEAT_INTERVAL_MS },
+      draining: { type: "boolean" }, acceptingAssignments: { type: "boolean" },
+    }, required: ["protocolVersion", "workerId", "receivedAt", "heartbeatIntervalMs", "draining", "acceptingAssignments"],
+  }, default: { type: "object", additionalProperties: false, properties: { error: { type: "string" } }, required: ["error"] } } } }, async (request, reply) => {
+    const input = WorkerTelemetryReportSchema.safeParse(request.body);
+    if (!input.success) return reply.code(400).send({ error: "invalid_request" });
+    if (!options.workers.telemetry) return reply.code(503).send({ error: "telemetry_unavailable" });
+    const result = await options.workers.telemetry(parseWorkerAuthorization(request.headers.authorization)!, input.data.hello, input.data.telemetry);
+    if (result.outcome === "unauthorized") return reply.code(401).send({ error: "unauthorized" });
+    if (result.outcome === "incompatible") return reply.code(409).send({ error: "incompatible_worker" });
+    return result.receipt;
+  });
+
 }

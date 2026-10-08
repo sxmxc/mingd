@@ -34,7 +34,7 @@ flowchart LR
 | `apps/web` | App Router UI, cookie sessions, account/admin checks, submission/download routes |
 | `packages/build-config` | Schemas, normalization, presets, releases, SCons mappings, cache identity, files, comparisons |
 | `services/builder` | Remote/direct worker entrypoints, source verification, compilation, packaging, maintenance |
-| `services/worker-gateway` | Private queue orchestration, enrollment, HTTPS assignments/heartbeats, validated upload and recovery |
+| `services/worker-gateway` | Private queue orchestration, enrollment, HTTPS assignments/heartbeats/telemetry, validated upload and recovery |
 | `packages/worker-protocol` | Strict versioned HTTP contract |
 | `supabase/migrations` | Reproducible schema, access policies, Storage, scheduled SQL |
 | `supabase/tests` | pgTAP checks for constraints and authorization |

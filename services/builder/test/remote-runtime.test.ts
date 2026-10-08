@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { BUILD_RECIPE_VERSION, DEFAULT_BUILD_CONFIG, SUPPORTED_GODOT_VERSIONS, canonicalBuildCacheInput, normalizeBuildConfig } from "@mingd/build-config";
 import { runRemoteWorker } from "../src/remote-runtime.js";
 
-const release = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
 
 test("a failure before compilation sends final diagnostics before reporting failure", async () => {
   const directory = await mkdtemp(join(tmpdir(), "mingd-remote-failure-"));
@@ -26,10 +25,11 @@ test("a failure before compilation sends final diagnostics before reporting fail
     async (input, init) => {
       const path = new URL(String(input)).pathname;
       const body = JSON.parse(String(init?.body));
+      if (path === "/v1/workers/telemetry") return new Response(null, { status: 404 });
       calls.push({ path, body });
       if (path === "/v1/assignments/next") return Response.json({ protocolVersion: 1, assignment: {
         protocolVersion: 1, assignmentId, buildId: randomUUID(), configHash: "a".repeat(64),
-        config: DEFAULT_BUILD_CONFIG, release: "0.1.0", recipeVersion: BUILD_RECIPE_VERSION,
+        config: DEFAULT_BUILD_CONFIG, release: "0.1.0", recipeVersion: "8",
         dryRun: false, leaseExpiresAt: new Date(Date.now() + 90_000).toISOString(),
       } });
       if (path === "/v1/assignments/heartbeat") return Response.json({ protocolVersion: 1, assignmentId,
@@ -39,9 +39,9 @@ test("a failure before compilation sends final diagnostics before reporting fail
       return Response.json({ protocolVersion: 1 });
     }, shutdown);
     assert.deepEqual(calls.map(call => call.path), ["/v1/assignments/next", "/v1/assignments/heartbeat", "/v1/assignments/failure"]);
-    assert.match(String(calls[1].body.logTail), /Worker failure during preparing_source: Assignment version mismatch/);
+    assert.match(String(calls[1].body.logTail), /Worker failure during preparing_source: Assignment recipe mismatch/);
     assert.deepEqual(JSON.parse(logs[0]), { event: "worker_build_interrupted", assignmentId,
-      stage: "preparing_source", reason: "Assignment version mismatch." });
+      stage: "preparing_source", reason: "Assignment recipe mismatch." });
     assert.ok(!JSON.stringify({ calls, logs }).includes(token));
   } finally {
     console.error = originalError;
@@ -75,9 +75,10 @@ test("source checksum failures retain the actual reason and stage in final diagn
       GODOT_CACHE_DIR: cache, CCACHE_DIR: join(directory, "ccache") }, async (input, init) => {
       const path = new URL(String(input)).pathname;
       const body = JSON.parse(String(init?.body));
+      if (path === "/v1/workers/telemetry") return new Response(null, { status: 404 });
       if (path.endsWith("/next")) return Response.json({ protocolVersion: 1, assignment: {
         protocolVersion: 1, assignmentId, buildId: randomUUID(), configHash, config,
-        release, recipeVersion: BUILD_RECIPE_VERSION, dryRun: false,
+        release: "0.2.0", recipeVersion: BUILD_RECIPE_VERSION, dryRun: false,
         leaseExpiresAt: new Date(Date.now() + 90_000).toISOString(),
       } });
       if (path.endsWith("/heartbeat")) {
