@@ -9,7 +9,7 @@ import test from "node:test";
 const publisher = fileURLToPath(new URL("../publish-images.mjs", import.meta.url));
 const applicationServices = ["web", "maintenance", "builder", "web-builder", "android-builder", "macos-builder", "worker-gateway"];
 
-function scenario({ missingImage = "", failPush = false } = {}) {
+function scenario({ missingImage = "", failPush = false, failLatest = false } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "mingd-publish-test-"));
   const callsPath = join(directory, "calls.jsonl");
   const envPath = join(directory, ".env");
@@ -29,7 +29,7 @@ if (args[0] === "compose" && args.includes("config")) {
 } else if (args[0] === "image" && args[1] === "inspect") {
   if (args[2].includes("/" + process.env.PUBLISH_TEST_MISSING + ":")) process.exit(1);
   console.log("sha256:fixture");
-} else if (args[0] === "push" && process.env.PUBLISH_TEST_FAIL_PUSH === "true") process.exit(1);
+} else if (args[0] === "push" && (process.env.PUBLISH_TEST_FAIL_PUSH === "true" || (process.env.PUBLISH_TEST_FAIL_LATEST === "true" && args[1].endsWith(":latest")))) process.exit(1);
 `, { mode: 0o755 });
   writeFileSync(join(directory, "npm"), `#!${process.execPath}
 const fs = require("node:fs");
@@ -40,7 +40,7 @@ fs.appendFileSync(process.env.PUBLISH_TEST_CALLS, JSON.stringify(["npm", ...proc
       writeFileSync(callsPath, "");
       const env = { ...process.env, PATH: directory + delimiter + process.env.PATH,
         PUBLISH_TEST_CALLS: callsPath, PUBLISH_TEST_MISSING: missingImage,
-        PUBLISH_TEST_FAIL_PUSH: String(failPush) };
+        PUBLISH_TEST_FAIL_PUSH: String(failPush), PUBLISH_TEST_FAIL_LATEST: String(failLatest) };
       for (const key of Object.keys(env)) if (key.endsWith("_IMAGE_TAG")) delete env[key];
       const result = spawnSync(process.execPath, [publisher, ...args], { cwd: directory, encoding: "utf8", env, timeout: 10_000 });
       assert.ifError(result.error);
@@ -73,7 +73,8 @@ test("publishing one service builds only it and records its tag for the next pub
     const single = fixture.run(["publish", "web", "--", "v0.2.5"]);
     assert.equal(single.status, 0, single.stderr);
     assert.deepEqual(single.calls.filter(call => call.includes("build")), [["compose", "build", "web"]]);
-    assert.deepEqual(single.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"]]);
+    assert.deepEqual(single.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"], ["push", "ghcr.io/example/mingd/web:latest"]]);
+    assert.deepEqual(single.calls.filter(call => call[1] === "tag"), [["image", "tag", "sha256:fixture", "ghcr.io/example/mingd/web:latest"]]);
     assert.match(single.saved, /WEB_IMAGE_TAG=v0.2.5/);
     assert.match(single.saved, /UNRELATED=value/);
     const all = fixture.run(["publish", "all"]);
@@ -143,10 +144,24 @@ test("build all builds configured services without pushing or changing their tag
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
 });
 
-test("targeted push never builds and uses only the requested tag", () => {
+test("targeted push never builds and pushes the requested tag before latest", () => {
   const result = run(["push", "web", "--", "v0.2.5"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"]]);
+  assert.deepEqual(result.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"], ["push", "ghcr.io/example/mingd/web:latest"]]);
   assert.ok(!result.calls.some(call => call.includes("build")));
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.5/);
+});
+
+
+test("a failed version push never pushes latest", () => {
+  const result = run(["push", "web", "v0.2.5"], { failPush: true });
+  assert.equal(result.status, 1);
+  assert.ok(!result.calls.some(call => call[0] === "push" && call[1].endsWith(":latest")));
+});
+
+test("a failed latest push reports failure without recording publication as complete", () => {
+  const result = run(["publish", "web", "v0.2.5"], { failLatest: true });
+  assert.equal(result.status, 1);
+  assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
+  assert.doesNotMatch(result.stdout, /Completed publish/);
 });

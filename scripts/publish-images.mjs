@@ -80,11 +80,26 @@ try {
   }
   for (const [name, service] of images) {
     console.log(`${dryRun ? "Would " : ""}${operation} ${name}: ${service.image}`);
+    if (!all && operation !== "build") {
+      console.log(`${dryRun ? "Would update" : "Updating"} ${service.image.replace(/:[^/:]+$/, ":latest")}`);
+    }
   }
   if (dryRun) {
     console.log("Preflight passed; nothing built, tagged, pushed, or recorded.");
   } else {
-    if (operation !== "build") for (const [, service] of images) docker(["push", service.image]);
+    if (operation !== "build") {
+      for (const [, service] of images) {
+        if (all) {
+          docker(["push", service.image]);
+        } else {
+          const id = docker(["image", "inspect", service.image, "--format", "{{.Id}}"], { capture: true });
+          const latest = service.image.replace(/:[^/:]+$/, ":latest");
+          docker(["image", "tag", id, latest]);
+          docker(["push", service.image]);
+          docker(["push", latest]);
+        }
+      }
+    }
     if (!all) rememberTag(selection, tag);
     console.log(`Completed ${operation} for ${images.length} images with their individual tags.`);
   }
