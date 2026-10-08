@@ -1,3 +1,8 @@
+---
+title: "Build profiles"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/build-profiles.md
+---
+
 # Build profiles
 
 Use the official stable Godot editor matching the template's exact release.

@@ -1,3 +1,8 @@
+---
+title: "Local development setup"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/getting-started.md
+---
+
 # Local development setup
 
 Use this guide to run min.gd from a checkout and make your first Linux build.

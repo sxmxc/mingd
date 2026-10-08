@@ -1,3 +1,8 @@
+---
+title: "Troubleshooting"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/troubleshooting.md
+---
+
 # Troubleshooting
 
 Start with the affected process and its configuration. The app and the separate

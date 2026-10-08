@@ -1,3 +1,8 @@
+---
+title: "Template smoke tests"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/smoke-tests.md
+---
+
 # Template smoke tests
 
 Use the standard Godot editor matching the selected **exact stable release** and

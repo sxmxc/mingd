@@ -1,3 +1,8 @@
+---
+title: "Template workbench and activity"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/workbench.md
+---
+
 # Template workbench and activity
 
 Signed-in users land on build history. Search by platform, profile, or build ID,

@@ -1,3 +1,8 @@
+---
+title: "Worker release history"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/worker-release-history.md
+---
+
 # Worker release history
 
 These notes preserve earlier rollout details and reported results. For current

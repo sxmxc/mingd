@@ -1,3 +1,8 @@
+---
+title: "Recipe files, Android and macOS templates"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/recipe-files-and-mobile-templates.md
+---
+
 # Recipe files, Android and macOS templates
 
 ## Portable recipes

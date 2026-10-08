@@ -1,3 +1,8 @@
+---
+title: "Saved recipes, sharing, and size comparisons"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/recipes-and-comparisons.md
+---
+
 # Saved recipes, sharing, and size comparisons
 
 Recipes save engine features, platform, version, and other validated build

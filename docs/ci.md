@@ -1,3 +1,8 @@
+---
+title: "Continuous integration"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/ci.md
+---
+
 # Continuous integration
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on pull requests,
@@ -35,7 +40,7 @@ provision Apple's SDK, perform native/device smoke tests, or test real Auth emai
 flows. Native-toolchain/source opt-in checks skip missing prerequisites. See
 [development](development.md) and [smoke tests](smoke-tests.md).
 
-CI also does not apply production migrations, publish release images, or deploy.
+Application CI does not apply production migrations, publish release images, or deploy the application.
 Deployment supports local builds or publishing locally built images to GHCR
 and pulling them on production after checks pass; see
 [deployment](deployment.md#build-here-pull-on-production-ghcr).
@@ -46,6 +51,17 @@ After a successful GitHub run, configure a `main` ruleset requiring all five che
 names in the table. The workflow does not configure repository rules itself.
 Actions use immutable commit pins; update their pins and version comments together.
 Keep CI builds isolated from production credentials and services.
+
+## Documentation workflow
+
+The separate [Documentation workflow](../.github/workflows/docs.yml) runs
+`Documentation checks` for changes to the docs, Starlight workspace, npm metadata,
+Node version, or its workflow. It checks and builds the static site on pull
+requests and publishes successful builds from `main` to GitHub Pages. It also
+runs on `doc*` branches, where the application workflow skips its jobs.
+See [documentation site setup](documentation.md) for the one-time Pages setting
+and local preview commands. Its path-filtered check is not part of the five
+application checks listed above.
 
 To reproduce application checks locally:
 

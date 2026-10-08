@@ -1,3 +1,8 @@
+---
+title: "min.gd naming"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/naming.md
+---
+
 # min.gd naming
 
 | Context | Name |
