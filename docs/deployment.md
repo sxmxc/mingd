@@ -124,6 +124,19 @@ npm run images:publish -- v0.1.0
 ```
 
 Use `images:build:all` and `images:publish:all -- v0.1.0` to include both the optional macOS worker and gateway prototype.
+The publisher derives the `:all` selection from every Compose service with a
+`build:` entry, including profiled services; Redis is a third-party image and
+is not republished. Preview the selected images and verify their local presence
+without tagging or pushing:
+
+```bash
+npm run images:publish:all -- v0.1.1 --dry-run
+```
+
+The current all-image selection contains seven application images, including
+`worker-gateway`. After publication, confirm the gateway's push digest and the
+final `Published 7 images` message. The initial source-to-tag lines describe
+planned tags; the subsequent successful push digest confirms publication.
 Publication tags the configured local images with both the supplied identifier
 and `latest`, without rebuilding. It pins the local image IDs and verifies all
 selected images exist before tagging or pushing. All release tags are pushed

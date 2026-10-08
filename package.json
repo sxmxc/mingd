@@ -15,7 +15,7 @@
     "dev:web-builder": "npm run dev --workspace @mingd/web-builder",
     "build": "npm run build --workspace @mingd/web && npm run build --workspace @mingd/builder",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && node --test scripts/test/*.test.mjs",
     "compose:build": "docker compose up -d --build",
     "compose:up": "docker compose up -d",
     "compose:up:builders": "docker compose --profile builder up -d",

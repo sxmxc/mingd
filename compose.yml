@@ -44,7 +44,7 @@ services:
       WORKER_GATEWAY_PORT: 3001
       WORKER_GATEWAY_LOG_LEVEL: ${WORKER_GATEWAY_LOG_LEVEL:-info}
     ports:
-      - "${WORKER_GATEWAY_BIND_IP:-127.0.0.1}:${WORKER_GATEWAY_PORT:-3001}:3001"
+      - "${WORKER_GATEWAY_PORT:-3001}:3001"
     mem_limit: 256m
     cpus: 1
     pids_limit: 64

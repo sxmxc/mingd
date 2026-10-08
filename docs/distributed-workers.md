@@ -202,14 +202,15 @@ included in `images:*:all` commands; commands without `:all` exclude it.
 health-only entry point yet.
 
 The container listens on `0.0.0.0:3001`; Compose publishes host port
-`WORKER_GATEWAY_PORT` (default 3001) on `WORKER_GATEWAY_BIND_IP` (default loopback).
+`WORKER_GATEWAY_PORT` (default 3001) on all host interfaces, like the web service.
+No host IP environment setting is needed.
 `WORKER_GATEWAY_LOG_LEVEL` defaults to `info`. Local npm also accepts
 `WORKER_GATEWAY_HOST`; Compose overrides it for container reachability.
 
 If NPM shares the Compose network, forward HTTP to `worker-gateway:3001` and
-omit the host publication in the deployment configuration. Otherwise bind the
-host port to the application's private interface and forward NPM to that IP
-and port. Restrict access to the NPM host using Docker-aware firewall rules.
+omit the host publication in the deployment configuration. Otherwise forward
+HTTP to the application's private host address on port 3001 (or the configured
+host port). Restrict access to the NPM host using Docker-aware firewall rules.
 NPM terminates HTTPS for `worker.mingd.voidmoose.net`; Redis remains internal.
 Fastify does not trust forwarded headers initially; restrict trusted proxy
 addresses explicitly before any feature relies on forwarded client addresses.
