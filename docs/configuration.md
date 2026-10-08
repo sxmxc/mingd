@@ -48,7 +48,9 @@ well as the corresponding production file.
 
 `npm run build|push|publish -- <service> -- <tag>` records the service tag in the
 build checkout's root `.env` after success. `npm run publish -- all` uses each
-service's configured tag and never assigns a shared version or updates `latest`.
+service's configured tag and never assigns a shared version or promotes `latest`.
+Targeted `push` and `publish` push the requested version and update only that
+service's `latest` alias; the recorded service tag remains the explicit version.
 The application's package version is independent of these selections.
 See [image publication](deployment.md#build-here-pull-on-production-ghcr) for commands.
 

@@ -38,8 +38,9 @@ npm run push -- web -- v0.2.4
 npm run publish -- all
 ```
 
-`publish <service> -- <tag>` builds and pushes only that service. `build` builds
-without pushing; `push` pushes without building. After a successful targeted
+`publish <service> -- <tag>` builds only that service and pushes both the requested
+tag and its `latest` alias. `build` builds without pushing; targeted `push` pushes
+both tags without building. The version tag is pushed before `latest`. After a successful targeted
 operation, the helper records the service's tag in the build checkout's `.env`,
 using the same variables as production (`WEB_IMAGE_TAG`, `BUILDER_IMAGE_TAG`, etc.).
 Other settings and service tags are preserved. A failed targeted build or push
@@ -48,8 +49,9 @@ is not recorded as successful.
 `publish all` and `push all` push the configured local images without rebuilding
 or retagging them. For example, with `IMAGE_TAG=v0.2.2` and
 `WEB_IMAGE_TAG=v0.2.4`, web stays at **v0.2.4** and unchanged workers stay at
-**v0.2.2**. `all` rejects a version argument. Nothing automatically updates
-`latest`, workspace versions, or Git tags. Choose a new tag when replacing a
+**v0.2.2**. `all` rejects a version argument and does not promote services to `latest`.
+Only targeted push/publish updates a service's `latest` alias. Workspace versions
+and Git tags are unchanged. Choose a new tag when replacing a
 service's image; image tags do not have to match the application's version.
 
 To build the full set first, run `npm run build -- all`. It builds images under
@@ -321,8 +323,8 @@ use Docker commands directly.
 | Command | Effect |
 | --- | --- |
 | `npm run build -- <service> -- <tag>` | Build one image and remember its tag |
-| `npm run push -- <service> -- <tag>` | Push one existing image and remember its tag |
-| `npm run publish -- <service> -- <tag>` | Build and push one image and remember its tag |
+| `npm run push -- <service> -- <tag>` | Push one existing image as its version and latest; remember its version |
+| `npm run publish -- <service> -- <tag>` | Build/push one image as its version and latest; remember its version |
 | `npm run build -- all` | Build the full image set using each service's configured tag |
 | `npm run push -- all` / `npm run publish -- all` | Push each service's configured image without rebuilding or retagging |
 | `npm run compose -- up -d --build` | Build/start root Compose's default services |
