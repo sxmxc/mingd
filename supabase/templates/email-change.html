@@ -1,3 +1,82 @@
-<h2>Confirm your min.gd email change</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email_change">Confirm email change</a></p>
-<p>If you didn’t request this change, contact your administrator.</p>
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Confirm your min.gd email change</title>
+    <style>
+      @media only screen and (max-width: 600px) {
+        .email-shell { padding: 24px 12px !important; }
+        .email-content { padding: 28px 24px !important; }
+        .email-heading { font-size: 26px !important; line-height: 34px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; width: 100%; background-color: #0a0e13; color: #e8edf3; font-family: Arial, Helvetica, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <div style="display: none; max-height: 0; max-width: 0; overflow: hidden; opacity: 0; color: transparent; mso-hide: all;">Confirm the email change for your min.gd account.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#0a0e13" style="width: 100%; border-collapse: collapse; background-color: #0a0e13;">
+      <tr>
+        <td class="email-shell" align="center" style="padding: 48px 20px;">
+          <!--[if mso]><table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; max-width: 560px; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 0 0 24px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse: collapse;">
+                  <tr>
+                    <td width="36" valign="middle" style="width: 36px;">
+                      <a href="{{ .SiteURL }}" style="text-decoration: none;">
+                        <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="36" height="36" alt="" style="display: block; width: 36px; height: 36px; border: 0;" />
+                      </a>
+                    </td>
+                    <td valign="middle" style="padding-left: 10px;">
+                      <a href="{{ .SiteURL }}" style="color: #e8edf3; font-family: 'Courier New', Courier, monospace; font-size: 26px; line-height: 32px; font-weight: bold; letter-spacing: -1px; text-decoration: none;">min<span style="color: #54b5ff;">.</span>gd</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td bgcolor="#10161d" style="background-color: #10161d; border: 1px solid #263340; border-top: 3px solid #278fe0;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td class="email-content" style="padding: 36px;">
+                      <p style="margin: 0 0 16px; color: #54b5ff; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 18px; letter-spacing: 2px; text-transform: uppercase;">Your min.gd account</p>
+                      <h1 class="email-heading" style="margin: 0 0 16px; color: #e8edf3; font-size: 30px; line-height: 38px; font-weight: bold; letter-spacing: -0.5px;">Confirm your email change</h1>
+                      <p style="margin: 0 0 28px; color: #b9c5d2; font-size: 16px; line-height: 26px;">We received a request to change the email address for your min.gd account. Confirm this change to continue.</p>
+                    <p style="margin: 0 0 24px; color: #9aa9b9; font-size: 14px; line-height: 22px;">If your account requires confirmation from both email addresses, follow the link in each email to complete the change.</p>
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse: separate;">
+                        <tr>
+                          <td align="center" bgcolor="#54b5ff" style="background-color: #54b5ff; border: 1px solid #54b5ff; border-radius: 6px; mso-padding-alt: 14px 22px;">
+                            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email_change" style="display: inline-block; padding: 14px 22px; color: #0a0e13; font-size: 15px; line-height: 20px; font-weight: bold; text-decoration: none; border-radius: 6px;">Confirm email change</a>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin: 20px 0 0; color: #9aa9b9; font-size: 13px; line-height: 21px;">For your security, keep this link private.</p>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse;">
+                        <tr><td height="28" style="height: 28px; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+                        <tr><td height="1" bgcolor="#263340" style="height: 1px; background-color: #263340; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+                      </table>
+                      <p style="margin: 24px 0 8px; color: #9aa9b9; font-size: 13px; line-height: 21px;">Button not working? Copy and paste this link into your browser:</p>
+                      <p style="margin: 0; font-size: 12px; line-height: 20px; word-break: break-all; overflow-wrap: anywhere;">
+                        <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email_change" style="color: #54b5ff; text-decoration: underline; word-break: break-all; overflow-wrap: anywhere;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email_change</a>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 24px 0 0;">
+                <p style="margin: 0 0 12px; color: #9aa9b9; font-size: 13px; line-height: 21px;">If you didn’t request this change, do not confirm it. Contact your administrator.</p>
+                <p style="margin: 0; color: #9aa9b9; font-size: 12px; line-height: 20px;">min.gd &middot; Build only the Godot your game needs.</p>
+              </td>
+            </tr>
+          </table>
+          <!--[if mso]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

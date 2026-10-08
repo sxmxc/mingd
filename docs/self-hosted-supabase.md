@@ -112,6 +112,13 @@ docker compose up -d auth mingd-auth-templates
 If the installer uses `run.sh`, use its equivalent recreate command instead.
 Auth can fall back to default emails if fetching/parsing a template fails.
 Copy updated HTML to this directory whenever repository templates change.
+The three templates use inline styling, a text wordmark and the app's existing
+PNG logo at `{{ .SiteURL }}/web-app-manifest-192x192.png`. Keep that image publicly
+reachable over HTTPS; no extra assets need to be copied to the template server.
+The wordmark remains visible when an email client blocks remote images. Each includes a
+fallback URL using the same token hash and confirmation type as its action button.
+Browser previews validate layout only; request fresh emails after deployment to
+check rendering in your email clients and the actual confirmation flows.
 
 ## Verify recovery and deployment
 
