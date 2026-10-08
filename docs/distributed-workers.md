@@ -50,14 +50,33 @@ extracting another package until a second consumer actually requires it.
 
 ## Version targets
 
-The proposed first distributed-worker product release is **0.2.0**. This is a
-planning target, not an existing published release. Current workspace manifests
-are 0.1.0. Do not bump them or publish images merely because foundation work has
-started. Release 0.2.0 only after the remote-worker acceptance gates below pass.
+The current application version is **0.1.1**, the distributed-worker foundation
+milestone. Complete distributed workers target **0.2.0**, after the remote-worker
+acceptance gates below pass. Intermediate releases add capabilities while the
+existing direct workers continue to serve production. A manifest version does
+not mean images have been published or production has been upgraded.
+
+| Application release | Implementation milestone | Status |
+| --- | --- | --- |
+| **0.1.1** | Compiler separation, shared v1 schemas, credential helpers, durable assignment leases, and Fastify gateway listener | Implemented foundation; listener reports `acceptingAssignments: false` |
+| **0.1.2** | Worker enrollment, authentication, rotation/revocation, idle heartbeats, and operator visibility | Planned |
+| **0.1.3** | Gateway queue integration, HTTPS assignments/build heartbeats, remote worker loop, cancellation, and worker-only deployment with resource budgets | Planned |
+| **0.1.4** | Artifact uploads, validated completion, failure handling, bounded retries, and recovery | Planned |
+| **0.2.0** | Validated multi-host distributed builds, failure testing, and documented production cutover/rollback | Target release; requires production acceptance |
+
+Web, gateway, workers, and shared workspace packages use the same application
+version and immutable image release tag (for example `v0.1.1`). The milestones
+are delivery gates rather than promised dates; each release must satisfy its
+scope before advancing.
+
+### Runtime and compatibility policy
+
+These versions describe implementation compatibility, separately from the
+application release milestones above.
 
 | Layer | Initial target / policy |
 | --- | --- |
-| Application release | Proposed 0.2.0; web, gateway and workers use one immutable release tag |
+| Application release | Current 0.1.1 foundation; complete distributed workers target 0.2.0 |
 | Worker HTTP protocol | v1 schemas implemented; proposed `/v1/` routes; explicit version negotiation before assignment |
 | Build recipe | Existing recipe 9; bump only for changes affecting produced artifact equivalence |
 | Database | New source-controlled migrations; schema versioning follows migration history |
