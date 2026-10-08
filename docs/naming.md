@@ -12,7 +12,8 @@
 
 The period belongs in visible branding, not package scopes or Docker repository
 names. Godot's required template filenames and `version.txt` remain unchanged.
-There is no standalone `mingd` CLI; npm scripts are the supported interface.
+There is no standalone `mingd` CLI. Repository operator commands use npm scripts;
+image-only production uses Docker Compose directly.
 The product name does not configure DNS or establish ownership of `min.gd`.
 
 ## Infrastructure identities
@@ -36,4 +37,4 @@ all consumers/data. Existing artifacts retain stored filenames; new output uses
 [architecture](architecture.md#cache-identity), not historical rebrand instructions.
 
 Run `npm ci` after checkout/dependency changes to restore correct workspace links.
-Follow [deployment](deployment.md) to drain jobs and rebuild matching services.
+Follow [deployment](deployment.md) to drain jobs and deploy matching images.

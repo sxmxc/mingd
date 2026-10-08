@@ -45,15 +45,10 @@ currently use Node 22 independently of the host runtime.
 - **Configure processes:** use the [environment reference](docs/configuration.md).
   Next.js development reads `apps/web/.env.local`; Compose reads the root `.env`.
 
-For an already configured deployment, this builds and starts web, Redis,
-maintenance, and the Linux/Windows, Web, and Android workers:
-
-```bash
-docker compose --profile builder up -d --build
-```
-
-Apply pending database migrations first. macOS is a separate optional profile.
-The deployment guide explains individual rebuild commands and safe updates.
+Production can pull published images with just `compose.yml` and `.env`; the
+application server needs Docker/Compose, while builds and migrations run from an
+authorized checkout. See [production deployment](docs/deployment.md#production-with-only-compose-and-env)
+for setup, updates, optional macOS workers, and rollback.
 
 ## Documentation
 

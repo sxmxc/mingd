@@ -42,19 +42,21 @@ also needs its originating browser.
 
 Check that the correct worker is started and consuming the same Redis instance
 and queue name as web. Linux/Windows use `builder`; Web and Android have their
-own workers. macOS is optional and needs a verified SDK archive/digest.
+own workers. macOS is optional and needs an image containing the verified
+SDK/toolchain and a matching runtime digest; the archive stays on the build host.
+
+From the production deployment directory:
 
 ```bash
-npm run compose:ps
-npm run compose:builders:logs
+docker compose --profile builder --profile macos-builder ps
+docker compose --profile builder --profile macos-builder logs --tail=100 builder web-builder android-builder macos-builder
 ```
 
-A default `npm run compose:build` starts web/Redis/maintenance without workers
-unless profiles are enabled. For all non-macOS services with rebuild:
-
-```bash
-docker compose --profile builder up -d --build
-```
+Omit the macOS profile/service when disabled. To start every enabled service from
+published images, follow the
+[production pull/start commands](deployment.md#production-with-only-compose-and-env).
+A default `docker compose up -d --no-build` starts web/Redis/maintenance without
+workers unless profiles are enabled.
 
 Workers reconcile durable unfinished builds every 30 seconds. A Redis outage can
 leave a database submission waiting for that recovery. Queue counts and build
@@ -77,9 +79,10 @@ through the visible retry action.
 compilation. Even a valid Lean 2D/Lean 3D recipe fails when the submitting web
 image and worker disagree on recipe version, normalization, source identity or
 macOS toolchain digest. A successful cached Standard request does not establish
-that a worker is compatible. Rebuild web and every enabled worker from the same
-checkout using the [deployment procedure](deployment.md#command-reference),
-then submit a new build. Pulling code or restarting an old image is insufficient.
+that a worker is compatible. Build/publish web and every enabled worker from the
+same checkout, then deploy that release using the
+[production procedure](deployment.md#production-with-only-compose-and-env) and
+submit a new build. Restarting an old image is insufficient.
 
 For macOS, `libBlocksRuntime.so: cannot open shared object file` can occur even
 when the library exists in `/opt/osxcross/target/lib`: Godot's SCons environment
@@ -106,9 +109,11 @@ recreate the worker if its environment changed.
 ## Maintenance says Retry pending, or has no logs
 
 ```bash
-npm run compose:maintenance:build
-npm run compose:maintenance:logs
+docker compose logs --tail=100 maintenance
 ```
+
+For an image update, publish and deploy a matched release using the
+[production procedure](deployment.md#production-with-only-compose-and-env).
 
 The current worker emits a startup message and safe failure reasons; idle polls
 are quiet. Older images may have lacked those diagnostics. Check container exit
@@ -129,9 +134,11 @@ coverage; TPZ size is not main-binary size. See [recipes and comparisons](recipe
 
 ## Docker uses a different Node version or old code
 
-Host Node 24.21.0 and Docker Node 22 are separate runtimes. Pulling source or
-installing host dependencies does not update existing images. Use the affected
-`:build` command; `compose:up:builders` does not force rebuilding. Public frontend
+Repository commands use Node 24.21.0; Docker images use Node 22. Image-only
+production needs no host Node installation. Pulling source or installing host
+dependencies does not update existing images. Publish a fresh release and repeat
+the production pull/start commands. For source deployments, use the affected
+`:build` command from the checkout. Public frontend
 settings are read at runtime by current web images; recreate web after changing
 them. See [deployment](deployment.md#command-reference).
 
