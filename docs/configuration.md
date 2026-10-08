@@ -118,7 +118,7 @@ update the canonical URL or allowed Auth redirects automatically.
 
 Use [`.env.web.prod.example`](../.env.web.prod.example) on the application host and
 [`.env.workers.prod.example`](../.env.workers.prod.example) on dedicated worker hosts.
-Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.0`; root Compose retains
+Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.1`; root Compose retains
 `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.
 

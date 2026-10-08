@@ -20,13 +20,13 @@ Authenticate with `docker login ghcr.io` using Docker's credential storage.
 
 ```bash
 npm run images:build
-npm run images:publish -- v0.2.0 --dry-run
-npm run images:publish -- v0.2.0
+npm run images:publish -- v0.2.1 --dry-run
+npm run images:publish -- v0.2.1
 ```
 
 Default build/push/publication includes web, gateway, maintenance, desktop, Web
 and Android workers (**six images**). With a provisioned and verified macOS
-archive, use `images:build:all` and `images:publish:all -- v0.2.0` (**seven images**).
+archive, use `images:build:all` and `images:publish:all -- v0.2.1` (**seven images**).
 The publisher derives services from Compose build entries and excludes only macOS
 by default; `:all` includes every build service. Redis is not republished.
 Preflight verifies all local images before tagging or pushing. Successful push
@@ -34,7 +34,7 @@ digests and the final published-image count establish publication; the initial
 tag-plan lines alone do not.
 
 Use a **fresh immutable release identifier** matching workspace versions. Do not
-reuse historical `v0.1.2` for this 0.2.0 implementation. Publication tags existing
+reuse historical `v0.1.2` for this 0.2.1 release. Publication tags existing
 local images with the release and `latest`, without rebuilding. It pins image IDs,
 pushes the complete release before promoting `latest`, and fails on registry errors.
 Promotion across repositories is not atomic; deploy immutable release tags and
@@ -150,6 +150,22 @@ containers retain only CHOWN, DAC_OVERRIDE and FOWNER for host-owned token/cache
 permissions and source copies; all other capabilities are dropped. Keep the
 mode-0600 token private to its intended container.
 
+When correcting capabilities on an existing host, recreate each idle affected
+worker, including Web and Android; a restart does not apply Compose changes.
+For a deployed file named `compose.yml` with those targets enabled:
+
+```bash
+docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
+```
+
+Updating from 0.2.0 to 0.2.1 also requires matching gateway/worker images and new
+worker enrollments from the 0.2.1 checkout: enrollment stores the exact application
+release. Drain old identities, allow active builds to finish, then replace their
+tokens with new enrollment files and recreate workers at the new release. Revoke
+the old identities after cutover. Set `IMAGE_TAG=v0.2.1` explicitly in each deployed
+host's `.env` if it currently pins an older release; example/default changes do not
+override existing values. No new database migration accompanies this patch.
+
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
 Compose project names and token paths create independent instances/volumes;
@@ -160,7 +176,7 @@ plain `--scale` with one mounted token is not the intended enrollment workflow.
 1. Pause submissions in `/admin/settings` and let queued/active direct builds finish.
    Keep the current release/configuration for rollback. Stopping an active compiler
    interrupts its job; prefer a drained transition.
-2. Apply migrations and publish matching 0.2.0 images. Copy the two production files
+2. Apply migrations and publish matching 0.2.1 images. Copy the two production files
    to their respective hosts. Preserve the application Compose project name and
    Redis volume. Configure NPM upload limits and worker HTTPS reachability.
 3. Stop existing direct builders using their old deployment definition:

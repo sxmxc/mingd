@@ -1,6 +1,7 @@
 # Distributed workers
 
-Release **0.2.0** implements the HTTPS gateway and remote workers. Production uses
+Release **0.2.1** includes the HTTPS gateway and remote workers introduced in 0.2.0,
+plus improved failure diagnostics. Production uses
 separate application and build hosts. Redis stays inside the application Compose
 network; build hosts receive individual worker credentials and no privileged
 Supabase key. No VPN, public-IP change or new backend platform is required.
@@ -43,9 +44,10 @@ or the retained direct mode for local development/rollback.
 | 0.1.3 | Queue dispatch, remote compilation, build heartbeats, cancellation, worker deployment |
 | 0.1.4 | Streaming uploads, validated completion, retries and durable recovery |
 | **0.2.0** | Combined distributed implementation, local acceptance tests and production runbook |
+| **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, and extraction capability troubleshooting |
 
 These describe implementation gates, not claims that every intermediate image
-was published. All workspace manifests now use **0.2.0**. Deploy web, gateway
+was published. All workspace manifests now use **0.2.1**. Deploy web, gateway
 and workers from the same immutable release tag. Exact application release,
 protocol **v1**, recipe **9**, target and macOS toolchain identity must match
 worker enrollment before assignment. Re-enroll identities when changing release
@@ -197,6 +199,31 @@ Each route group has a bounded in-process pre-authentication budget of 600 reque
 per minute per socket peer, with at most 4096 peers. Fastify does not trust forwarded
 headers, so workers behind the same NPM peer share that budget. This limits a single
 gateway's requests; global rate limiting and gateway replication are future work.
+
+## Troubleshooting interrupted builds
+
+Worker logs include the assignment ID, compiler stage and sanitized reason in
+`worker_build_interrupted`. For a live assignment, the worker sends its final
+bounded output and failure reason before reporting failure. Source download,
+extraction and workspace copy errors are included in that output, as well as
+compiler errors. Lost ownership or connectivity can prevent this final heartbeat;
+check the worker log in those cases. Gateway recovery can report a generic
+delivery failure, so that message alone does not establish a network problem.
+
+A build that stops at `verifying_source` has not started compilation. Check its
+worker reason and bounded output for checksum, archive extraction, filesystem
+permission or disk-space errors before changing compiler resource settings.
+
+`tar: Cannot change ownership ... Operation not permitted` with `CapEff: 0` means
+the deployed worker has dropped the capabilities required by source extraction.
+The shared worker block in `compose.workers.prod.yml` uses `cap_drop: [ALL]` with
+`cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]`: ownership and metadata preservation are
+needed for official source archives/copies, and the worker must read host-owned
+mode-0600 credentials. Keep those settings when copying the Compose file to a
+worker host. Recreate an idle affected container after updating its Compose file
+(`docker compose up -d --force-recreate builder` for the desktop worker); restarting
+an existing container does not apply new capability settings. No image rebuild or
+credential re-enrollment is needed for that deployment correction.
 
 ## Validation and production acceptance
 

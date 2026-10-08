@@ -8,7 +8,7 @@ async function exists(path: string) {
   try { await stat(path); return true; } catch { return false; }
 }
 
-export async function ensureGodotSource(versionId: GodotVersionId, cacheDir: string, onVerifying: () => Promise<void> = async () => undefined, signal?: AbortSignal): Promise<string> {
+export async function ensureGodotSource(versionId: GodotVersionId, cacheDir: string, onVerifying: () => Promise<void> = async () => undefined, signal?: AbortSignal, onOutput?: (chunk: Buffer) => void): Promise<string> {
   signal?.throwIfAborted();
   const version = await resolveGodotVersion(versionId);
   const versionDir = join(cacheDir, version.id, version.sourceSha256);
@@ -26,7 +26,7 @@ export async function ensureGodotSource(versionId: GodotVersionId, cacheDir: str
 
   try {
   if (!archiveExists) {
-    await runProcess("curl", ["-fL", "--retry", "3", "--connect-timeout", "15", "--max-time", "600", "-o", downloading, version.sourceUrl], { signal, timeoutMs: 1_900_000 });
+    await runProcess("curl", ["-fL", "--retry", "3", "--connect-timeout", "15", "--max-time", "600", "-o", downloading, version.sourceUrl], { signal, timeoutMs: 1_900_000, onOutput });
   }
 
   const { createHash } = await import("node:crypto");
@@ -44,7 +44,7 @@ export async function ensureGodotSource(versionId: GodotVersionId, cacheDir: str
 
   await rm(tempSource, { recursive: true, force: true });
   await mkdir(tempSource, { recursive: true });
-  await runProcess("tar", ["-xJf", archive, "-C", tempSource, "--strip-components=1"], { signal, timeoutMs: 300_000 });
+  await runProcess("tar", ["-xJf", archive, "-C", tempSource, "--strip-components=1"], { signal, timeoutMs: 300_000, onOutput });
   if (!(await exists(join(tempSource, "SConstruct")))) throw new Error("Extracted Godot source does not contain SConstruct.");
   try {
     await rename(tempSource, sourceDir);

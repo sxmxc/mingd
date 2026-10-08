@@ -6,7 +6,7 @@ import { performance } from "node:perf_hooks";
 import { setTimeout as pause } from "node:timers/promises";
 import { BUILD_RECIPE_VERSION, canonicalBuildCacheInput, normalizeBuildConfig, resolveGodotVersion, workerTargetForPlatform } from "@mingd/build-config";
 import { WorkerHelloSchema, WORKER_HEARTBEAT_INTERVAL_MS, WORKER_LEASE_SECONDS, type Assignment, type BuildHeartbeat } from "@mingd/worker-protocol";
-import { BuildActivity } from "./activity.js";
+import { BuildActivity, sanitizeLog } from "./activity.js";
 import { compileBuild } from "./compiler.js";
 import { compilerRuntimeFromEnvironment } from "./compiler-runtime.js";
 import { BuildPerformance } from "./performance.js";
@@ -59,7 +59,7 @@ export async function runRemoteWorker(values: NodeJS.ProcessEnv = process.env, t
             lastOutputAt: snapshot.last_output_at, outputBytes: snapshot.output_bytes, metrics: measurements.snapshot() }, controller.signal);
           deadline = sentAt + (WORKER_LEASE_SECONDS - 5) * 1000;
         } catch (error) {
-          if (error instanceof GatewayError && error.fatal) { fatal = true; shutdown.abort(); controller.abort(); return; }
+          if (error instanceof GatewayError && error.fatal) { fatal = true; controller.abort(error); shutdown.abort(error); return; }
           if (error instanceof GatewayError && error.status === 410) {
             if (uploading) {
               try { completed = !!(await client.status(assignment.assignmentId)).artifactId; } catch { /* Keep the conservative deadline. */ }
@@ -104,9 +104,18 @@ export async function runRemoteWorker(values: NodeJS.ProcessEnv = process.env, t
         }
       }
       console.log(JSON.stringify({ event: "worker_build_complete", assignmentId: assignment.assignmentId }));
-    } catch {
-      if (!completed && !fatal && !controller.signal.aborted) await client.fail(assignment.assignmentId).catch(() => undefined);
-      console.error(JSON.stringify({ event: "worker_build_interrupted", assignmentId: assignment.assignmentId }));
+    } catch (error) {
+      const cause = controller.signal.aborted ? controller.signal.reason : error;
+      const reason = sanitizeLog(cause instanceof Error ? cause.message : "Unknown worker failure.", [credential])
+        .replace(/mingd_worker_[0-9a-f-]+\.[A-Za-z0-9_-]+/g, "[REDACTED]").slice(-2000);
+      activity.record(`\nWorker failure during ${stage}: ${reason}\n`);
+      // Send the last compiler output and exception before releasing ownership.
+      // Fast failures otherwise happen entirely between periodic heartbeats.
+      if (!completed && !fatal && !controller.signal.aborted) {
+        await heartbeat();
+        if (!controller.signal.aborted) await client.fail(assignment.assignmentId).catch(() => undefined);
+      }
+      console.error(JSON.stringify({ event: "worker_build_interrupted", assignmentId: assignment.assignmentId, stage, reason }));
     } finally {
       finished = true; clearInterval(timer); clearInterval(watchdog);
       controller.abort(); await heartbeatChain;

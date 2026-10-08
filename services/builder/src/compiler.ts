@@ -29,7 +29,7 @@ export async function compileBuild(
     throw new Error(`The ${runtime.target} worker cannot compile ${config.platform} jobs.`);
   }
   await onStage("preparing_source");
-  const sourceCache = await ensureGodotSource(config.godotVersion, runtime.godotCacheDir, async () => onStage("verifying_source"), signal);
+  const sourceCache = await ensureGodotSource(config.godotVersion, runtime.godotCacheDir, async () => onStage("verifying_source"), signal, onOutput);
   const jobDir = join(runtime.workDir, buildId);
   const sourceDir = join(jobDir, "source");
   const outputDir = join(jobDir, "output");
@@ -38,7 +38,7 @@ export async function compileBuild(
   await mkdir(outputDir, { recursive: true });
 
   // --reflink=auto is fast on CoW filesystems and safely falls back to a copy.
-  await runProcess("cp", ["-a", "--reflink=auto", `${sourceCache}/.`, sourceDir], { signal, timeoutMs: 300_000 });
+  await runProcess("cp", ["-a", "--reflink=auto", `${sourceCache}/.`, sourceDir], { signal, timeoutMs: 300_000, onOutput });
 
   if (runtime.dryRun) {
     await onStage("compiling");

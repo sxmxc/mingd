@@ -22,7 +22,7 @@ x-environment: &environment
 services:
   builder:
     <<: *worker
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/builder:${IMAGE_TAG:-v0.2.0}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/builder:${IMAGE_TAG:-v0.2.1}
     environment:
       <<: *environment
       BUILDER_TARGET: desktop
@@ -35,7 +35,7 @@ services:
       - builder-work:/work/jobs
   web-builder:
     <<: *worker
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web-builder:${IMAGE_TAG:-v0.2.0}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web-builder:${IMAGE_TAG:-v0.2.1}
     environment:
       <<: *environment
       BUILDER_TARGET: web
@@ -48,7 +48,7 @@ services:
       - web-builder-work:/work/jobs
   android-builder:
     <<: *worker
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/android-builder:${IMAGE_TAG:-v0.2.0}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/android-builder:${IMAGE_TAG:-v0.2.1}
     profiles: ["android"]
     environment:
       <<: *environment
@@ -63,7 +63,7 @@ services:
       - android-gradle:/cache/gradle
   macos-builder:
     <<: *worker
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/macos-builder:${IMAGE_TAG:-v0.2.0}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/macos-builder:${IMAGE_TAG:-v0.2.1}
     profiles: ["macos"]
     environment:
       <<: *environment
