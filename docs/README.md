@@ -31,6 +31,7 @@ a guide names the production deployment directory or separate Supabase directory
 | Guide | Covers |
 | --- | --- |
 | [Architecture](architecture.md) | Component boundaries, lifecycle, cache identity, and authorization |
+| [Distributed workers plan](distributed-workers.md) | HTTPS gateway, private production topology, version targets, milestones and acceptance |
 | [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
 | [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
 | [Naming](naming.md) | Brand, technical names, and infrastructure identities |

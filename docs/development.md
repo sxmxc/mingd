@@ -28,6 +28,8 @@ a generated `dist` service. Use workspace commands for focused tests:
 npm test --workspace @mingd/build-config
 npm test --workspace @mingd/web
 npm test --workspace @mingd/builder
+npm test --workspace @mingd/worker-protocol
+npm test --workspace @mingd/worker-gateway
 ```
 
 For Next.js route/UI changes, exercise affected states in development and run the
@@ -41,6 +43,7 @@ Node/tsx consumers, including package resolution and cache semantics.
 | Shared pure tests | Normalization, schemas, recipes/hashes, presets, versions, SCons arguments, comparisons, portable files | Node/npm |
 | Web tests | Rendering/access-flow helpers, request handling, account/UI invariants | Node/npm |
 | Builder tests | Process handling, archive/binary fixtures, performance, recovery, maintenance, reference measurement | Python 3, `zip`, `unzip`; some compiler checks opt in |
+| Worker protocol/gateway tests | Protocol negotiation, credential parsing, ownership RPC adapter, Fastify health/body/error handling | Node/npm; remote assignment transport is not implemented yet |
 | SQL tests | Migrations, constraints, ownership, roles, sharing, maintenance policies | Docker and disposable local Supabase Postgres |
 | Native smoke tests | Real template install, export, and game launch | Matching Godot editor and target OS/browser/device |
 

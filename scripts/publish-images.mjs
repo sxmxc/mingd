@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
-const includeMacos = args.includes("--all");
+const includeAll = args.includes("--all");
 const identifiers = args.filter(value => value !== "--all");
 const release = identifiers[0];
 
@@ -22,9 +22,9 @@ try {
     throw new Error("Usage: npm run images:publish[:all] -- <release-identifier> (e.g. v0.1.0; use a fresh identifier, not latest).");
   }
   const services = ["web", "maintenance", "builder", "web-builder", "android-builder"];
-  if (includeMacos) services.push("macos-builder");
+  if (includeAll) services.push("macos-builder", "worker-gateway");
   const config = JSON.parse(docker([
-    "compose", "--profile", "builder", "--profile", "macos-builder",
+    "compose", "--profile", "*",
     "config", "--format", "json", "--no-env-resolution",
   ], true));
   // Inspect every source before modifying tags or publishing. Pin image IDs so

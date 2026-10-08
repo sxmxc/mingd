@@ -3,6 +3,11 @@
 min.gd uses npm workspaces and one shared build contract. The frontend does not
 compile Godot; privileged workers consume validated recipes.
 
+The [distributed workers plan](distributed-workers.md) describes the next release
+target. Its first foundation change separates local compiler runtime settings
+from queue/database credentials; the production worker still uses the direct
+orchestration entry point below.
+
 ```mermaid
 flowchart LR
   Browser --> Web[Next.js web]

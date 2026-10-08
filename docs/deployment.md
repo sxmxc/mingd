@@ -7,6 +7,12 @@ run from a matching repository checkout on a separate authorized host.
 
 ## Services and prerequisites
 
+The current Compose deployment runs direct queue-connected workers. The
+[distributed workers plan](distributed-workers.md) documents the upcoming HTTPS
+gateway and worker-only deployment; those deployment modes are not available yet.
+An opt-in Fastify listener prototype can be started separately; see
+[listener setup](distributed-workers.md#listener-prototype-and-nginx-proxy-manager).
+
 The production application host needs Docker with Compose v2 and registry access.
 Git and Node/npm are needed on the build/migration host, not on an image-only
 production host. Use Node 24.21.0 from `.nvmrc` for repository operator commands;
@@ -92,7 +98,7 @@ docker compose --profile builder --profile macos-builder up -d --build
 
 ### Build here, pull on production (GHCR)
 
-All six application images support a shared repository prefix and release tag.
+All seven application images support a shared repository prefix and release tag.
 For example, put these values in root `.env` on both hosts:
 
 ```dotenv
@@ -101,7 +107,7 @@ IMAGE_TAG=latest
 ```
 
 This selects `ghcr.io/sxmxc/mingd/web:latest`,
-`maintenance`, `builder`, `web-builder`, `android-builder`, and `macos-builder`
+`maintenance`, `builder`, `web-builder`, `android-builder`, `macos-builder`, and `worker-gateway`
 under the same prefix/tag. Redis continues to use `redis:8-alpine`.
 Publish both `latest` and a fresh release identifier (for example `v0.1.0`)
 for each release, and build all release images from the same checkout.
@@ -117,7 +123,7 @@ npm run images:build
 npm run images:publish -- v0.1.0
 ```
 
-Use `images:build:all` and `images:publish:all -- v0.1.0` to include the optional macOS worker.
+Use `images:build:all` and `images:publish:all -- v0.1.0` to include both the optional macOS worker and gateway prototype.
 Publication tags the configured local images with both the supplied identifier
 and `latest`, without rebuilding. It pins the local image IDs and verifies all
 selected images exist before tagging or pushing. All release tags are pushed
@@ -156,7 +162,7 @@ docker tag mingd/macos-builder:latest ghcr.io/sxmxc/mingd/macos-builder:latest
 ```
 
 Repeat for each application service being released, then run
-`npm run images:publish:all -- v0.1.0` (or omit `:all` without macOS).
+`npm run images:publish:all -- v0.1.0` (omit `:all` to exclude both macOS and the gateway).
 Subsequent builds can use `IMAGE_PREFIX`/`IMAGE_TAG` directly and the npm commands above.
 
 ### Production with only Compose and .env
@@ -212,8 +218,10 @@ registry fetch. The `build:` entries can remain in `compose.yml`; these commands
 use its `image:` entries. Check logs and run the application
 [smoke tests](smoke-tests.md), including a build and private download.
 
-With a full checkout, `npm run images:pull:all` and `npm run images:up:all` wrap
-the same pull/start commands; omit `:all` without macOS. npm scripts require
+With a full checkout, `npm run images:pull:all` and `npm run images:up:all`
+enable every Compose profile, including the gateway. For the worker-only
+selection shown above, use those explicit Docker commands. The npm commands
+without `:all` enable only the `builder` profile. npm scripts require
 `package.json` and are unavailable in the two-file production directory.
 The existing `compose:*:build` commands build on the machine where they run.
 
@@ -236,12 +244,12 @@ directory, use the direct Docker commands above.
 | `npm run compose:macos-builder:build` | Rebuild optional macOS worker and start Redis dependency |
 | `npm run compose:logs` | Follow service logs |
 | `npm run compose:maintenance:logs` | Follow maintenance logs |
-| `npm run compose:down:all` | Stop/remove services across both profiles, preserving volumes |
+| `npm run compose:down:all` | Stop/remove services across every profile, including the gateway, preserving volumes |
 | `npm run images:build` / `images:push` | Build or publish web, maintenance, desktop/Web/Android workers |
 | `npm run images:pull` / `images:up` | Pull the configured release, then start with building and implicit pulls disabled |
-| `npm run images:build:all` / `images:push:all` | Build or publish all six application images, including macOS |
-| `npm run images:publish -- <release>` / `images:publish:all -- <release>` | Publish the built images under both a release identifier and `latest`; `:all` includes macOS |
-| `npm run images:pull:all` / `images:up:all` | Pull/start the configured release with both worker profiles |
+| `npm run images:build:all` / `images:push:all` | Build or publish all seven application images, including macOS and the gateway |
+| `npm run images:publish -- <release>` / `images:publish:all -- <release>` | Publish the built images under both a release identifier and `latest`; `:all` includes macOS and the gateway |
+| `npm run images:pull:all` / `images:up:all` | Pull/start the configured release with every profile, including macOS and the gateway |
 
 Commands without `:build` use existing images. Explicit service targets can start
 profiled services without enabling profiles. An exported `COMPOSE_PROFILES` also

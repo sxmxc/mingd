@@ -3,15 +3,14 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { resolveGodotVersion, type GodotVersionId } from "@mingd/build-config";
 import { runProcess } from "./process.js";
-import { env } from "./env.js";
 
 async function exists(path: string) {
   try { await stat(path); return true; } catch { return false; }
 }
 
-export async function ensureGodotSource(versionId: GodotVersionId, onVerifying: () => Promise<void> = async () => undefined): Promise<string> {
+export async function ensureGodotSource(versionId: GodotVersionId, cacheDir: string, onVerifying: () => Promise<void> = async () => undefined): Promise<string> {
   const version = await resolveGodotVersion(versionId);
-  const versionDir = join(env.godotCacheDir, version.id, version.sourceSha256);
+  const versionDir = join(cacheDir, version.id, version.sourceSha256);
   const sourceDir = join(versionDir, "source");
   const marker = join(sourceDir, "SConstruct");
   if (await exists(marker)) return sourceDir;
