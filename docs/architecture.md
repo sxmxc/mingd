@@ -62,8 +62,8 @@ creating independent frontend and worker contracts.
 6. Download authorization checks ownership or SuperAdmin access before issuing
    a short-lived signed URL for private Storage.
 
-Heartbeats and sanitized output are persisted. A completed queue job alone does
-not establish successful artifact creation. See [workbench](workbench.md) and
+Completion requires a validated, uploaded artifact and recorded metadata.
+Heartbeats and sanitized output are persisted. See [workbench](workbench.md) and
 [queue recovery](accounts-and-admin.md#queue-recovery).
 
 ## Cache identity
@@ -108,5 +108,5 @@ commands, compiler flags, `custom.py`, or paths. Compiler orchestration does not
 use shell execution. Workers mount neither Docker socket nor host root, and
 attempts use isolated workspaces.
 
-Archive validation establishes structure/integrity, not runtime compatibility.
-[Smoke tests](smoke-tests.md) are the separate export/launch acceptance gate.
+Workers validate archive structure and integrity. Test exported games using
+[smoke tests](smoke-tests.md).

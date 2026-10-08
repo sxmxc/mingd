@@ -55,13 +55,11 @@ commands. See [recipes](recipes-and-comparisons.md).
 
 ## Deployment and validation
 
-Apply the complete migration history and deploy compatible web/workers using
-[deployment](deployment.md); historical activity/performance migrations are
-already part of that history. Avoid one-off rollout instructions tied to an
-older feature version.
+Apply pending migrations and deploy compatible web/workers using
+[deployment](deployment.md).
 
 For UI changes, exercise queued, active-output, quiet, overdue-heartbeat,
 network-loss/recovery, complete, failed, and cache-hit states. Check narrow
 screens, keyboard navigation, reduced motion, output-follow, artifact availability,
 and unauthorized access. Rendering/formatting tests are in the web workspace.
-Real export/launch acceptance follows [smoke tests](smoke-tests.md).
+Check template export and launch using [smoke tests](smoke-tests.md).

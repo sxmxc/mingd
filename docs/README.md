@@ -7,7 +7,7 @@ a guide names the production deployment directory or separate Supabase directory
 
 | Guide | Covers |
 | --- | --- |
-| [Getting started](getting-started.md) | Node/npm, local Supabase, development web app, and workers |
+| [Local development setup](getting-started.md) | Local services, first Linux build, and optional workers |
 | [Configuration](configuration.md) | Environment files, process-specific variables, queues, and URLs |
 | [Deployment](deployment.md) | Image-only production setup, local publishing, migrations, updates, and rollback |
 | [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
@@ -35,9 +35,9 @@ a guide names the production deployment directory or separate Supabase directory
 | [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
 | [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
 | [Naming](naming.md) | Brand, technical names, and infrastructure identities |
+| [Worker release history](worker-release-history.md) | Earlier distributed-worker rollouts and recorded validation results |
 | [Agent instructions](../AGENTS.md) | Repository-specific inspection, change, and validation rules |
 
-The implementation and source-controlled migrations determine current behavior.
-Runtime acceptance records describe specific tested configurations; they do not
-certify every recipe or newly discovered release. Update the relevant guide when
-behavior changes, and link to it from the [root README](../README.md).
+Update the relevant guide when behavior changes, and link to it from the
+[root README](../README.md). Record template export and launch results using
+[smoke tests](smoke-tests.md).

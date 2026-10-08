@@ -66,8 +66,9 @@ Node/tsx consumers, including package resolution and cache semantics.
 | SQL tests | Migrations, constraints, ownership, roles, sharing, maintenance policies | Docker and disposable local Supabase Postgres |
 | Native smoke tests | Real template install, export, and game launch | Matching Godot editor and target OS/browser/device |
 
-Fixtures and SCons dry-runs do not establish runtime acceptance. See
-[smoke tests](smoke-tests.md) and the [acceptance record](build-profiles.md#acceptance-tracking).
+For template installation, export, and launch checks, use
+[smoke tests](smoke-tests.md). Previous results are in the
+[acceptance record](build-profiles.md#acceptance-tracking).
 
 With a configured checkout, test inside the desktop image when host archive/
 compiler tools are missing:

@@ -1,8 +1,7 @@
 # Build profiles
 
-Use a matching official stable Godot editor to install and export with these
-custom templates. Structural validation and source audits establish packaging/
-compiler inputs, not runtime acceptance. See [smoke tests](smoke-tests.md).
+Use the official stable Godot editor matching the template's exact release.
+Follow [smoke tests](smoke-tests.md) to install, export, and run a game with it.
 
 ## Supported matrix
 
@@ -131,20 +130,20 @@ RSS was **1138.1 MiB**; this is not total parallel-worker memory.
 This records the owner's smoke-test result for the combined package. Separate
 debug/release launch results, debugger connection, console-wrapper launch,
 build ID, artifact hash/sizes and deployed recipe version were not supplied.
-It does not establish acceptance for other configurations or feature-specific
-audio/video/SVG/network behavior.
+Other configurations and audio/video/SVG/network features need their own tests.
 
-Run the smoke procedure for each newly discovered version/platform/kind matrix and compare sizes against Standard builds using the same recipe/toolchain. Custom recipes need a project that does not reference removed classes or resource formats. Compilation, packaging and native runtime acceptance are separate checks.
+Run the [smoke procedure](smoke-tests.md) for new versions, platforms, and template
+kinds. Compare sizes with Standard using the same recipe version and toolchain.
+Custom recipes need a test project compatible with the features they retain.
 
 Stage accounting changes from compiling to linking at the observed main link
-marker; these recorded intervals do not double-count time. Parallel compiler
-activity may still occur during the linking interval. This historical result
-does not establish acceptance of a newly deployed recipe/toolchain.
+marker, so each interval is counted once. Parallel compiler activity can occur
+during linking. See [performance](performance.md) for measurement details.
 
 ## Developer checks and source references
 
 Follow [development validation](development.md) for pure/fixture tests and opt-in
-exact-source compiler audits. Real export/launch remains a separate gate.
+exact-source compiler audits. Use [smoke tests](smoke-tests.md) for export and launch.
 
 Exact-version source references for the documented policy:
 

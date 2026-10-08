@@ -31,14 +31,18 @@ size counts the engine `.so`, excluding the APK container and C++ runtime.
 Swappy frame pacing is disabled; test frame timing on actual Android devices.
 
 Apply all pending migrations and deploy compatible frontend/workers using
-[deployment](deployment.md). To rebuild/start just the Android worker:
+[deployment](deployment.md). In a local development checkout, rebuild/start the
+Android worker with:
 
 ```bash
 npm run compose:android-builder:build
 ```
 
-The `builder` profile includes desktop, Web and Android workers. Android
-has its own queue, source, compiler cache, Gradle cache and job workspace volumes.
+Root `compose.yml` groups desktop, Web, and Android under the `builder` profile.
+Production uses the `android` profile in `compose.workers.prod.yml`; follow the
+[worker-host commands](deployment.md#dedicated-worker-host) to pull/start it.
+Android has separate source, compiler cache, Gradle cache, and workspace volumes.
+Its queue is consumed by the gateway in production or the direct worker locally.
 Allow several additional GB of disk for the SDK image and ample compile space.
 
 ## macOS on Linux
@@ -106,12 +110,16 @@ installation as `compiler/` at the archive root as
 are excluded from the Docker context. The toolchain must run in the Debian
 Bookworm worker and survive relocation to `/opt/osxcross`.
 
-Calculate its SHA-256 and set `MACOS_TOOLCHAIN_SHA256` in root `.env` to the
-64-character lowercase digest. Both web and worker must use that same value.
+Calculate its SHA-256 and set `MACOS_TOOLCHAIN_SHA256` in the build checkout's
+root `.env` to the 64-character lowercase digest. For production, also set it in
+the application and worker hosts' `.env` files and use it when enrolling the
+macOS worker. The value identifies the toolchain archive, not the Docker image.
 The Docker build verifies the archive before installing it. The worker checks
 the installed identity, required SDK/wrappers, both linkers, and both availability
 probe links before compiling. Changing the
 archive digest changes the artifact cache identity.
+
+For local development with the Compose web service:
 
 ```bash
 sha256sum toolchains/macos-toolchain.tar.xz
@@ -119,10 +127,15 @@ npm run compose:macos-builder:build
 npm run compose:web:build
 ```
 
-The macOS worker has a separate optional `macos-builder` Compose profile. It is
-excluded from the normal `builder` profile, so operators can provision it separately.
-It has its own queue and cache/workspace volumes. Do not enable macOS by setting
-a made-up digest: provision and verify the complete toolchain first.
+For a host-run development app, put the same digest in `apps/web/.env.local`
+and restart `npm run dev:web` instead of starting the Compose web service.
+For production, build and publish the macOS image from the provisioned checkout,
+then follow [deployment](deployment.md) to update the application settings,
+enroll the worker, and pull/start its image on the worker host.
+
+The optional macOS profile is `macos-builder` in root `compose.yml` and `macos`
+in `compose.workers.prod.yml`. Each uses dedicated cache/workspace volumes.
+Provision and verify the complete toolchain before enabling macOS.
 
 ## Cache and comparisons
 
@@ -150,9 +163,8 @@ coverage. The archive is verified against its official SHA-256 before measuring.
 
 Pure tests cover portable file validation, architecture combinations, cache
 identity and SCons generation. Fixture tests cover Android APK/AAR consistency,
-Mach-O architecture and archive permissions. These checks do not establish
-that a compiled/exported game runs. Android needs real debug/release device
-smokes for each offered ABI; macOS needs both architecture smokes and a universal
-export smoke after SDK provisioning. Leave runtime acceptance unconfirmed until
-those checks are actually performed. Follow [platform smoke tests](smoke-tests.md)
-and [development validation](development.md) for the separate gates.
+Mach-O architecture and archive permissions. For compiled templates, test
+Android debug/release exports on devices for each offered ABI. Test macOS exports
+on both architectures, including a universal export after SDK provisioning.
+Record results using [platform smoke tests](smoke-tests.md); run automated checks
+using [development validation](development.md).

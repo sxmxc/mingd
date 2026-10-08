@@ -13,8 +13,10 @@ Other versions/kinds/platforms/custom recipes need their own records.
 
 Deploy migrations and matching web/workers using [deployment](deployment.md).
 Set `BUILDER_DRY_RUN=false` and start the worker for the requested platform.
-For example, `npm run compose:builder:build` starts desktop and
-`npm run compose:web-builder:build` starts Web.
+Production workers follow the gateway's dry-run setting. Use the
+[production worker-host commands](deployment.md#dedicated-worker-host) to start
+the requested target. For local development, `npm run compose:builder:build`
+starts desktop and `npm run compose:web-builder:build` starts Web.
 
 For desktop, cover Linux/Windows with Standard, Lean 2D, Offline 2D, and Lean 3D.
 Request release/debug/both as applicable. Record build ID, normalized recipe,

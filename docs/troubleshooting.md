@@ -15,13 +15,14 @@ A response from a proxy's own authentication layer is not an Auth API response.
 After correcting a public URL/key, recreate the frontend:
 
 ```bash
-docker compose up -d --no-deps --no-build --force-recreate web
+docker compose -f compose.web.prod.yml up -d --no-deps --no-build --force-recreate web
 ```
 
-Current web images read these values at runtime. Older images predating this
-change need a one-time update to the runtime-configuration implementation.
-Check DNS/TLS/API reachability from both the browser and
-web container. Never replace the public key with a privileged key. See
+Use `compose.yml` if you renamed the production file. For host-run development,
+restart `npm run dev:web` after editing `apps/web/.env.local`.
+Current web images read these values at runtime; older images need an update.
+Check DNS/TLS/API reachability from the browser and web container. Never replace
+the public key with a privileged key. See
 [configuration](configuration.md) and
 [Supabase debugging guidance](https://supabase.com/docs/guides/monitoring-and-debugging).
 
@@ -40,28 +41,47 @@ also needs its originating browser.
 
 ## A build stays queued
 
-Check that the correct worker is started and consuming the same Redis instance
-and queue name as web. Linux/Windows use `builder`; Web and Android have their
-own workers. macOS is optional and needs an image containing the verified
-SDK/toolchain and a matching runtime digest; the archive stays on the build host.
+In production, the gateway consumes Redis queues on the application host. Remote
+workers connect to it over HTTPS with their enrollment tokens. Check both hosts;
+remote workers need no Redis or Supabase credentials.
 
-From the production deployment directory:
+On the application host:
 
 ```bash
-docker compose --profile builder --profile macos-builder ps
-docker compose --profile builder --profile macos-builder logs --tail=100 builder web-builder android-builder macos-builder
+docker compose -f compose.web.prod.yml ps
+docker compose -f compose.web.prod.yml logs --tail=100 worker-gateway
 ```
 
-Omit the macOS profile/service when disabled. To start every enabled service from
-published images, follow the
-[production pull/start commands](deployment.md#production-with-only-compose-and-env).
-A default `docker compose up -d --no-build` starts web/Redis/maintenance without
-workers unless profiles are enabled.
+Confirm that both gateway enable flags are true and `/healthz` reports
+`acceptingAssignments:true`. Check worker last-seen and capacity at `/admin/workers`
+or run `npm run workers -- list` from a configured operator checkout.
 
-Workers reconcile durable unfinished builds every 30 seconds. A Redis outage can
-leave a database submission waiting for that recovery. Queue counts and build
-counts differ: retained failed queue jobs may include earlier attempts. Check
-worker API connectivity as well as Redis.
+On the worker host, check the requested target. Desktop handles Linux/Windows;
+Web, Android, and macOS use their respective workers:
+
+```bash
+docker compose -f compose.workers.prod.yml ps
+docker compose -f compose.workers.prod.yml logs --tail=100 builder web-builder
+```
+
+For Android or macOS, add the `android` or `macos` profile to these commands and
+include that service in the logs command. macOS also needs a verified toolchain
+in its image and the same archive digest in application settings, enrollment,
+and worker settings. Use `compose.yml` in commands if you renamed the production
+file on that host. See [production setup](deployment.md#production-with-only-compose-and-env).
+
+For local development, direct workers consume Redis queues themselves. Check
+that web and the worker use the same Redis instance and queue name:
+
+```bash
+docker compose ps redis builder
+docker compose logs --tail=100 builder
+```
+
+The gateway checks for missing queue deliveries every five seconds; direct
+workers check every 30 seconds. A Redis outage can leave a recorded submission
+waiting for recovery. Queue counts can include earlier failed attempts, so they
+may differ from database build counts.
 
 ## A build is stale or failed
 
@@ -103,21 +123,24 @@ The worker now links an availability probe for both architectures before any
 Godot compilation. The changed archive digest invalidates the old cache identity;
 the global recipe version does not need a bump for an archive-only repair.
 
-A dry-run archive is not installable. Confirm `BUILDER_DRY_RUN=false` and rebuild/
-recreate the worker if its environment changed.
+A dry-run archive is not installable. For production, set `BUILDER_DRY_RUN=false`
+on the application host and recreate the gateway; remote workers follow its
+assignments. For local direct workers, set it in root `.env` and recreate the
+affected worker.
 
 ## Maintenance says Retry pending, or has no logs
 
 ```bash
-docker compose logs --tail=100 maintenance
+docker compose -f compose.web.prod.yml logs --tail=100 maintenance
 ```
 
 For an image update, publish and deploy a matched release using the
 [production procedure](deployment.md#production-with-only-compose-and-env).
 
-The current worker emits a startup message and safe failure reasons; idle polls
-are quiet. Older images may have lacked those diagnostics. Check container exit
-state and that worker URL/key reach Supabase. For release refresh, also check
+For local development, omit `-f compose.web.prod.yml`; use `compose.yml` if you
+renamed the production file. Maintenance logs startup and failures; idle polls
+are quiet. Check container exit state and its Supabase URL/key. For release
+refresh, also check
 outbound GitHub/archive access and the displayed safe importer reason.
 
 Retries wait 15 minutes and leases last 20 minutes. Requesting a task does not

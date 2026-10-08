@@ -1,8 +1,7 @@
 # Saved recipes, sharing, and size comparisons
 
-Recipes preserve validated semantic build settings. Saving, sharing, and portable
-files do not execute commands or queue builds automatically. Deployment uses the
-complete current migration history; see [deployment](deployment.md).
+Recipes save engine features, platform, version, and other validated build
+settings. Submit a build explicitly after loading or editing a recipe.
 
 ## Saved recipes
 
@@ -80,9 +79,8 @@ navigation, tiles, and audio. The snapshot contains only measured targets:
 | Web wasm32, threads enabled | Release | 38,820,072 | 30,035,934 |
 | Android arm64 | Release | 71,114,944 | 51,304,968 |
 
-No matching macOS build was recorded at snapshot time. The previous Windows-only
-15.47 MiB owner-reported example has been replaced by the recorded Offline 2D
-measurement. Tiles calculate percentages and MiB from the byte counts in
+No matching macOS build was recorded at snapshot time. The homepage calculates
+percentages and MiB from the byte counts in
 `apps/web/components/landing-comparisons.tsx`; the homepage does not query private
 artifacts to populate them. Update the snapshot only from real artifacts with
 matching normalized features and complete official references.
@@ -115,5 +113,5 @@ URL/privileged key before running. Only operators should import into production.
 [Development checks](development.md) include recipe/sharing SQL tests, comparison
 pure tests, and archive/reference fixtures. Manually check save/edit/duplicate,
 sharing/sign-in return/revocation, disabled-owner links, ownership, and narrow
-layouts when changing these flows. Synthetic comparisons and archive fixtures do
-not establish that a newly compiled template runs.
+layouts when changing these flows. Test compiled templates using
+[smoke tests](smoke-tests.md).

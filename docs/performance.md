@@ -21,11 +21,11 @@ architectures, compiler/link intervals are accumulated per invocation. One
 template's linking interval does not include the next template's compilation. The memory peak remains the maximum
 across measured commands, and cache counters aggregate the shared per-job statistics log.
 
-The persistent cache is shared; workspaces and statistics logs are isolated by job. SCons explicitly uses `c_compiler_launcher=ccache` and `cpp_compiler_launcher=ccache` for GCC and Windows MinGW, and imports `CCACHE_DIR`, `CCACHE_BASEDIR` and `CCACHE_STATSLOG` into its command environment. Merely adding wrapper binaries to PATH did not establish that Godot used the intended persistent cache.
+The persistent cache is shared; workspaces and statistics logs are isolated by job. SCons explicitly uses `c_compiler_launcher=ccache` and `cpp_compiler_launcher=ccache` for GCC and Windows MinGW, and imports `CCACHE_DIR`, `CCACHE_BASEDIR` and `CCACHE_STATSLOG` into its command environment. Explicit compiler launchers ensure SCons invokes ccache.
 
 `CCACHE_BASEDIR` is the job's source root. This allows equivalent source paths under different job roots to be rewritten consistently. Debug symbols remain disabled. We do not enable unsafe sloppiness, disable directory hashing, zero global cache counters or share mutable source workspaces. `CCACHE_STATSLOG` supplies each job's own result lines, avoiding subtraction of global counters contaminated by concurrent builds. The collector stores counts, not absolute workspace paths.
 
-Regression tests compile identical C++ source twice in different workspaces with GCC and MinGW, require a cold miss then a warm hit, and check identical object bytes. Run them inside the builder image to ensure both toolchains are exercised. These small compiler tests do not substitute for measuring a complete Godot build.
+Regression tests compile identical C++ source twice in different workspaces with GCC and MinGW, require a cold miss then a warm hit, and check identical object bytes. Run them inside the builder image to ensure both toolchains are exercised. Measure full Godot builds to assess the performance benefit.
 
 An optional source audit runs SCons dry-runs for all four presets on Linux and
 Windows, including release/debug, in a disposable source copy. It checks launcher
