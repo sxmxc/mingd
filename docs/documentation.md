@@ -32,6 +32,12 @@ Redis, Docker, or application environment variables.
 
 ## Editing guides
 
+The header logo uses the same image as the application:
+`apps/web/public/web-app-manifest-512x512.png`. Starlight imports that asset
+directly. The favicon is `apps/docs/public/favicon.ico`, copied from
+`apps/web/app/favicon.ico`; update both copies when changing it. These are
+configured in `apps/docs/astro.config.mjs`.
+
 Edit the existing files in `docs/`. Each page has YAML frontmatter with a `title`
 and an `editUrl` pointing to its source on GitHub. Keep the first Markdown heading
 for GitHub readers; the site omits it because Starlight displays the page title.
