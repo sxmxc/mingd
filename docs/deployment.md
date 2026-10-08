@@ -210,6 +210,33 @@ only after reviewing queue/recipe compatibility. Do not run both consumers.
 
 ## Persistence and updates
 
+Production keeps a shared `IMAGE_TAG` with optional
+[per-service overrides](configuration.md#container-image-selection). For example,
+to deploy the already published web image at v0.2.2 while keeping the other
+application services at v0.2.1, set these values in the application host's `.env`:
+
+```dotenv
+IMAGE_TAG=v0.2.1
+WEB_IMAGE_TAG=v0.2.2
+```
+
+Using the repository filename below (use `compose.yml` if renamed on the host),
+preview the selected images, then update only web:
+
+```bash
+docker compose -f compose.web.prod.yml config --images
+docker compose -f compose.web.prod.yml pull web
+docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never web
+```
+
+The worker host's `.env` controls workers independently. To stage one worker,
+set its override and drain that worker before pulling/recreating that service.
+Review migrations and protocol/recipe/target/toolchain compatibility before
+mixing releases. Use published release tags and do not overwrite them. For
+rollback, restore the affected service's previous tag and repeat pull/up.
+Remove an override when that service should follow `IMAGE_TAG` again. No separate
+deployment inventory file is required; each host's `.env` selects its images.
+
 Keep the existing Compose project name when replacing the full deployment with
 `compose.web.prod.yml`, so `redis-data` remains the same volume. Inspect
 `docker compose ls`; set `COMPOSE_PROJECT_NAME=<existing-name>` in that host's `.env`
@@ -220,9 +247,10 @@ Back up Postgres and Storage together with protected deployment settings and tok
 Redis uses append-only persistence. Compiler/source caches are rebuildable; build
 records/artifacts are user data. Test restores away from production.
 
-For subsequent releases, drain workers, publish a new matching release, review
-migrations/settings, update both hosts' `IMAGE_TAG` when pinned, and repeat
-pull/up/acceptance. Keep existing tokens for application-only upgrades; re-enroll
+For subsequent releases, publish a new shared release and review migrations/settings.
+Update the relevant host's `IMAGE_TAG` or service override, drain affected workers,
+and repeat pull/up/acceptance for the selected services. Existing overrides stay
+pinned when `IMAGE_TAG` changes. Keep existing tokens for application-only upgrades; re-enroll
 when enrolled recipe/target/toolchain capabilities change.
 Pull before up: `--no-build --pull never` makes missing images an explicit error.
 No production build, migration or publication is performed by CI.
