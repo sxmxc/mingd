@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.2.3}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.3.0}}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}

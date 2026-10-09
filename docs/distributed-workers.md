@@ -42,8 +42,10 @@ or the retained direct mode for local development/rollback.
 
 ## Release compatibility
 
-Deploy web, gateway, and workers from a tested release set, preferably one
-immutable release tag. All workspace manifests currently use **0.2.3**.
+Deploy a tested set of compatible web, gateway and worker images. Each service
+keeps its own immutable image tag; the root package version does not select the
+whole deployment. The [deployment guide](deployment.md#build-here-pull-on-production-ghcr)
+owns the release, publication and production update commands.
 Existing worker IDs and credentials survive routine application upgrades.
 Compatibility requires protocol **v1**, recipe **10**, the enrolled target, and
 macOS toolchain identity. Changing a recipe, target, or toolchain requires a
@@ -62,8 +64,8 @@ existing **8** major image policy. Record image digests when publishing because
 base tags can change.
 The original release 0.2.2 used recipe 9. Release 0.2.3 uses recipe
 10, accounts for Emscripten 6.0.11, and aligns Node images/types with Node 24.
-Deploy the matching web/gateway/workers together and upgrade enrollment to recipe
-10 before enabling them; recipe 9 enrollment is incompatible. Follow the
+Use compatible web/gateway/workers and upgrade enrollment to recipe
+10 before enabling the new workers; recipe 9 enrollment is incompatible. Follow the
 [compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
 NPM and production Supabase are managed separately.
 
@@ -301,7 +303,7 @@ MINGD_INTEGRATION_REDIS_URL=redis://127.0.0.1:16379 node --import tsx services/w
 Use a disposable local Redis database and a running local Supabase stack. The
 runner creates/removes its own users, builds, workers and artifacts. Set
 `MINGD_INTEGRATION_WORKER_IMAGE` to a newly built desktop image to run workers in
-separate Node 22 containers instead of host processes; each gets only its own token
+separate worker-image containers instead of host processes; each gets only its own token
 and test files. These runs use diagnostic archives. Test compiled templates
 with the [export and launch procedure](smoke-tests.md), and check multi-host
 recovery using the [cutover procedure](deployment.md#distributed-cutover-and-rollback).

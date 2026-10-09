@@ -24,7 +24,8 @@ operator commands, use [distributed workers](distributed-workers.md).
 
 The entries describe implementation milestones; not every intermediate image
 was published. Previously published `v0.1.2` images predate the completed
-transport. Current workspace manifests use 0.2.3.
+transport. These version numbers describe the recorded milestones, not the current
+per-service deployment tags. Use the deployment guide for current releases.
 
 ## Upgrading to 0.2.3
 

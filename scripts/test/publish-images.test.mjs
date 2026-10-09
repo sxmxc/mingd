@@ -207,9 +207,11 @@ test('targeted release builds and pushes use the service version without updatin
   assert.equal(built.status, 0, built.stderr);
   assert.deepEqual(built.calls.filter(call => call.includes('build')), [['compose', 'build', 'web']]);
   assert.match(built.saved, /WEB_IMAGE_TAG=v0.2.4/);
+  assert.equal((built.stdout.match(/Recorded WEB_IMAGE_TAG=/g) ?? []).length, 1);
   assert.doesNotMatch(built.saved, /WORKER_GATEWAY_IMAGE_TAG/);
   const pushed = run(['push', 'worker-gateway', '--release']);
   assert.equal(pushed.status, 0, pushed.stderr);
+  assert.equal((pushed.stdout.match(/Recorded WORKER_GATEWAY_IMAGE_TAG=/g) ?? []).length, 1);
   assert.ok(pushed.calls.some(call => call[0] === 'push' && call[1] === 'ghcr.io/example/mingd/worker-gateway:v0.2.3'));
   assert.match(pushed.saved, /WEB_IMAGE_TAG=v0.2.4/);
   assert.ok(!pushed.calls.some(call => call.includes('build')));

@@ -42,4 +42,4 @@ all consumers/data. Existing artifacts retain stored filenames; new output uses
 [architecture](architecture.md#cache-identity), not historical rebrand instructions.
 
 Run `npm ci` after checkout/dependency changes to restore correct workspace links.
-Follow [deployment](deployment.md) to drain jobs and deploy matching images.
+Follow [deployment](deployment.md) to drain jobs and deploy compatible service images at their independent tags.

@@ -110,7 +110,7 @@ try {
       }
     }
     if (!all) rememberTag(selection, tag);
-    if (release) for (const [name] of images) rememberTag(name, `v${versions[name]}`);
+    else if (release) for (const [name] of images) rememberTag(name, `v${versions[name]}`);
     console.log(`Completed ${operation} for ${images.length} images with their individual tags.`);
   }
 } catch (error) {

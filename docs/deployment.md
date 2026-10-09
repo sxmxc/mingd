@@ -22,94 +22,110 @@ From an authorized source checkout, use `.nvmrc`, run `npm ci`, and pass the
 [CI checks](ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the checkout's root
 `.env`. Authenticate with `docker login ghcr.io` using Docker's credential storage.
 
+### Where each command runs
+
+| Location | Files | Commands |
+| --- | --- | --- |
+| Build checkout | Source, root `.env`, Dockerfiles | `npm run release`, validation, image `build` and `push` |
+| Operator checkout | Source and privileged backend settings | `npm run workers`; may be the same machine as the build checkout |
+| Application deployment directory | `compose.web.prod.yml`, its own `.env` | Docker pull/recreate for web, gateway and maintenance |
+| Each worker deployment directory | `compose.workers.prod.yml`, its own `.env`, token files | Docker pull/recreate for compilers |
+
+A build, a registry push, and a production deployment are three separate actions.
+Publishing an image does not change production. Production `.env` files contain
+host-specific settings; do not replace them with the build checkout's `.env`.
+Use the production filenames shown here. If a deployed file was renamed to
+`compose.yml`, substitute that filename in `-f`; do not run the source checkout's
+root Compose file as the distributed production stack.
+
 ### Build, push, and publish
 
-All three commands use a service name or `all`:
+The normal release path is **bump selected services → validate → build those
+images → push those images → update production tags → pull/recreate**.
+Each service keeps its own image version; the root package version does not
+select all images. Once a step has succeeded, continue to the next step.
+
+For a web-only release, run in the build checkout:
 
 ```bash
-# Build and push only web, then remember its tag in root .env.
-npm run publish -- web -- v0.2.4
-
-# Or build and push in separate steps.
-npm run build -- web -- v0.2.4
-npm run push -- web -- v0.2.4
-
-# Push every image at its own recorded tag. No shared version argument.
-npm run publish -- all
+npm run release -- bump patch --service web --dry-run
+npm run release -- bump patch --service web
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm run build -- web --release
+npm run push -- web --release
 ```
 
-`publish <service> -- <tag>` builds only that service and pushes both the requested
-tag and its `latest` alias. `build` builds without pushing; targeted `push` pushes
-both tags without building. The version tag is pushed before `latest`. After a successful targeted
-operation, the helper records the service's tag in the build checkout's `.env`,
-using the same variables as production (`WEB_IMAGE_TAG`, `BUILDER_IMAGE_TAG`, etc.).
-Other settings and service tags are preserved. A failed targeted build or push
-is not recorded as successful.
+Repeat `--service` on the bump command to select several services. Build and push
+each selected service using its name and `--release`. `minor` resets patch;
+`major` resets minor and patch. Review and commit the tracked release changes.
+For binary-affecting compiler/toolchain changes, use the
+[compiler rollout checklist](#compiler-recipe-and-toolchain-upgrade-checklist),
+which adds recipe identity, draining and worker enrollment steps.
 
-`publish all` and `push all` push the configured local images without rebuilding
-or retagging them. For example, with `IMAGE_TAG=v0.2.3` and
-`WEB_IMAGE_TAG=v0.2.4`, web stays at **v0.2.4** and unchanged workers stay at
-**v0.2.3**. `all` rejects a version argument and does not promote services to `latest`.
-Only targeted push/publish updates a service's `latest` alias. Workspace versions
-and Git tags are unchanged. Choose a new tag when replacing a
-service's image; image tags do not have to match the application's version.
+`npm run build` without arguments validates/builds application workspaces;
+it does **not** build Docker images. `build -- <service> --release` builds one
+Docker image at its prepared tag. `push -- <service> --release` pushes that
+already-built image without rebuilding. Successful targeted pushes also update
+that image's `latest` alias, but production uses the explicit versioned tag.
+`--release` reads each service's production default and versioned build-checkout
+`.env` override, using the newer known version; exported shell image tags do not
+replace that selection. It does not query the registry or bump versions.
 
-To build the full set first, run `npm run build -- all`. It builds images under
-their currently configured tags; use this when those tags are the ones you intend
-to build. The optional macOS image participates in `all` only when its configured
-local image already exists. Build/publish `macos-builder` explicitly after
-provisioning its SDK/toolchain. Redis is never built or published by these helpers.
+### Publish already-built compiler images
 
-The available services are `web` (Next.js app), `worker-gateway`, `maintenance`,
-`builder` (desktop compiler), `web-builder` (Godot Web compiler), `android-builder`,
-and `macos-builder`. To update multiple services, run targeted commands for each:
+If the release bump and Docker image builds have already succeeded, **start here**.
+Do not bump again or use `publish <service>`, which would build again. On the
+build host, authenticate with `docker login ghcr.io`, then push only the images
+you rebuilt:
 
 ```bash
-npm run publish -- builder -- v0.2.3
-npm run publish -- web-builder -- v0.2.3
-npm run publish -- android-builder -- v0.2.3
+npm run push -- builder --release
+npm run push -- web-builder --release
+npm run push -- android-builder --release
+npm run push -- macos-builder --release
+npm run push -- web --release
 ```
 
-Add `--dry-run` to preview an operation without building, pushing, or editing
-`.env`. For `all`, preflight checks required local images before any push. A
-successful push and final completion message establish publication; plan lines
-alone do not. Registry pushes across services are not atomic.
+Omit targets you did not build/use. Push `worker-gateway` or `maintenance` only
+if those services also received a new version and were rebuilt. If a push fails,
+finish publishing the tested image set before changing production. Never replace
+an already published version with different contents.
 
-The build checkout's root `.env` is the record used by subsequent operations.
-If images were previously published manually, set their per-service tags there
-before using `all`. Exported Compose variables take precedence over `.env`;
-keep image selection in `.env` rather than leaving older exported overrides.
-
-GHCR publishing requires a classic PAT with `write:packages`; private-image pulls
-need `read:packages`. Keep tokens out of `.env`, Docker build arguments and source.
-All application Dockerfiles carry the repository source label; worker variants
-inherit it. Keep macOS images private because they include the operator Apple SDK.
-The current cross-compilation images target Linux x86_64 build hosts.
+Add `--dry-run` to preview any individual push. The preview shows the image tag
+and performs no push; the real command checks the local image and pushes it.
+A successful push and final completion message establish publication. Registry
+pushes across services are not atomic.
 
 ### Deploy only what changed
 
-Publishing does not restart production. On the application host, set the
-published tag in its separate `.env`, for example `WEB_IMAGE_TAG=v0.2.4`, then:
+After successful publication, set the published per-service tags in each
+production host's **existing** `.env`. The release bump records those tags in
+`.env.web.prod.example` and `.env.workers.prod.example`. Copy only the relevant
+`*_IMAGE_TAG` values from those files, preserving each host's other settings.
+`IMAGE_TAG` is only a fallback; explicit `*_IMAGE_TAG` entries select independent releases.
+
+On the application host, for a web-only update:
 
 ```bash
+docker compose -f compose.web.prod.yml config --images
 docker compose -f compose.web.prod.yml pull web
-docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never web
+docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never --force-recreate web
 ```
 
-Other application services and workers remain on their selected tags. On worker
-hosts, set the corresponding variables, such as `BUILDER_IMAGE_TAG=v0.2.3`.
-Drain affected workers and wait for active assignments to finish, then:
+For compiler recipe/toolchain changes, continue at
+[checklist step 4](#compiler-recipe-and-toolchain-upgrade-checklist) before
+recreating workers. That checklist owns the stop/token/verification/resume order.
+Other services remain on their selected tags. Keep the Compose project name and
+volumes. A restart does not apply new images, env values or token mounts.
 
-```bash
-docker compose -f compose.workers.prod.yml pull builder
-docker compose -f compose.workers.prod.yml up -d --no-deps --no-build --pull never builder
-```
-
-Use the actual deployment filename if renamed to `compose.yml`. Review
-[release compatibility](distributed-workers.md#release-compatibility) before
-mixing versions. Roll back by selecting the prior service tag and repeating
-pull/up. Copy only the desired image-tag settings between hosts; their `.env`
-files also contain different credentials and process configuration.
+Redis is not built/published by these helpers. GHCR publishing needs a classic
+PAT with `write:packages`; private-image pulls need `read:packages`. Store login
+credentials through Docker, not in `.env`, source or build arguments. Keep macOS
+images private because they include the operator Apple SDK. Current compiler
+images target Linux x86_64 build hosts.
 
 ## Database migrations
 
@@ -185,7 +201,7 @@ configuration remains in the [Supabase installation](self-hosted-supabase.md).
 
 ### Dedicated worker host
 
-Keep `compose.workers.prod.yml`, `.env` and `worker-tokens/` on the build host.
+Keep `compose.workers.prod.yml`, `.env` and `worker-tokens/` on each worker host.
 Use [`.env.workers.prod.example`](../.env.workers.prod.example). Transfer the
 individual enrolled token files as described in
 [worker enrollment](distributed-workers.md#authentication-and-operator-controls).
@@ -223,14 +239,12 @@ For a deployed file named `compose.yml` with those targets enabled:
 docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
 ```
 
-Release 0.2.3 uses `IMAGE_TAG=v0.2.3`, retains protocol v1, and adds no migrations.
-Recipe 10 accounts for the Emscripten 6.0.11 update. Drain work, deploy matching
-web/gateway/worker images, and upgrade enrollment for recipe 10; recipe 9
-enrollment is incompatible. Apply the full migration history before deployment.
-For subsequent compatible upgrades, enrollments keep their tokens. Initial CPU readings at
-`/admin/workers` need two 30-second samples. See
-[worker release history](worker-release-history.md#upgrading-from-before-021)
-for deployments predating release-independent enrollment compatibility.
+Recipe 10 accounts for the Emscripten 6.0.11 update. Recipe 9 enrollment is
+incompatible. Use the [compiler rollout checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
+when updating enrolled recipe/toolchain capabilities; application-only upgrades
+keep existing tokens when compatibility is unchanged. Initial CPU readings at
+`/admin/workers` need two 30-second samples. Earlier deployment milestones are in
+[worker release history](worker-release-history.md).
 
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
@@ -251,75 +265,54 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    supported Godot sources against the new toolchain. Bump
    `BUILD_RECIPE_VERSION` once for the changed binary semantics and update its
    cache tests. Do not bump it just for an application version change.
-   Advance each component from its own current version. The default selects all
-   components for this compiler rollout; it does not force their versions equal:
+   Select the services whose images changed, and bump their own versions.
+   For the compiler fleet plus web, a patch release preview is:
 
    ```bash
    nvm use
-   npm run release -- bump patch --dry-run
-   npm run release -- bump patch
+   npm run release -- bump patch --service builder --service web-builder --service android-builder --service macos-builder --service web --dry-run
+   ```
+
+   Remove `--dry-run` to apply the chosen bump once. Use `minor` or `major` if
+   appropriate for the release. Omit unused targets; add `--service worker-gateway`
+   or `--service maintenance` when their images also changed. The root package
+   and unselected services stay on their own releases. If you already bumped,
+   skip the bump commands. Do not increment an already-prepared recipe again.
+
+   ```bash
    npm ci
    npm run typecheck
    npm test
    npm run build
    ```
 
-   If the component versions have **already** been bumped for this rollout, use
-   `npm run release -- tags` instead of bumping it again. `bump` updates all
-   workspace versions independently, their lockfile entries, production
-   Compose/example defaults, and the build checkout's per-service `.env` tags.
-   It starts each image from the newer of its recorded production default and
-   versioned local tag, so an earlier targeted web release is preserved. For
-   example, repo/gateway 0.2.3 and web image 0.2.4 become repo/gateway 0.2.4 and
-   web 0.2.5 after a patch bump. `minor` resets patch; `major` resets minor and
-   patch: 0.3.5 becomes 0.4.0 or 1.0.0 respectively. Review the dry-run's
-   per-component transitions and commit the tracked changes;
-   write release notes separately. It does not commit, tag Git, publish images,
-   or change `BUILD_RECIPE_VERSION` automatically.
+   Review and commit the tracked release changes. The release helper updates
+   selected workspace/lockfile entries, production defaults and local image tags.
+   Shared builder software metadata advances once for its selected image variants;
+   image tags still keep separate histories. It does not commit, tag Git, publish
+   images, or change `BUILD_RECIPE_VERSION` automatically.
 
-   For a release affecting only one service, use, for example,
-   `npm run release -- bump patch --service web`, then
-   `npm run build -- web --release` and `npm run push -- web --release`.
-   That leaves the repo version and other services' image tags unchanged.
-   Repeat `--service` to select several services in one bump, for example
-   `npm run release -- bump minor --service builder --service web-builder --service android-builder --service macos-builder --service web --dry-run`.
-   Review the preview, then remove `--dry-run` to prepare those releases. Each
-   selected image advances once, and each shared workspace advances once.
-   Compiler variants and maintenance share `services/builder/package.json`;
-   its software version advances when any of those services is released, while
-   their individual image tags retain separate histories. Bulk worker enrollment
-   records this builder software version, independently of the gateway version.
-
-2. **Build every required compiler and application image at its prepared tag.**
-   Keep `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the build host's root `.env`.
+2. **Build the selected images on the build host.** If they are already built,
+   skip to publication. For the compiler fleet plus web:
 
    ```bash
-   npm run build -- all --release --dry-run
-   npm run build -- all --release
+   npm run build -- builder --release
+   npm run build -- web-builder --release
+   npm run build -- android-builder --release
+   npm run build -- macos-builder --release
+   npm run build -- web --release
    ```
 
-   `--release` uses each service's prepared version from the production defaults
-   and build checkout's versioned tags; it overrides exported shell image tags.
-   The repo version is not used as a shared image version. If macOS workers are in use,
-   provide the verified `toolchains/macos-toolchain.tar.xz` and matching
-   `MACOS_TOOLCHAIN_SHA256`, and add `--include-macos` to both commands. Otherwise
-   optional macOS is skipped when its new image does not exist. Validate real
-   compilation/export/launch on the affected targets before publishing; dry-run
-   pipeline archives and unit checks do not establish compiler acceptance.
+   Omit unused targets. Building macOS requires the verified
+   `toolchains/macos-toolchain.tar.xz` and matching `MACOS_TOOLCHAIN_SHA256`.
+   Validate real compilation/export/launch on affected targets; diagnostic
+   archives and unit checks do not establish compiler acceptance.
 
-3. **Publish the built images.** Authenticate to GHCR using the documented
-   publishing setup, then:
-
-   ```bash
-   npm run push -- all --release --dry-run
-   npm run push -- all --release
-   ```
-
-   This pushes versioned images without rebuilding or promoting `latest`.
-   Existing `publish all` behavior is unchanged: it only pushes existing images.
-   Partial publication is possible if a registry request fails; finish publishing
-   the complete tested image set before deploying. Never replace an already
-   published version tag with different image contents; prepare a newer version.
+3. **Push the selected, already-built images on the build host.** Run the commands
+   in [publish already-built compiler images](#publish-already-built-compiler-images).
+   This is the publication step; the later production-host commands only pull
+   those published images. If already published, continue below without rebuilding
+   or bumping again.
 
 4. **Quiesce the old fleet on the application/operator host.** Pause submissions
    in `/admin/settings`, and let **queued and active** builds finish under the old
@@ -344,7 +337,7 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    volumes, and token mounts. Run in the deployed worker Compose directory:
 
    ```bash
-   docker compose --profile '*' stop builder web-builder android-builder macos-builder
+   docker compose -f compose.workers.prod.yml --profile '*' stop builder web-builder android-builder macos-builder
    ```
 
    Select only services present in that deployment. Keep submissions paused.
@@ -377,51 +370,53 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    fleet still stopped and idle, rerunning into another fresh directory replaces
    all enabled workers' credentials again and produces a complete new set.
 
-7. **Align deployment image tags and recreate the services.** Do this for the
-   application host and each worker host's separate `.env`. From the new release
-   checkout, point the command at the actual local deployment env file:
+7. **Update each production host's existing `.env`, then pull/recreate.**
+   Publishing must have succeeded before this step. The release bump has already
+   recorded each image tag in `.env.web.prod.example` and
+   `.env.workers.prod.example` in the build checkout. Copy only the published
+   services' `*_IMAGE_TAG` lines from those files into the corresponding host's
+   existing `.env`. This step does not bump, build, or publish anything.
+
+   On the **application host**, edit only the published services' tag entries
+   in its existing `.env`: `WEB_IMAGE_TAG`, `WORKER_GATEWAY_IMAGE_TAG`, and/or
+   `MAINTENANCE_IMAGE_TAG`. Leave unchanged services at their existing tags.
+   For a rollout that changed web but not gateway/maintenance, run there:
 
    ```bash
-   npm run release -- tags --env-file /path/to/deployment/.env --dry-run
-   npm run release -- tags --env-file /path/to/deployment/.env
+   docker compose -f compose.web.prod.yml config --images
+   docker compose -f compose.web.prod.yml pull web
+   docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never --force-recreate web
    ```
 
-   It exports the build checkout's independent service tags without bumping
-   versions, preserving unrelated settings and file permissions. `IMAGE_TAG`
-   remains a fallback; explicit per-service tags select each release. On hosts
-   without a checkout/Node, generate a **new tag-only file** on the build host:
+   If gateway/maintenance were also rebuilt and published at new tags, append
+   their service names to the pull/up commands.
+
+   On **each worker host**, edit the tags for its published targets in that host's
+   existing `.env`: `BUILDER_IMAGE_TAG`, `WEB_BUILDER_IMAGE_TAG`,
+   `ANDROID_BUILDER_IMAGE_TAG`, and/or `MACOS_BUILDER_IMAGE_TAG`.
+   Keep the new `*_WORKER_TOKEN_FILE` paths from step 6. For a host running all
+   four targets, run there:
 
    ```bash
-   npm run release -- tags --env-file /tmp/mingd-image-tags.env
+   docker compose -f compose.workers.prod.yml --profile android --profile macos config --images
+   docker compose -f compose.workers.prod.yml --profile android --profile macos pull builder web-builder android-builder macos-builder
+   docker compose -f compose.workers.prod.yml --profile android --profile macos up -d --no-deps --no-build --pull never --force-recreate builder web-builder android-builder macos-builder
    ```
 
-   Transfer that file to `image-tags.env` in each deployment directory. Compose
-   accepts multiple env files, with the later file taking precedence. Add
-   `--env-file .env --env-file image-tags.env` immediately after `docker compose`
-   in every pull/up command below. This leaves each host's private `.env` intact
-   while applying the generated per-service release tags. Check for
-   stale exported `IMAGE_TAG`/`*_IMAGE_TAG` shell variables, which take precedence
-   over env files, and unset them before deployment. Keep worker token paths as
-   configured in step 6.
-   On the application host:
+   For desktop/Web only, remove both profile flags and the Android/macOS service
+   names. For Android without macOS, retain only `--profile android` and remove
+   `macos-builder`. Apply these changes to the pull/up commands and use the
+   corresponding profile flags for config. Inspect
+   `config --images` before pulling to confirm the exact tags. Clear stale exported
+   image-tag variables if they override the host's `.env`.
 
-   ```bash
-   docker compose pull web worker-gateway maintenance
-   docker compose up -d --no-build --force-recreate web worker-gateway maintenance
-   ```
+   This path uses one `.env` per host; no second tag file or Node installation is
+   required on production. Do not replace an entire production `.env`
+   with a tag-only file or a build-host env file.
 
-   On each worker host, pull and recreate its enabled targets (include Android
-   and/or macOS profiles only when used):
-
-   ```bash
-   docker compose pull builder web-builder
-   docker compose up -d --no-build --force-recreate builder web-builder
-   ```
-
-   Recreate rather than restart: image tags, env values, and token mounts must
-   be reapplied. Keep source, ccache, Gradle, and work volumes; do not run
-   `down -v`, flush Redis, or delete old artifact rows. The new recipe hash
-   separates artifact reuse automatically. Record the deployed image digests.
+   Preserve the Compose project name and source, ccache, Gradle and work volumes.
+   Do not run `down -v`, flush Redis, or delete old artifact rows. The recipe hash
+   separates artifact reuse automatically. Record deployed image digests.
 
 8. **Verify, then resume.** Confirm gateway `/healthz`, expected worker IDs,
    current recipe/toolchain identity, heartbeats, and no unexpected failures in
@@ -444,7 +439,7 @@ these commands. Keep a copy of the previous deployment tags and configuration.
 1. Pause submissions in `/admin/settings` and let queued/active direct builds finish.
    Keep the current release/configuration for rollback. Stopping an active compiler
    interrupts its job; prefer a drained transition.
-2. Apply migrations and publish matching 0.2.3 images. Copy the two production files
+2. Apply migrations and publish a tested set of compatible service images. Copy the two production files
    to their respective hosts. Preserve the application Compose project name and
    Redis volume. Configure NPM upload limits and worker HTTPS reachability.
 3. Stop existing direct builders using their old deployment definition:
@@ -468,32 +463,14 @@ only after reviewing queue/recipe compatibility. Do not run both consumers.
 
 ## Persistence and updates
 
-Production keeps a shared `IMAGE_TAG` with optional
-[per-service overrides](configuration.md#container-image-selection). For example,
-to deploy the already published web image at v0.2.2 while keeping the other
-application services at v0.2.1, set these values in the application host's `.env`:
-
-```dotenv
-IMAGE_TAG=v0.2.1
-WEB_IMAGE_TAG=v0.2.2
-```
-
-Using the repository filename below (use `compose.yml` if renamed on the host),
-preview the selected images, then update only web:
-
-```bash
-docker compose -f compose.web.prod.yml config --images
-docker compose -f compose.web.prod.yml pull web
-docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never web
-```
-
-The worker host's `.env` controls workers independently. To stage one worker,
-set its override and drain that worker before pulling/recreating that service.
-Review migrations and protocol/recipe/target/toolchain compatibility before
-mixing releases. Use published release tags and do not overwrite them. For
-rollback, restore the affected service's previous tag and repeat pull/up.
-Remove an override when that service should follow `IMAGE_TAG` again. No separate
-deployment inventory file is required; each host's `.env` selects its images.
+Each host's existing `.env` selects independent per-service image tags.
+`IMAGE_TAG` is a fallback for unset service tags, not a lockstep release version.
+Use [deploy only what changed](#deploy-only-what-changed) for application-only
+updates and the [compiler checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
+for binary recipe/toolchain changes. Rollback uses prior service tags with the
+same pull/recreate procedure; a recipe enrollment change also needs compatible
+worker enrollment, as described in the checklist. No separate inventory file is
+required. Review migrations and protocol/recipe/target/toolchain compatibility.
 
 Keep the existing Compose project name when replacing the full deployment with
 `compose.web.prod.yml`, so `redis-data` remains the same volume. Inspect
@@ -505,12 +482,10 @@ Back up Postgres and Storage together with protected deployment settings and tok
 Redis uses append-only persistence. Compiler/source caches are rebuildable; build
 records/artifacts are user data. Test restores away from production.
 
-For subsequent updates, publish the changed services and review migrations/settings.
-Update the relevant host's `IMAGE_TAG` or service override, drain affected workers,
-and repeat pull/up/acceptance for the selected services. Existing overrides stay
-pinned when `IMAGE_TAG` changes. Keep existing tokens for application-only upgrades; re-enroll
-when enrolled recipe/target/toolchain capabilities change.
-Pull before up: `--no-build --pull never` makes missing images an explicit error.
+Keep existing tokens for compatible application-only upgrades. Use `upgrade --all`
+for the drained compiler fleet when enrolled recipe/toolchain capabilities change;
+initial enrollment is for new worker identities. Pull before up:
+`--no-build --pull never` makes missing images an explicit error.
 Application CI does not build/publish production images or apply migrations.
 The separate documentation workflow publishes the static documentation site.
 
@@ -528,13 +503,14 @@ use Docker commands directly.
 | --- | --- |
 | `npm run release -- bump <patch\|minor\|major> [--dry-run]` | Advance every component from its own current version; update lockfile, defaults and per-service image tags |
 | `npm run release -- bump patch --service web` | Advance only the web package/image release; keep the repo and other services' versions |
-| `npm run release -- tags [--env-file <file>]` | Export each service's prepared image tag without another version bump |
+| `npm run release -- tags [--env-file <file>]` | Optional local env-file editor; does not publish, deploy, or reach another host. Not a required release step |
 | `npm run build -- <service> -- <tag>` | Build one image and remember its tag |
 | `npm run push -- <service> -- <tag>` | Push one existing image as its version and latest; remember its version |
 | `npm run publish -- <service> -- <tag>` | Build/push one image as its version and latest; remember its version |
-| `npm run build -- all` | Build the full image set using each service's configured tag |
+| `npm run build -- all` | Optional full-set build at configured tags; prepare new tags for every changed image first |
 | `npm run build -- <all\|service> --release` | Build using each selected service's prepared tag; build all accepts `--include-macos` |
-| `npm run push -- all --release` | Push the tested independent image tags without rebuilding or promoting latest |
+| `npm run push -- <service> --release` | Normal publication step: push one already-built image at its prepared tag; also update its latest alias |
+| `npm run push -- all --release` | Optional full-set push, including unchanged services, without rebuilding or promoting latest |
 | `npm run push -- all` / `npm run publish -- all` | Push each service's configured image without rebuilding or retagging |
 | `npm run compose -- up -d --build` | Build/start root Compose's default services |
 | `npm run compose -- up -d --build builder web-builder android-builder` | Build/start direct workers and their Redis dependency |

@@ -103,7 +103,9 @@ manual review: verify the exact Godot releases with real compilation and export
 smoke tests, then bump `BUILD_RECIPE_VERSION` before publishing new workers.
 Recipe 10 accounts for the Emscripten 6.0.11 update; it invalidates recipe 9
 artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
-not establish native acceptance of the new compiler.
+not establish native acceptance of the new compiler. Follow the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
+for releasing these changes; this guide covers local validation, not production deployment.
 
 | Checks | What they establish | Additional requirements |
 | --- | --- | --- |

@@ -28,8 +28,9 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
 | `IMAGE_TAG` | `latest` | Fallback image tag for services without an individual tag |
 
-Root and production Compose accept per-service tags. Production defaults to
-`v0.2.3`; the root checkout defaults to `latest`:
+Root and production Compose accept per-service tags. Production defaults are
+recorded independently in the two production Compose files; root Compose falls
+back to `latest`:
 
 | Variable | Service | Production file (also supported in root Compose) |
 | --- | --- | --- |
@@ -46,18 +47,16 @@ Unset or empty service tags fall back to `IMAGE_TAG`. Remove a service tag to
 return that service to the fallback. These settings apply to root Compose as
 well as the corresponding production file.
 
-`npm run build|push|publish -- <service> -- <tag>` records the service tag in the
-build checkout's root `.env` after success. `npm run publish -- all` uses each
-service's configured tag and never assigns a shared version or promotes `latest`.
-Targeted `push` and `publish` push the requested version and update only that
-service's `latest` alias; the recorded service tag remains the explicit version.
-The application's package version is independent of these selections.
-See [image publication](deployment.md#build-here-pull-on-production-ghcr) for commands.
+Release preparation advances selected services' independent versions and records
+their tags in the root `.env`, production Compose defaults and production env
+examples. Build and push use `--release` to select those prepared tags. The root
+package version does not force a shared image version. For the exact command
+order, use [deployment](deployment.md#build-here-pull-on-production-ghcr).
 
-Production uses separate image-only `compose.web.prod.yml` and
-`compose.workers.prod.yml` files with their own host-specific `.env`. Publishing
-from a source checkout does not change those files or restart deployed services;
-select the published service tag on the affected host, then pull/recreate it.
+Each production host's existing `.env` is its deployment configuration. Copy only
+published services' `*_IMAGE_TAG` values from the prepared env examples; preserve
+that host's other settings. Publishing from a source checkout does not update
+production `.env` files or restart containers. Pull/recreate is a separate action.
 `WEB_PORT` is optional; omit it to keep the default host port `3000`.
 
 ## Web and shared services
@@ -145,8 +144,8 @@ update the canonical URL or allowed Auth redirects automatically.
 
 Use [`.env.web.prod.example`](../.env.web.prod.example) on the application host and
 [`.env.workers.prod.example`](../.env.workers.prod.example) on dedicated worker hosts.
-Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.3`; root Compose retains
-`mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
+Production files default to `ghcr.io/sxmxc/mingd` and per-service release tags;
+root Compose retains `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.
 
 | Variable | Consumer | Default / meaning |

@@ -36,7 +36,7 @@ commands are outside the supported build contract.
 ## Run it
 
 Use npm workspaces and Node **24.21.0**, pinned in [.nvmrc](.nvmrc). Docker images
-currently use Node 22 independently of the host runtime.
+use Node 24 independently of the host runtime.
 
 - **Develop locally:** follow [getting started](https://sxmxc.github.io/mingd/getting-started/) for
   local Supabase, Next.js development, and workers.
@@ -50,7 +50,8 @@ Production uses `compose.web.prod.yml` on the application host and
 `compose.workers.prod.yml` on dedicated build hosts, each with its own `.env`.
 Workers connect over authenticated HTTPS; Redis stays private. Builds and
 migrations run from an authorized checkout. See [production deployment](https://sxmxc.github.io/mingd/deployment/#production-with-only-compose-and-env)
-for setup, updates, optional macOS workers, and rollback.
+for initial setup. For releases, use the [build, push and deployment procedure](https://sxmxc.github.io/mingd/deployment/#build-here-pull-on-production-ghcr);
+compiler recipe/toolchain changes use its rollout checklist.
 
 ## Documentation
 
