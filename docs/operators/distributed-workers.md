@@ -1,15 +1,14 @@
 ---
 title: "Distributed workers"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/distributed-workers.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/distributed-workers.md
 ---
 
 # Distributed workers
 
-Release **0.2.3** includes the HTTPS gateway and remote workers introduced in 0.2.0,
-plus improved failure diagnostics and stable worker identities across application upgrades. Production uses
-separate application and build hosts. Redis stays inside the application Compose
-network; build hosts receive individual worker credentials and no privileged
-Supabase key. No VPN, public-IP change or new backend platform is required.
+Production uses an HTTPS gateway and credential-only remote workers. This guide
+covers their topology, compatibility, enrollment, protocol and diagnostics.
+[Deployment](deployment.md) owns publication and production update commands;
+[worker release history](../archive/worker-release-history.md) preserves older rollout notes.
 
 ## Production topology
 
@@ -26,9 +25,9 @@ flowchart LR
   Build --> Source[Allowlisted official Godot source]
 ```
 
-Cloudflare DNS may continue resolving these hostnames to private addresses.
-Workers need a route to those addresses. Existing publicly trusted HTTPS
-certificates remain appropriate; workers require verified HTTPS and reject
+The hostnames above are deployment examples matching the checked-in settings.
+Use your own reachable app, gateway and Supabase addresses. Private DNS/TLS is
+supported; workers need a route to the gateway. Use trusted HTTPS certificates; workers require verified HTTPS and reject
 redirects. They expose no listener. NPM forwards HTTP to the application host's
 port **3001**, or `worker-gateway:3001` on a shared Docker network. Compose publishes
 the port without requiring a host-IP environment variable. Restrict upstream
@@ -63,19 +62,17 @@ deploy the new gateway before starting/resuming the new workers, following the
 
 Bump the protocol for incompatible HTTP changes and the recipe when binary
 inputs or packaging change. Keep published release tags immutable. See
-[worker release history](worker-release-history.md) for earlier rollout details.
+[worker release history](../archive/worker-release-history.md) for earlier rollout details.
 
-Container Node uses **24 / Debian Bookworm**; operator Node is **24.21.0** via
-`.nvmrc`. Fastify is exactly **5.12.5**. The lockfile retains BullMQ **6.3.11**,
-ioredis **6.0.0**, Supabase JS **2.117.2** and Next.js **16.3.8**. Redis retains the
-existing **8** major image policy. Record image digests when publishing because
-base tags can change.
-The original release 0.2.2 used recipe 9. Release 0.2.3 uses recipe
-10, accounts for Emscripten 6.0.11, and aligns Node images/types with Node 24.
-Use compatible web/gateway/workers and upgrade enrollment to recipe
-10 before enabling the new workers; recipe 9 enrollment is incompatible. Follow the
-[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
-NPM and production Supabase are managed separately.
+Worker containers use Node 24 / Debian Bookworm. Use `.nvmrc` for the operator
+runtime and `package-lock.json` for exact application dependencies. Record image
+digests when publishing because base tags can change.
+
+The current compiler recipe is **10**, including the digest-pinned Emscripten
+6.0.11 toolchain. Recipe 9 enrollment is incompatible with it. Use the
+[compiler rollout procedure](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
+when changing recipe/toolchain identities. Application and image versions are
+independent of the protocol and recipe numbers.
 
 ## Authentication and operator controls
 
@@ -296,26 +293,10 @@ credential re-enrollment is needed for that deployment correction.
 
 ## Validation and production acceptance
 
-Repository tests cover protocol boundaries, credential operations, queue/lease
-adapters, process cancellation and package validation. SQL/RLS tests cover ownership,
-capacity, expiry/replacement, terminal states, upload publication and cleanup.
-The optional local integration runner uses real HTTPS with an ephemeral test CA,
-two credential-only worker processes, local Redis/Supabase, dry-run packaging,
-streamed uploads, integrity verification, cache reuse, missing-delivery repair,
-expiry, gateway restart and revocation:
-
-```bash
-MINGD_INTEGRATION_REDIS_URL=redis://127.0.0.1:16379 node --import tsx services/worker-gateway/integration/distributed.ts
-```
-
-Use a disposable local Redis database and a running local Supabase stack. The
-runner creates/removes its own users, builds, workers and artifacts. Set
-`MINGD_INTEGRATION_WORKER_IMAGE` to a newly built desktop image to run workers in
-separate worker-image containers instead of host processes; each gets only its own token
-and test files. These runs use diagnostic archives. Test compiled templates
-with the [export and launch procedure](smoke-tests.md), and check multi-host
-recovery using the [cutover procedure](deployment.md#distributed-cutover-and-rollback).
-Earlier results are recorded in [worker release history](worker-release-history.md#recorded-validation).
+The optional HTTPS diagnostic integration runner and its coverage are described
+in [development](../developers/development.md#distributed-integration-checks).
+Use [smoke tests](../developers/smoke-tests.md) for compiled-template checks and
+[deployment](deployment.md#distributed-cutover-and-rollback) for cutover.
 
 Shared remote compiler caching, pending-recipe deduplication, autoscaling,
 gateway replication and distributed compilation of a single build remain later work.

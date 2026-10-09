@@ -1,5 +1,5 @@
 # Local CLI stack identity; changing it selects different containers/data.
-# This does not configure production Supabase. See docs/naming.md.
+# This does not configure production Supabase. See docs/developers/naming.md.
 project_id = "mingd-local"
 
 [api]

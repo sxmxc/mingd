@@ -1,6 +1,6 @@
 ---
 title: "Local development setup"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/getting-started.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/getting-started.md
 ---
 
 # Local development setup
@@ -10,11 +10,11 @@ Supabase and Redis run in Docker, Next.js runs on the host, and a direct Docker
 worker compiles Godot. The example assumes you open the browser on the same
 machine. For access from another computer, see
 [development browser access](development.md#browser-access-to-the-dev-server)
-and [URLs and networking](configuration.md#urls-and-networking); review the app
+and [URLs and networking](../operators/configuration.md#urls-and-networking); review the app
 origin and Supabase Auth redirects for the address you use.
 
 For production with separate application and build hosts and a separately managed
-Supabase installation, follow the [deployment guide](deployment.md).
+Supabase installation, follow the [deployment guide](../operators/deployment.md).
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ cp .env.example apps/web/.env.local
 ```
 
 Without nvm, install the version in `.nvmrc` by your normal method. The two
-environment files are separate; see [configuration](configuration.md).
+environment files are separate; see [configuration](../operators/configuration.md).
 
 ## Start Supabase
 
@@ -114,7 +114,7 @@ The first build downloads source and compiles Godot; allow time and disk space
 for both. To install the template and check an exported game, follow the
 [smoke procedure](smoke-tests.md) with the matching Godot editor. For
 administration, follow
-[initial SuperAdmin setup](accounts-and-admin.md#initial-superadmin).
+[initial SuperAdmin setup](../operators/accounts-and-admin.md#initial-superadmin).
 
 ## Optional services
 
@@ -126,7 +126,7 @@ npm run compose -- up -d --build android-builder  # Android
 ```
 
 `npm run compose -- up -d --build builder web-builder android-builder` starts desktop, Web, Android, and Redis together.
-macOS requires [toolchain provisioning](recipe-files-and-mobile-templates.md#macos-on-linux).
+macOS requires [toolchain provisioning](../operators/worker-toolchains.md#macos-on-linux).
 
 For template-size comparisons and scheduled artifact cleanup, start maintenance.
 It also refreshes the official release catalog:
@@ -135,7 +135,7 @@ It also refreshes the official release catalog:
 npm run compose -- up -d --build maintenance
 ```
 
-See [maintenance](maintenance.md) for schedules and task status.
+See [maintenance](../operators/maintenance.md) for schedules and task status.
 
 ## Development checks
 

@@ -1,9 +1,9 @@
 ---
-title: "Accounts and administration"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/accounts-and-admin.md
+title: "Administration"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/accounts-and-admin.md
 ---
 
-# Accounts and administration
+# Administration
 
 The app uses Supabase Auth with cookie-backed sessions. Normal accounts have
 application role `authenticated`; SuperAdmin access lives in protected
@@ -57,23 +57,13 @@ Container resources are not whole-host monitoring. See [worker telemetry](distri
 
 Manage up to 10 simultaneous messages at `/admin/settings`, with 500 characters
 per message. Add or remove individual messages, then save settings to publish the
-list. Blank messages are omitted and identical messages appear once. The new
-migration preserves the previous single announcement.
+list. Blank messages are omitted and identical messages appear once. Stored settings support multiple announcements.
 
-Enabled signed-in users see announcements below the navigation. They can
-collapse the list, dismiss individual messages or dismiss all, and reopen them
-from the compact announcement bar. Expanded lists scroll after 240 pixels to
-keep the page accessible when many notices are active. Collapse and dismissal
-preferences are saved in this browser, shared across tabs, and do not sync across
-devices. New or edited text appears again; reordering unchanged messages does
-not reset preferences. If browser storage is blocked, controls still work for
-the current page session.
+User-facing announcement controls are described in [your account](../users/account.md#site-announcements).
 
 ## Account settings and email flows
 
-Users can update display name, email, and password at `/account`. Gravatar uses
-the normalized email's SHA-256 with a neutral fallback. It can be disabled in
-profile settings; no upload or API key is required.
+Account settings and recovery steps are in [the user guide](../users/account.md).
 
 Sign-up, recovery, and secure email changes need SMTP on the separate Supabase
 server. Credentials belong there, not in web/browser settings. Set the Auth site
@@ -89,25 +79,15 @@ Request fresh emails when configuration changes.
 
 ## Queue recovery
 
-A queued database build is the durable submission record. Direct workers scan
-unfinished builds every 30 seconds; in distributed mode the gateway scans every
-five seconds. They enqueue missing deliveries with the original build ID. Redis failure does not discard that record. BullMQ recovers stalled jobs;
-ordinary failures have two total attempts with exponential backoff. Exhausted
-or inconsistent jobs become failed builds with a retry action that submits a
-new build using the same recipe.
-
-Each delivery has an isolated attempt workspace. Upload identities include the
-content digest, and artifact cache insertion preserves the first committed
-result. Late attempts cannot regress a completed build to working/failed state.
-Prefer matching web, gateway and worker releases when deploying; application version
-changes alone do not require re-enrollment once the 0.2.1 compatibility migration
-and code are installed. Protocol, recipe and enrolled capabilities must match.
-Remote attempts additionally use database leases; see [distributed recovery](distributed-workers.md#assignment-and-build-lifecycle).
+Queue reconciliation and attempt ownership are described in
+[architecture](../developers/architecture.md#queue-recovery) and
+[distributed workers](distributed-workers.md#assignment-and-build-lifecycle).
+Use [operator troubleshooting](troubleshooting.md) for stuck jobs.
 
 ## Validation and scope
 
-Run [application and SQL checks](development.md); account SQL coverage lives in
-[`account_access.sql`](../supabase/tests/account_access.sql). Manually check
+Run [application and SQL checks](../developers/development.md); account SQL coverage lives in
+[`account_access.sql`](../../supabase/tests/account_access.sql). Manually check
 confirmation, recovery/new-password sign-in, secure email change, profile edits,
 sign-out, admin restrictions, disabled access, and submission pause after changing
 these flows. Successful CI does not test delivered production email.

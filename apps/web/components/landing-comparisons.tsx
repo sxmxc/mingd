@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { PlatformIcon } from "@/components/platform-target";
 
 // Snapshot of recorded, non-dry-run Offline 2D artifacts and matching official
-// references, read on 2026-10-08. See docs/recipes-and-comparisons.md for scope.
+// references, read on 2026-10-08. See docs/developers/performance.md for provenance.
 const measurements = [
   { platform: "windows", label: "Windows", target: "x86_64 · Release", binary: "Template executable", officialBytes: 109268480, customBytes: 44993536 },
   { platform: "linux", label: "Linux", target: "x86_64 · Debug + release", binary: "Template executables combined", officialBytes: 147223216, customBytes: 98584992 },

@@ -1,11 +1,11 @@
 ---
 title: "Build performance and compiler cache"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/performance.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/performance.md
 ---
 
 # Build performance and compiler cache
 
-Worker builds persist `builds.performance_metrics` (schema version 1) and expose it only through ownership-checked build detail. Apply the full migration history before deploying either consumer; see [deployment](deployment.md). Older rows without measurements remain null. Cached artifacts report artifact reuse, not invented compilation timings or cache counters.
+Worker builds persist `builds.performance_metrics` (schema version 1) and expose it only through ownership-checked build detail. Apply the full migration history before deploying either consumer; see [deployment](../operators/deployment.md). Older rows without measurements remain null. Cached artifacts report artifact reuse, not invented compilation timings or cache counters.
 
 ## Measurements and limits
 
@@ -48,7 +48,7 @@ at `/admin/workers`, including while workers are idle. Reports arrive every
 may reset and must not be subtracted to estimate individual builds when jobs run
 concurrently. Existing per-build statistics continue using isolated job logs.
 Container memory is current cgroup usage, while recorded per-build RSS measures
-the largest child process. See [worker telemetry](distributed-workers.md#admin-worker-health-and-telemetry) for measurement scope and availability.
+the largest child process. See [worker telemetry](../operators/distributed-workers.md#admin-worker-health-and-telemetry) for measurement scope and availability.
 
 ## Benchmark procedure
 
@@ -65,3 +65,29 @@ requested kinds, using matching macOS architecture output. Full-build speedup
 claims require measurements from real builds.
 
 References: [ccache 4.7.1 manual](https://ccache.dev/manual/4.7.1.html) (base directory, statistics logs and caveats), [Godot 4.7.2 SConstruct](https://github.com/godotengine/godot/blob/4.7.2-stable/SConstruct) (compiler launchers and environment imports).
+
+## Homepage comparison provenance
+
+The homepage uses a static snapshot of real, non-dry-run **Offline 2D** builds
+(the Minimal 2D recipe without multiplayer networking), read on October 8, 2026.
+All use Godot 4.7.2, size optimization, and LTO disabled. The recorded features
+match the current Offline 2D preset, retaining advanced text, GUI, 2D physics,
+navigation, tiles, and audio. The snapshot contains only measured targets:
+
+| Target | Template kinds | Official bytes | min.gd bytes |
+| --- | --- | ---: | ---: |
+| Windows x86_64 | Release | 109,268,480 | 44,993,536 |
+| Linux x86_64 | Debug + release combined | 147,223,216 | 98,584,992 |
+| Web wasm32, threads enabled | Release | 38,820,072 | 30,035,934 |
+| Android arm64 | Release | 71,114,944 | 51,304,968 |
+
+No matching macOS build was recorded at snapshot time. The homepage calculates
+percentages and MiB from the byte counts in
+`apps/web/components/landing-comparisons.tsx`; the homepage does not query private
+artifacts to populate them. Update the snapshot only from real artifacts with
+matching normalized features and complete official references.
+
+Official/min.gd toolchains and features may differ. A size comparison measures
+resulting engine bytes, not runtime performance or final game download size.
+Reference provenance and measurement timestamps appear in the inspector.
+

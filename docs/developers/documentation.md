@@ -1,6 +1,6 @@
 ---
 title: "Documentation site"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/documentation.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/documentation.md
 ---
 
 # Documentation site
@@ -55,15 +55,33 @@ directly. The favicon is `apps/docs/public/favicon.ico`, copied from
 `apps/web/app/favicon.ico`; update both copies when changing it. These are
 configured in `apps/docs/astro.config.mjs`.
 
-Edit the existing files in `docs/`. Each page has YAML frontmatter with a `title`
+Choose the audience before writing a guide:
+
+- `docs/users/`: actions people take in the app or Godot, using actual UI labels.
+- `docs/operators/`: deployment, configuration, worker provisioning and administration.
+- `docs/developers/`: implementation, local setup and validation.
+- `docs/archive/`: dated reports and historical rollout notes.
+
+Keep each procedure in one owning guide and link to it from related guides.
+Check product claims against the form, routes and shared build contract. Do not
+turn untested cases into invented limitations or release requirements.
+
+Each page has YAML frontmatter with a `title`
 and an `editUrl` pointing to its source on GitHub. Keep the first Markdown heading
 for GitHub readers; the site omits it because Starlight displays the page title.
 
-Use relative Markdown links such as `configuration.md#urls-and-networking`.
+Use relative Markdown links such as `../operators/configuration.md#urls-and-networking`.
 The site converts these to published page URLs while preserving fragments.
-Links outside `docs/`, such as `../AGENTS.md`, point to repository files on GitHub.
+Links outside `docs/`, such as `../../AGENTS.md`, point to repository files on GitHub.
 
-When adding a guide, add it to both [the index](README.md) and the appropriate
+Audience folders organize source files; page URLs retain their existing filenames.
+For example, `docs/users/build-profiles.md` still publishes at `/mingd/build-profiles/`.
+The content loader and Markdown link transformer share `documentationSlug` in
+`apps/docs/src/documentation-links.mjs`. Use unique filenames across audience
+folders to avoid duplicate page IDs. Moving a guide between these folders does
+not change its public URL; update its relative links and `editUrl` when moving it.
+
+When adding a guide, add it to both [the index](../README.md) and the appropriate
 sidebar group in `apps/docs/astro.config.mjs`. Keep detailed instructions in the
 relevant guide and the root README concise.
 
@@ -77,7 +95,7 @@ For the initial repository setup, open **Settings → Pages**, and select
 available for the repository's visibility and account plan. Then merge the site
 setup into `main` or manually run the **Documentation** workflow on `main`.
 
-[`.github/workflows/docs.yml`](../.github/workflows/docs.yml) checks documentation
+[`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) checks documentation
 pull requests, builds relevant pushes to `main`, and publishes successful main
 builds to the `github-pages` environment. Pull requests do not deploy. Deployment
 uses GitHub's workflow token and OIDC; no personal access token is required.

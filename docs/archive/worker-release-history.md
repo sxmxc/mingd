@@ -1,13 +1,13 @@
 ---
 title: "Worker release history"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/worker-release-history.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/archive/worker-release-history.md
 ---
 
 # Worker release history
 
 These notes preserve earlier rollout details and reported results. For current
-setup and updates, use [deployment](deployment.md); for the worker contract and
-operator commands, use [distributed workers](distributed-workers.md).
+setup and updates, use [deployment](../operators/deployment.md); for the worker contract and
+operator commands, use [distributed workers](../operators/distributed-workers.md).
 
 ## Implementation milestones
 
@@ -33,7 +33,7 @@ Release 0.2.3 keeps protocol v1 and introduces no database migrations. Recipe
 10 accounts for the Emscripten 6.0.11 compiler update and prevents reuse of
 recipe 9 artifacts that may have used different compilers. Drain active work,
 deploy matching web/gateway/worker images, and upgrade worker enrollment for
-recipe 10 using the [compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist). Recipe 9 enrollments
+recipe 10 using the [compiler rollout checklist](../operators/deployment.md#compiler-recipe-and-toolchain-upgrade-checklist). Recipe 9 enrollments
 are incompatible; rotating their tokens alone does not update the recipe.
 
 Node images and types align with the Node 24 development/CI baseline. TypeScript
@@ -56,7 +56,7 @@ exact application releases until updated. The migrations preserve worker IDs
 and token hashes; keep the mounted token files.
 
 Once updated, compatibility depends on protocol, recipe, target, and toolchain.
-Follow the current [deployment procedure](deployment.md) to select images,
+Follow the current [deployment procedure](../operators/deployment.md) to select images,
 pull them, and recreate services. Release 0.2.2 adds UI, branding, and development
 origin changes without further migrations or protocol/recipe changes.
 
@@ -84,5 +84,5 @@ ordinary-user denial, signed-out redirects, and desktop/mobile layouts.
 
 The owner reported verifying production HTTPS `/healthz` through NPM. The record
 contains no production remote-build or fault-recovery results.
-Use the [cutover procedure](deployment.md#distributed-cutover-and-rollback) to
+Use the [cutover procedure](../operators/deployment.md#distributed-cutover-and-rollback) to
 record those checks for a deployment.

@@ -1,11 +1,11 @@
 ---
 title: "Configuration reference"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/configuration.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/configuration.md
 ---
 
 # Configuration reference
 
-Use [`.env.example`](../.env.example) as the starting point. Never put a real
+Use [`.env.example`](../../.env.example) as the starting point. Never put a real
 secret in documentation, source control, or a `NEXT_PUBLIC_*` variable.
 
 ## Environment files
@@ -124,7 +124,7 @@ polls Postgres and does not use Redis queues.
 
 Compose has separate source/compiler/work volumes per target. Android also mounts
 `/cache/gradle`. For direct host processes, override container paths with writable
-host paths. Tune concurrency using [performance measurements](performance.md).
+host paths. Tune concurrency using [performance measurements](../developers/performance.md).
 
 ## URLs and networking
 
@@ -142,8 +142,8 @@ update the canonical URL or allowed Auth redirects automatically.
 
 ## Distributed-worker settings
 
-Use [`.env.web.prod.example`](../.env.web.prod.example) on the application host and
-[`.env.workers.prod.example`](../.env.workers.prod.example) on dedicated worker hosts.
+Use [`.env.web.prod.example`](../../.env.web.prod.example) on the application host and
+[`.env.workers.prod.example`](../../.env.workers.prod.example) on dedicated worker hosts.
 Production files default to `ghcr.io/sxmxc/mingd` and per-service release tags;
 root Compose retains `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.

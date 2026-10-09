@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/troubleshooting.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/troubleshooting.md
 ---
 
 # Troubleshooting
@@ -122,7 +122,7 @@ helper emitted by Clang cannot be resolved. Verify that the toolchain includes
 Darwin compiler-rt's `libclang_rt.osx.a` with both ARM64 and Intel slices in the
 bundled Clang resource directory. Linux Clang packages and an Apple SDK alone
 do not provide this archive. Follow the
-[runtime provisioning and availability probe](recipe-files-and-mobile-templates.md#macos-on-linux),
+[runtime provisioning and availability probe](worker-toolchains.md#macos-on-linux),
 repackage the toolchain, update its SHA-256, and rebuild web and the macOS worker.
 The worker now links an availability probe for both architectures before any
 Godot compilation. The changed archive digest invalidates the old cache identity;
@@ -158,7 +158,7 @@ are six cron schedules. See [maintenance](maintenance.md).
 Comparison requires exact version/platform/architecture/kind/thread-mode reference
 rows and a valid measured binary size. Missing/partial references or dry-run
 measurements suppress the claim. Check release-refresh status and reference
-coverage; TPZ size is not main-binary size. See [recipes and comparisons](recipes-and-comparisons.md).
+coverage; TPZ size is not main-binary size. See [recipes and comparisons](../users/recipes-and-comparisons.md).
 
 ## Docker uses a different Node version or old code
 
@@ -183,11 +183,11 @@ npm test
 
 Builder archive tests need `zip`, `unzip`, and Python 3; compiler integration checks
 skip absent tools unless explicitly opted in. SQL tests need a disposable local
-Supabase database. See [development and validation](development.md).
+Supabase database. See [development and validation](../developers/development.md).
 
 If moving the checkout appears to lose data, check the Compose project name and
 local Supabase project ID before creating new volumes or resetting anything.
-See [naming](naming.md#infrastructure-identities).
+See [naming](../developers/naming.md#infrastructure-identities).
 
 ## Distributed-worker connectivity
 

@@ -1,13 +1,13 @@
 ---
 title: "Deployment and operations"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/deployment.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/deployment.md
 ---
 
 # Deployment and operations
 
 Production uses two image-only deployment files on **separate Docker hosts**:
-[`compose.web.prod.yml`](../compose.web.prod.yml) for web, worker gateway,
-maintenance and private Redis; [`compose.workers.prod.yml`](../compose.workers.prod.yml)
+[`compose.web.prod.yml`](../../compose.web.prod.yml) for web, worker gateway,
+maintenance and private Redis; [`compose.workers.prod.yml`](../../compose.workers.prod.yml)
 for dedicated HTTPS build workers. Supabase and Nginx Proxy Manager remain
 separately managed installations. Neither production host needs this source
 checkout or npm. See [distributed workers](distributed-workers.md) for architecture,
@@ -19,7 +19,7 @@ and rollback. Do not run direct and distributed workers against the same queues.
 ## Build here, pull on production (GHCR)
 
 From an authorized source checkout, use `.nvmrc`, run `npm ci`, and pass the
-[CI checks](ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the checkout's root
+[CI checks](../developers/ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the checkout's root
 `.env`. Authenticate with `docker login ghcr.io` using Docker's credential storage.
 
 ### Where each command runs
@@ -155,12 +155,13 @@ Postgres need only be reachable from the migration host, not exposed publicly.
 ### Application host
 
 Keep `compose.web.prod.yml` and `.env` in a stable directory. Start from
-[`.env.web.prod.example`](../.env.web.prod.example), replacing keys and reviewing
+[`.env.web.prod.example`](../../.env.web.prod.example), replacing keys and reviewing
 release/URL settings. Preserve existing deployment values when migrating.
 
-The owner uses `https://mingd.voidmoose.net`, `https://worker.mingd.voidmoose.net`
-and separate `https://supabase.voidmoose.net`, with Cloudflare DNS resolving to
-private addresses and NPM providing trusted HTTPS. Keep that topology. NPM forwards
+The checked-in examples use `https://mingd.voidmoose.net`,
+`https://worker.mingd.voidmoose.net` and `https://supabase.voidmoose.net`.
+Replace these with your instance's reachable origins. The illustrated deployment
+uses private addresses and NPM providing trusted HTTPS. NPM forwards
 web to port 3000 and gateway to port **3001**, using HTTP upstreams. No gateway
 bind-IP setting is required. Redis has **no published host port** in this file.
 
@@ -205,7 +206,7 @@ configuration remains in the [Supabase installation](self-hosted-supabase.md).
 ### Dedicated worker host
 
 Keep `compose.workers.prod.yml`, `.env` and `worker-tokens/` on each worker host.
-Use [`.env.workers.prod.example`](../.env.workers.prod.example). Transfer the
+Use [`.env.workers.prod.example`](../../.env.workers.prod.example). Transfer the
 individual enrolled token files as described in
 [worker enrollment](distributed-workers.md#authentication-and-operator-controls).
 Do not copy the application `.env`; remote workers need no Redis URL, database URI
@@ -247,7 +248,7 @@ incompatible. Use the [compiler rollout checklist](#compiler-recipe-and-toolchai
 when updating enrolled recipe/toolchain capabilities; application-only upgrades
 keep existing tokens when compatibility is unchanged. Initial CPU readings at
 `/admin/workers` need two 30-second samples. Earlier deployment milestones are in
-[worker release history](worker-release-history.md).
+[worker release history](../archive/worker-release-history.md).
 
 Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
@@ -471,7 +472,7 @@ new tags for their own service; they do not need equal application versions.
    ```
 
    Re-enable submissions and run a real build/download/export smoke test per
-   affected target. Record results using [smoke tests](smoke-tests.md).
+   affected target. Record results using [smoke tests](../developers/smoke-tests.md).
    If verification fails, pause submissions and drain again. Keep the saved
    credentials and previous configuration. Rolling images back alone cannot
    restore old recipe enrollment: use matching enrollment/credentials for the
@@ -492,7 +493,7 @@ new tags for their own service; they do not need equal application versions.
    Enroll each worker using the matching checkout; securely transfer only its token.
    Start the dedicated worker deployment and confirm `workers -- list` last-seen.
 5. Submit a test build, watch stages/output/heartbeats, verify a private download and
-   checksum, and perform the target's [export/runtime smoke test](smoke-tests.md).
+   checksum, and perform the target's [export/runtime smoke test](../developers/smoke-tests.md).
    Repeat with two hosts/identities. Test drain/revoke and a worker restart; confirm
    expired assignments cannot commit and retries preserve terminal state.
 6. Resume submissions after acceptance. Record the release/digests and results.
@@ -519,7 +520,7 @@ Keep the existing Compose project name when replacing the full deployment with
 `compose.web.prod.yml`, so `redis-data` remains the same volume. Inspect
 `docker compose ls`; set `COMPOSE_PROJECT_NAME=<existing-name>` in that host's `.env`
 or use a consistent `-p`. Worker hosts use their own project names and volumes.
-Do not use `down -v` during updates. See [infrastructure identities](naming.md#infrastructure-identities).
+Do not use `down -v` during updates. See [infrastructure identities](../developers/naming.md#infrastructure-identities).
 
 Back up Postgres and Storage together with protected deployment settings and tokens.
 Redis uses append-only persistence. Compiler/source caches are rebuildable; build
@@ -534,7 +535,7 @@ The separate documentation workflow publishes the static documentation site.
 
 Monitor queue wait, whole-container CPU/RAM, gateway upload disk, build failures,
 worker last-seen and maintenance errors. Scheduled cleanup does not prune local
-compiler/source caches; see [performance](performance.md) and [maintenance](maintenance.md).
+compiler/source caches; see [performance](../developers/performance.md) and [maintenance](maintenance.md).
 
 ## Source-checkout command reference
 
@@ -572,4 +573,4 @@ selects container image building instead.
 `compose` forwards its arguments to Docker Compose, replacing the previous
 `compose:<service>:build`/`:logs` and `images:*` aliases. Explicit service names
 select profiled services without enabling profiles. For local source setup, see
-[getting started](getting-started.md).
+[getting started](../developers/getting-started.md).

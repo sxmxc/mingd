@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url';
 const docsDirectory = fileURLToPath(new URL('../../../docs/', import.meta.url));
 const repository = 'https://github.com/sxmxc/mingd/blob/main/';
 
+// Audience folders organize source files while existing page URLs stay stable.
+export function documentationSlug(source) {
+  const page = source.replace(/^(?:users|operators|developers|archive)\//, '').replace(/\.md$/, '');
+  return page === 'README' ? 'index' : page;
+}
+
 // Keep source links readable on GitHub while publishing directory-style URLs.
 export function documentationLinks() {
   return (tree, file) => {
@@ -21,9 +27,11 @@ export function documentationLinks() {
         const [, path, suffix = ''] = node.url.match(/^([^?#]*)(.*)$/);
         const target = posix.normalize(posix.join(posix.dirname(source), path));
         if (target.startsWith('../')) {
-          node.url = repository + target.slice(3) + suffix;
+          const repositoryPath = relative(resolve(docsDirectory, '..'), resolve(docsDirectory, target)).split('\\').join('/');
+          node.url = repository + repositoryPath + suffix;
         } else if (target.endsWith('.md')) {
-          const slug = target === 'README.md' ? '' : target.slice(0, -3);
+          const page = documentationSlug(target);
+          const slug = page === 'index' ? '' : page;
           node.url = `/mingd/${slug ? `${slug}/` : ''}${suffix}`;
         }
       }

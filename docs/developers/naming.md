@@ -1,6 +1,6 @@
 ---
 title: "min.gd naming"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/naming.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/naming.md
 ---
 
 # min.gd naming
@@ -24,7 +24,7 @@ The product name does not configure DNS or establish ownership of `min.gd`.
 ## Infrastructure identities
 
 The checked-in local Supabase project ID is **`mingd-local`**, defined in
-[`config.toml`](../supabase/config.toml). It identifies local CLI containers/data,
+[`config.toml`](../../supabase/config.toml). It identifies local CLI containers/data,
 not the separate production installation. Changing it selects a different local
 stack and does not move existing data automatically.
 
@@ -42,4 +42,4 @@ all consumers/data. Existing artifacts retain stored filenames; new output uses
 [architecture](architecture.md#cache-identity), not historical rebrand instructions.
 
 Run `npm ci` after checkout/dependency changes to restore correct workspace links.
-Follow [deployment](deployment.md) to drain jobs and deploy compatible service images at their independent tags.
+Follow [deployment](../operators/deployment.md) to drain jobs and deploy compatible service images at their independent tags.
