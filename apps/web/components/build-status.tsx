@@ -5,7 +5,7 @@ import { assertRealBuildSupported, type BuildPerformanceMetrics, type SizeCompar
 import Link from "next/link";
 import { RecipeFileDownload } from "@/components/recipe-file-download";
 import { TemplateSizeComparison } from "@/components/size-comparison";
-import { RetryBuild } from "@/components/retry-build";
+import { BuildResult } from "@/components/build-result";
 import { Input } from "@/components/ui/input";
 
 type Build = {
@@ -128,13 +128,13 @@ export function BuildStatus({ initial }: { initial: Build }) {
   }
   const matchIndex = { value: 0 };
   return <div className="build-monitor space-y-3">
+    <BuildResult id={build.id} status={build.status} config={exportConfig} rawConfig={build.config} error={build.error} stage={build.stage} logTail={build.log_tail} artifact={build.artifact} />
+    <details className="monitor-details" open={!terminal || build.status === "failed"}>
+    <summary hidden={!terminal}>Build activity, compiler output, and diagnostics</summary>
     <Card className="monitor-toolbar overflow-hidden">
       <div className="monitor-toolbar-row">
       <div className="min-w-0"><div className="monitor-status-line"><h2 className="flex items-center gap-2 text-base font-semibold">{!terminal && alive && <span className="spinner" />}{build.stage}</h2><span className={`status-tag ${build.status}`}>{build.status.replaceAll("_", " ")}</span></div>
       {!terminal && <p className="mt-2 text-xs text-[var(--muted)]">{queued ? "Waiting for an available worker." : connectionError ?? (alive ? "Worker connected · heartbeat confirms liveness, not compiler progress." : "Heartbeat overdue · check worker health; the build may be stalled.")}</p>}
-      {build.status === "complete" && build.artifact && <a href={`/api/builds/${build.id}/download`} className="tool-action mt-2 inline-flex text-xs">{build.artifact.is_dry_run ? "Download diagnostic (not a template)" : "Download template .tpz ↓"}</a>}
-      {build.status === "complete" && !build.artifact && <p role="status" className="mt-2 text-xs text-[var(--muted)]">Artifact details are unavailable; the download may not be ready.</p>}
-      {build.status === "failed" && <RetryBuild config={build.config} />}
       </div>
       <dl className="monitor-activity" aria-label="Build activity">
         <div><dt>{terminal ? "Total duration" : "Elapsed"}</dt><dd>{duration(elapsed)}</dd></div>
@@ -166,7 +166,7 @@ export function BuildStatus({ initial }: { initial: Build }) {
       </ol>
       {build.status === "failed" && <p className="px-4 pb-3 text-xs text-[var(--muted)]">The failure state is recorded, but the exact failing stage is not available.</p>}
       {!terminal && <div className={`activity-track ${alive ? "active" : ""}`} aria-label={alive ? "Worker active; completion time unknown" : "Waiting for activity"}><span /></div>}
-      {build.error && <div role="alert" className="border-t border-[var(--border)] px-4 py-3 text-sm text-[var(--danger)]">{build.error}</div>}
+      {build.error && !terminal && <div role="alert" className="border-t border-[var(--border)] px-4 py-3 text-sm text-[var(--danger)]">{build.error}</div>}
     </Card>
     <div className="monitor-workspace">
     <Card className="monitor-output overflow-hidden">
@@ -226,5 +226,6 @@ export function BuildStatus({ initial }: { initial: Build }) {
       </section>
     </Card>
     </div>
+    </details>
   </div>;
 }

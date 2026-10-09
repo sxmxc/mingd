@@ -14,5 +14,5 @@ export function RetryBuild({ config }: { config: Record<string, unknown> }) {
       setError(error instanceof Error ? error.message : "Could not connect. Try again."); setPending(false);
     }
   }
-  return <div className="mt-2"><button type="button" className="tool-action text-xs" disabled={pending} onClick={retry}>{pending ? "Submitting…" : "Retry this recipe"}</button>{error && <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p>}</div>;
+  return <div className="build-retry"><button type="button" className="tool-action" disabled={pending} onClick={retry}>{pending ? "Submitting…" : "Retry this recipe"}</button>{error && <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p>}</div>;
 }

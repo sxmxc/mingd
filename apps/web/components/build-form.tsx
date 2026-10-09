@@ -349,8 +349,9 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
           {error && <p role="alert" className="build-form-error">{error}</p>}
           <Button type="submit" className="mt-5 w-full" disabled={buildDisabled}>{busy && <span className="spinner" />}{busy ? "Please wait…" : "Build template →"}</Button>
 
-          <div className="build-recipe-actions">
-            <h3>Recipe actions</h3>
+          <details className="build-recipe-actions" open={!!recipeId}>
+            <summary>Save, import, or export a recipe</summary>
+            <div className="build-recipe-actions-body">
             <label className="build-form-label">Recipe name
               <input className="build-form-control" value={name} maxLength={80} disabled={busy} onChange={event => setName(event.target.value)} placeholder="My game — Windows 2D" />
             </label>
@@ -366,7 +367,8 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
               <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Keep a recipe with your project or send it to a teammate. Importing loads an editable copy; it does not start a build.</p>
               <Link className="mt-3 block text-sm text-[var(--accent-strong)]" href="/recipes">Saved recipes →</Link>
             </div>
-          </div>
+            </div>
+          </details>
         </Card>
       </aside>
 
