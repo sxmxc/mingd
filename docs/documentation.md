@@ -39,6 +39,14 @@ Language Server** before selecting the workspace version. `@astrojs/check`
 0.9.10 accepts TypeScript 5 or 6, not 7. Keep the current
 TypeScript 5.9 version until a coordinated tooling migration passes all checks.
 
+The root `package.json` overrides `postcss-nested` 6.x's selector parser to
+`postcss-selector-parser` 7.1.6 or a newer 7.x release, fixing
+[GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf).
+Starlight's Expressive Code dependency still requests the parser's 6.x line.
+Keep the override until the upstream chain accepts a patched parser; verify the
+documentation build when removing it. npm reads overrides from the workspace
+root, so this workaround belongs there rather than in `apps/docs/package.json`.
+
 ## Editing guides
 
 The header logo uses the same image as the application:

@@ -1,7 +1,7 @@
 {
   "name": "mingd",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Build only the Godot your game needs.",
   "workspaces": [
     "apps/*",
@@ -39,6 +39,11 @@
     "@types/react-dom": "^19.3.0",
     "dotenv-cli": "^11.0.0",
     "supabase": "^2.119.0"
+  },
+  "overrides": {
+    "postcss-nested@6": {
+      "postcss-selector-parser": "^7.1.6"
+    }
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
