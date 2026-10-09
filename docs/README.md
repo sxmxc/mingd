@@ -14,7 +14,7 @@ a guide names the production deployment directory or separate Supabase directory
 | --- | --- |
 | [Local development setup](getting-started.md) | Local services, first Linux build, and optional workers |
 | [Configuration](configuration.md) | Environment files, process-specific variables, queues, and URLs |
-| [Deployment](deployment.md) | Image-only production setup, local publishing, migrations, updates, and rollback |
+| [Deployment](deployment.md) | Image-only production setup, publishing, compiler recipe/toolchain rollout checklist, migrations, updates, and rollback |
 | [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
 | [Maintenance](maintenance.md) | Six cron schedules, two backend tasks, retention, retries, and references |
 | [Troubleshooting](troubleshooting.md) | Auth errors, queued/stalled builds, maintenance failures, and cache issues |

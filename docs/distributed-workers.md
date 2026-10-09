@@ -47,7 +47,9 @@ immutable release tag. All workspace manifests currently use **0.2.3**.
 Existing worker IDs and credentials survive routine application upgrades.
 Compatibility requires protocol **v1**, recipe **10**, the enrolled target, and
 macOS toolchain identity. Changing a recipe, target, or toolchain requires a
-matching enrollment; token rotation changes only the secret.
+matching enrollment; token rotation changes only the secret. The bulk `upgrade`
+command updates drained enrollment to the checkout's recipe/release and rotates
+credentials while preserving worker IDs.
 
 Bump the protocol for incompatible HTTP changes and the recipe when binary
 inputs or packaging change. Keep published release tags immutable. See
@@ -60,8 +62,9 @@ existing **8** major image policy. Record image digests when publishing because
 base tags can change.
 The original release 0.2.2 used recipe 9. Release 0.2.3 uses recipe
 10, accounts for Emscripten 6.0.11, and aligns Node images/types with Node 24.
-Deploy the matching web/gateway/workers together and re-enroll remote workers
-for recipe 10 before enabling them; recipe 9 enrollment is incompatible.
+Deploy the matching web/gateway/workers together and upgrade enrollment to recipe
+10 before enabling them; recipe 9 enrollment is incompatible. Follow the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
 NPM and production Supabase are managed separately.
 
 ## Authentication and operator controls
@@ -101,6 +104,10 @@ npm run workers -- resume --id <worker-id>
 npm run workers -- rotate --id <worker-id> --credential-file worker-tokens/desktop-new.token
 npm run workers -- revoke --id <worker-id>
 npm run workers -- enable --id <worker-id>
+npm run workers -- drain --all --wait --timeout-seconds 43200
+npm run workers -- upgrade --all --credential-dir worker-tokens/new-rollout
+npm run workers -- rotate --all --credential-dir worker-tokens/new-rotation
+npm run workers -- resume --all
 ```
 
 Draining allows active work to finish and blocks new claims. Rotation/revocation
@@ -109,6 +116,12 @@ first for planned rotation, replace the mounted token and recreate that worker.
 `enable` reverses revocation; `resume` reverses draining. An ambiguous database
 transport failure may still have committed enrollment/rotation: the CLI preserves
 the output file for recovery. Inspect `list` before retrying with a new file.
+Bulk operations select enabled workers; revoked workers are excluded. Bulk
+credentials require every selected worker to be draining with no active durable
+assignments. They write separate mode-0600 tokens and a private outcome manifest
+inside a new mode-0700 directory. Stop drained workers before upgrading, transfer
+each token to its corresponding host, recreate workers, verify heartbeats, then
+resume. See the rollout checklist for image tags, macOS identities, and recovery.
 
 For a one-shot authenticated check from a matching checkout:
 

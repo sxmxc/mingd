@@ -225,7 +225,7 @@ docker compose --profile android up -d --no-build --pull never --force-recreate 
 
 Release 0.2.3 uses `IMAGE_TAG=v0.2.3`, retains protocol v1, and adds no migrations.
 Recipe 10 accounts for the Emscripten 6.0.11 update. Drain work, deploy matching
-web/gateway/worker images, and re-enroll remote workers for recipe 10; recipe 9
+web/gateway/worker images, and upgrade enrollment for recipe 10; recipe 9
 enrollment is incompatible. Apply the full migration history before deployment.
 For subsequent compatible upgrades, enrollments keep their tokens. Initial CPU readings at
 `/admin/workers` need two 30-second samples. See
@@ -236,6 +236,204 @@ Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
 Compose project names and token paths create independent instances/volumes;
 plain `--scale` with one mounted token is not the intended enrollment workflow.
+
+## Compiler recipe and toolchain upgrade checklist
+
+Use this procedure when changing compiler flags, output/packaging semantics,
+Emscripten/NDK/SDK/compiler images, or other binary inputs that invalidate
+`BUILD_RECIPE_VERSION`. Run operator commands from an authorized checkout on
+the application/operator host; worker hosts receive token files only.
+`upgrade --all` updates existing enrollment in place, so names, IDs, targets,
+capacity, and history are preserved. No database migration is required for
+these commands. Keep a copy of the previous deployment tags and configuration.
+
+1. **Prepare and validate the new recipe on the build host.** Verify the exact
+   supported Godot sources against the new toolchain. Bump
+   `BUILD_RECIPE_VERSION` once for the changed binary semantics and update its
+   cache tests. Do not bump it just for an application version change.
+   Advance each component from its own current version. The default selects all
+   components for this compiler rollout; it does not force their versions equal:
+
+   ```bash
+   nvm use
+   npm run release -- bump patch --dry-run
+   npm run release -- bump patch
+   npm ci
+   npm run typecheck
+   npm test
+   npm run build
+   ```
+
+   If the component versions have **already** been bumped for this rollout, use
+   `npm run release -- tags` instead of bumping it again. `bump` updates all
+   workspace versions independently, their lockfile entries, production
+   Compose/example defaults, and the build checkout's per-service `.env` tags.
+   It starts each image from the newer of its recorded production default and
+   versioned local tag, so an earlier targeted web release is preserved. For
+   example, repo/gateway 0.2.3 and web image 0.2.4 become repo/gateway 0.2.4 and
+   web 0.2.5 after a patch bump. `minor` resets patch; `major` resets minor and
+   patch: 0.3.5 becomes 0.4.0 or 1.0.0 respectively. Review the dry-run's
+   per-component transitions and commit the tracked changes;
+   write release notes separately. It does not commit, tag Git, publish images,
+   or change `BUILD_RECIPE_VERSION` automatically.
+
+   For a release affecting only one service, use, for example,
+   `npm run release -- bump patch --service web`, then
+   `npm run build -- web --release` and `npm run push -- web --release`.
+   That leaves the repo version and other services' image tags unchanged.
+   Compiler variants and maintenance share `services/builder/package.json`;
+   its software version advances when any of those services is released, while
+   their individual image tags retain separate histories. Bulk worker enrollment
+   records this builder software version, independently of the gateway version.
+
+2. **Build every required compiler and application image at its prepared tag.**
+   Keep `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the build host's root `.env`.
+
+   ```bash
+   npm run build -- all --release --dry-run
+   npm run build -- all --release
+   ```
+
+   `--release` uses each service's prepared version from the production defaults
+   and build checkout's versioned tags; it overrides exported shell image tags.
+   The repo version is not used as a shared image version. If macOS workers are in use,
+   provide the verified `toolchains/macos-toolchain.tar.xz` and matching
+   `MACOS_TOOLCHAIN_SHA256`, and add `--include-macos` to both commands. Otherwise
+   optional macOS is skipped when its new image does not exist. Validate real
+   compilation/export/launch on the affected targets before publishing; dry-run
+   pipeline archives and unit checks do not establish compiler acceptance.
+
+3. **Publish the built images.** Authenticate to GHCR using the documented
+   publishing setup, then:
+
+   ```bash
+   npm run push -- all --release --dry-run
+   npm run push -- all --release
+   ```
+
+   This pushes versioned images without rebuilding or promoting `latest`.
+   Existing `publish all` behavior is unchanged: it only pushes existing images.
+   Partial publication is possible if a registry request fails; finish publishing
+   the complete tested image set before deploying. Never replace an already
+   published version tag with different image contents; prepare a newer version.
+
+4. **Quiesce the old fleet on the application/operator host.** Pause submissions
+   in `/admin/settings`, and let **queued and active** builds finish under the old
+   recipe before draining. Draining prevents new claims, so doing it while old
+   jobs remain queued will not finish those jobs. Then, from a checkout containing
+   the new bulk CLI:
+
+   ```bash
+   npm run workers -- list
+   npm run workers -- drain --all --wait --timeout-seconds 43200
+   ```
+
+   These commands select enabled workers only; revoked workers remain untouched.
+   Keep other enrollment/resume operations stopped during the rollout so the
+   selected fleet stays stable.
+   The wait checks durable active assignments, including upload completion. A
+   timeout leaves workers draining and exits unsuccessfully: inspect the build
+   monitor/worker diagnostics and resolve outstanding work before continuing.
+   Do not force-stop a busy compiler just to meet the rollout schedule.
+
+5. **Stop idle workers on every worker host.** Keep the Compose project name,
+   volumes, and token mounts. Run in the deployed worker Compose directory:
+
+   ```bash
+   docker compose --profile '*' stop builder web-builder android-builder macos-builder
+   ```
+
+   Select only services present in that deployment. Keep submissions paused.
+
+6. **Upgrade enrollment and rotate all enabled worker credentials together.**
+   On the application/operator host, use the tested new release checkout:
+
+   ```bash
+   mkdir -p -m 700 worker-tokens
+   npm run workers -- upgrade --all --credential-dir worker-tokens/new-rollout
+   ```
+
+   Choose a fresh directory for each rollout; existing directories/files are
+   refused. The command uses this checkout's recipe/release and keeps workers
+   draining. If the macOS archive identity changed, also pass
+   `--toolchain-sha256 <verified-new-digest>`; this applies to all selected macOS
+   workers, while other targets retain their own capability rules. Mixed macOS
+   toolchains require separate enrollment management rather than one fleet-wide
+   digest. For secret-only maintenance, `rotate --all --credential-dir <new-dir>`
+   rotates the fleet without changing recipe enrollment.
+
+   Every worker receives a distinct `<worker-id>.token` file with mode 0600. The
+   private `manifest.json` maps ID/name/target to its file and update outcome.
+   Transfer only each host's tokens securely and update its existing
+   `*_WORKER_TOKEN_FILE` settings to the new files. Do not copy privileged env
+   files or the whole token directory to every host. A failed bulk update can
+   leave a partially updated fleet: keep workers stopped/draining, preserve all
+   files, and inspect the manifest's `updated`, `uncertain`, and `pending` entries.
+   An uncertain response may have committed; never discard that token. With the
+   fleet still stopped and idle, rerunning into another fresh directory replaces
+   all enabled workers' credentials again and produces a complete new set.
+
+7. **Align deployment image tags and recreate the services.** Do this for the
+   application host and each worker host's separate `.env`. From the new release
+   checkout, point the command at the actual local deployment env file:
+
+   ```bash
+   npm run release -- tags --env-file /path/to/deployment/.env --dry-run
+   npm run release -- tags --env-file /path/to/deployment/.env
+   ```
+
+   It exports the build checkout's independent service tags without bumping
+   versions, preserving unrelated settings and file permissions. `IMAGE_TAG`
+   remains a fallback; explicit per-service tags select each release. On hosts
+   without a checkout/Node, generate a **new tag-only file** on the build host:
+
+   ```bash
+   npm run release -- tags --env-file /tmp/mingd-image-tags.env
+   ```
+
+   Transfer that file to `image-tags.env` in each deployment directory. Compose
+   accepts multiple env files, with the later file taking precedence. Add
+   `--env-file .env --env-file image-tags.env` immediately after `docker compose`
+   in every pull/up command below. This leaves each host's private `.env` intact
+   while applying the generated per-service release tags. Check for
+   stale exported `IMAGE_TAG`/`*_IMAGE_TAG` shell variables, which take precedence
+   over env files, and unset them before deployment. Keep worker token paths as
+   configured in step 6.
+   On the application host:
+
+   ```bash
+   docker compose pull web worker-gateway maintenance
+   docker compose up -d --no-build --force-recreate web worker-gateway maintenance
+   ```
+
+   On each worker host, pull and recreate its enabled targets (include Android
+   and/or macOS profiles only when used):
+
+   ```bash
+   docker compose pull builder web-builder
+   docker compose up -d --no-build --force-recreate builder web-builder
+   ```
+
+   Recreate rather than restart: image tags, env values, and token mounts must
+   be reapplied. Keep source, ccache, Gradle, and work volumes; do not run
+   `down -v`, flush Redis, or delete old artifact rows. The new recipe hash
+   separates artifact reuse automatically. Record the deployed image digests.
+
+8. **Verify, then resume.** Confirm gateway `/healthz`, expected worker IDs,
+   current recipe/toolchain identity, heartbeats, and no unexpected failures in
+   `/admin/workers`. Drained workers can heartbeat but cannot claim jobs. Then:
+
+   ```bash
+   npm run workers -- list
+   npm run workers -- resume --all
+   ```
+
+   Re-enable submissions and run a real build/download/export smoke test per
+   affected target. Record results using [smoke tests](smoke-tests.md).
+   If verification fails, pause submissions and drain again. Keep the saved
+   credentials and previous configuration. Rolling images back alone cannot
+   restore old recipe enrollment: use matching enrollment/credentials for the
+   old recipe or prepare a tested corrective release with a new recipe identity.
 
 ## Distributed cutover and rollback
 
@@ -318,22 +516,31 @@ compiler/source caches; see [performance](performance.md) and [maintenance](main
 
 ## Source-checkout command reference
 
-The operator entry points are `build`, `push`, `publish`, `compose`, and `workers`.
+The operator entry points are `release`, `build`, `push`, `publish`, `compose`, and `workers`.
 They require a source checkout with `package.json`; image-only production hosts
 use Docker commands directly.
 
 | Command | Effect |
 | --- | --- |
+| `npm run release -- bump <patch\|minor\|major> [--dry-run]` | Advance every component from its own current version; update lockfile, defaults and per-service image tags |
+| `npm run release -- bump patch --service web` | Advance only the web package/image release; keep the repo and other services' versions |
+| `npm run release -- tags [--env-file <file>]` | Export each service's prepared image tag without another version bump |
 | `npm run build -- <service> -- <tag>` | Build one image and remember its tag |
 | `npm run push -- <service> -- <tag>` | Push one existing image as its version and latest; remember its version |
 | `npm run publish -- <service> -- <tag>` | Build/push one image as its version and latest; remember its version |
 | `npm run build -- all` | Build the full image set using each service's configured tag |
+| `npm run build -- <all\|service> --release` | Build using each selected service's prepared tag; build all accepts `--include-macos` |
+| `npm run push -- all --release` | Push the tested independent image tags without rebuilding or promoting latest |
 | `npm run push -- all` / `npm run publish -- all` | Push each service's configured image without rebuilding or retagging |
 | `npm run compose -- up -d --build` | Build/start root Compose's default services |
 | `npm run compose -- up -d --build builder web-builder android-builder` | Build/start direct workers and their Redis dependency |
 | `npm run compose -- logs -f web` | Follow one service's logs |
 | `npm run compose -- --profile '*' down` | Stop all root services, preserving volumes |
 | `npm run workers -- <command>` | Worker enrollment/list/drain/rotation/revocation |
+| `npm run workers -- drain --all --wait` | Drain enabled workers and wait for active durable assignments to finish |
+| `npm run workers -- upgrade --all --credential-dir <new-dir>` | Rotate enabled workers' credentials and update drained enrollment to the current recipe/release |
+| `npm run workers -- rotate --all --credential-dir <new-dir>` | Rotate the drained fleet's credentials while keeping recipe enrollment |
+| `npm run workers -- resume --all` | Allow enabled workers to claim assignments again |
 
 `npm run build` **without arguments** retains the application validation build:
 web, docs, and shared/service TypeScript checks. Passing a service or `all`

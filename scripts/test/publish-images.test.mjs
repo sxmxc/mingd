@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -9,11 +9,21 @@ import test from "node:test";
 const publisher = fileURLToPath(new URL("../publish-images.mjs", import.meta.url));
 const applicationServices = ["web", "maintenance", "builder", "web-builder", "android-builder", "macos-builder", "worker-gateway"];
 
-function scenario({ missingImage = "", failPush = false, failLatest = false } = {}) {
+function scenario({ missingImage = "", failPush = false, failLatest = false, macosArchive = false } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "mingd-publish-test-"));
   const callsPath = join(directory, "calls.jsonl");
   const envPath = join(directory, ".env");
   writeFileSync(envPath, "# Existing operator configuration\nIMAGE_TAG=v0.2.2\nWEB_IMAGE_TAG=v0.2.4\nUNRELATED=value\n");
+  for (const path of ['compose.web.prod.yml', 'compose.workers.prod.yml']) {
+    writeFileSync(join(directory, path), applicationServices.map(service => {
+      const key = service.toUpperCase().replaceAll('-', '_') + '_IMAGE_TAG';
+      return `${service}: \${${key}:-\${IMAGE_TAG:-v0.2.3}}`;
+    }).join('\n'));
+  }
+  if (macosArchive) {
+    mkdirSync(join(directory, "toolchains"));
+    writeFileSync(join(directory, "toolchains", "macos-toolchain.tar.xz"), "fixture");
+  }
   writeFileSync(join(directory, "docker"), `#!${process.execPath}
 const fs = require("node:fs");
 const args = process.argv.slice(2);
@@ -164,4 +174,43 @@ test("a failed latest push reports failure without recording publication as comp
   assert.equal(result.status, 1);
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
   assert.doesNotMatch(result.stdout, /Completed publish/);
+});
+
+test("release builds and pushes preserve independent service versions", () => {
+  const result = run(['build','all','--release']);
+  assert.equal(result.status,0,result.stderr);
+  assert.ok(result.calls.some(call=>call[0]==='compose' && call.includes('build')));
+  assert.match(result.saved,/WEB_IMAGE_TAG=v0.2.4/);
+  assert.match(result.saved,/WORKER_GATEWAY_IMAGE_TAG=v0.2.3/);
+  assert.ok(!result.calls.some(call=>call[0]==='push'));
+  const pushed = run(['push','all','--release']);
+  assert.equal(pushed.status,0,pushed.stderr);
+  assert.ok(pushed.calls.some(call=>call[0]==='push' && call[1]==='ghcr.io/example/mingd/web:v0.2.4'));
+  assert.ok(pushed.calls.some(call=>call[0]==='push' && call[1]==='ghcr.io/example/mingd/worker-gateway:v0.2.3'));
+  assert.ok(!pushed.calls.some(call=>call.includes('build') || call.includes('tag')));
+});
+
+test("explicit macOS inclusion builds a new image and requires its toolchain archive", () => {
+  const absent = run(['build', 'all', '--release', '--include-macos']);
+  assert.equal(absent.status, 1);
+  assert.ok(!absent.calls.some(call => call.includes('build')));
+  const present = run(['build', 'all', '--release', '--include-macos'], {
+    missingImage: 'macos-builder', macosArchive: true,
+  });
+  assert.equal(present.status, 0, present.stderr);
+  assert.ok(present.calls.some(call => call.includes('build') && call.includes('macos-builder')));
+  assert.ok(!present.calls.some(call => call[0] === 'push'));
+});
+
+test('targeted release builds and pushes use the service version without updating other services', () => {
+  const built = run(['build', 'web', '--release']);
+  assert.equal(built.status, 0, built.stderr);
+  assert.deepEqual(built.calls.filter(call => call.includes('build')), [['compose', 'build', 'web']]);
+  assert.match(built.saved, /WEB_IMAGE_TAG=v0.2.4/);
+  assert.doesNotMatch(built.saved, /WORKER_GATEWAY_IMAGE_TAG/);
+  const pushed = run(['push', 'worker-gateway', '--release']);
+  assert.equal(pushed.status, 0, pushed.stderr);
+  assert.ok(pushed.calls.some(call => call[0] === 'push' && call[1] === 'ghcr.io/example/mingd/worker-gateway:v0.2.3'));
+  assert.match(pushed.saved, /WEB_IMAGE_TAG=v0.2.4/);
+  assert.ok(!pushed.calls.some(call => call.includes('build')));
 });

@@ -1,12 +1,14 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { imageVersions, tagVariable } from './release-config.mjs';
 
 const [operation, ...args] = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const operands = args.filter(value => value !== "--dry-run" && value !== "--");
-const [selection, tag] = operands;
+const includeMacos = args.includes("--include-macos");
+const release = args.includes("--release");
+const operands = args.filter(value => value !== "--dry-run" && value !== "--include-macos" && value !== "--release" && value !== "--");
+const [selection, requestedTag] = operands;
 const all = selection === "all";
-const tagVariable = service => `${service.toUpperCase().replaceAll("-", "_")}_IMAGE_TAG`;
 
 function docker(args, { capture = false, env = process.env, allowMissing = false } = {}) {
   const result = spawnSync("docker", args, {
@@ -43,11 +45,16 @@ try {
     process.exit(result.status ?? 1);
   }
   if (!["build", "push", "publish"].includes(operation)) throw new Error("Unknown image operation.");
-  if ((all && operands.length !== 1) || (!all && (operands.length !== 2 ||
+  const versions = release ? imageVersions(process.cwd()) : undefined;
+  const tag = release && !all ? `v${versions[selection]}` : requestedTag;
+  if (includeMacos && (operation !== "build" || !all)) throw new Error("--include-macos is only supported by build all.");
+  if (includeMacos && !existsSync("toolchains/macos-toolchain.tar.xz")) throw new Error("Provide toolchains/macos-toolchain.tar.xz before building all with macOS.");
+  if ((all && operands.length !== 1) || (!all && (operands.length !== (release ? 1 : 2) ||
       !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(tag ?? "") || tag === "latest"))) {
-    throw new Error("Usage: npm run build|push|publish -- all [--dry-run], or npm run build|push|publish -- <service> -- <versiontag> [--dry-run]. 'all' does not accept a version tag.");
+    throw new Error("Usage: npm run build|push|publish -- <all|service> --release [--dry-run], or <service> -- <versiontag> [--dry-run]. build all also accepts --include-macos. 'all' does not accept a version tag.");
   }
-  const env = all ? process.env : { ...process.env, [tagVariable(selection)]: tag };
+  const env = release ? { ...process.env, ...Object.fromEntries(Object.entries(versions).map(([service, version]) => [tagVariable(service), `v${version}`])) }
+    : all ? process.env : { ...process.env, [tagVariable(selection)]: tag };
   const config = JSON.parse(docker([
     "compose", "--profile", "*", "config", "--format", "json", "--no-env-resolution",
   ], { capture: true, env }));
@@ -57,6 +64,7 @@ try {
   }
   const selected = all ? services : services.filter(([name]) => name === selection);
   if (!selected.length) throw new Error("No application images selected.");
+  if (release && selected.some(([name]) => !Object.hasOwn(versions, name))) throw new Error('Missing release version for a selected service.');
   for (const [, service] of selected) {
     if (operation !== "build" && !service.image?.startsWith("ghcr.io/")) {
       throw new Error("Set IMAGE_PREFIX=ghcr.io/sxmxc/mingd in root .env before publishing.");
@@ -65,6 +73,7 @@ try {
 
   const images = selected.filter(([name, service]) => {
     if (!all) return true;
+    if (operation === "build" && name === "macos-builder" && includeMacos) return true;
     if (operation === "build" && name !== "macos-builder") return true;
     const id = docker(["image", "inspect", service.image, "--format", "{{.Id}}"], {
       capture: true, allowMissing: name === "macos-builder",
@@ -101,6 +110,7 @@ try {
       }
     }
     if (!all) rememberTag(selection, tag);
+    if (release) for (const [name] of images) rememberTag(name, `v${versions[name]}`);
     console.log(`Completed ${operation} for ${images.length} images with their individual tags.`);
   }
 } catch (error) {

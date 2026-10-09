@@ -74,3 +74,74 @@ test("root npm enrollment resolves caller paths, protects existing tokens and re
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("bulk CLI drains and upgrades enabled workers without leaking tokens or changing revoked workers", async () => {
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const directory = mkdtempSync(join(tmpdir(), "mingd-bulk-cli-"));
+  const ids = ["12345678-1234-4234-8234-123456789abc", "22345678-1234-4234-8234-123456789abc", "32345678-1234-4234-8234-123456789abc"];
+  const rows = ids.map((id, index) => ({ id, name: `worker-${index}`, target: "desktop", software_release: "0.2.2",
+    recipe_version: "9", toolchain_sha256: null, max_assignments: 1, disabled: index === 2, draining: false }));
+  const updates: Record<string, unknown>[] = [];
+  let active = 0;
+  const server = createServer((request, response) => {
+    const url = new URL(request.url!, "http://localhost");
+    if (url.pathname.endsWith("worker_assignments")) {
+      assert.equal(request.method, "HEAD");
+      assert.equal(url.searchParams.get("state"), "eq.active");
+      response.writeHead(200, { "Content-Range": `0-0/${active}` }); response.end(); return;
+    }
+    assert.ok(url.pathname.endsWith("build_workers"));
+    if (request.method === "GET") {
+      assert.equal(url.searchParams.get("disabled"), "eq.false");
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify(rows.filter(row => !row.disabled))); return;
+    }
+    let body = ""; request.on("data", chunk => { body += chunk; });
+    request.on("end", () => {
+      const id = url.searchParams.get("id")!.slice(3);
+      const row = rows.find(row => row.id === id)!;
+      assert.ok(!row.disabled);
+      const fields = JSON.parse(body); updates.push(fields);
+      if (fields.credential_hash) {
+        assert.equal(url.searchParams.get("draining"), "eq.true");
+        assert.equal(url.searchParams.get("disabled"), "eq.false");
+        assert.ok(row.draining);
+      }
+      Object.assign(row, fields);
+      response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify({ id }));
+    });
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  const run = (args: string[]) => new Promise<{ code: number | null; output: string }>((resolve, reject) => {
+    const child = spawn("npm", ["run", "workers", "--", ...args], { cwd: root,
+      env: { ...process.env, SUPABASE_URL: `http://127.0.0.1:${address.port}`, SUPABASE_SECRET_KEY: "test-secret-never-log" },
+      stdio: ["ignore", "pipe", "pipe"] });
+    let output = ""; child.stdout.on("data", chunk => { output += chunk; }); child.stderr.on("data", chunk => { output += chunk; });
+    child.on("error", reject); child.on("close", code => resolve({ code, output }));
+  });
+  try {
+    const invalid = await run(["drain", "--all", "--id", ids[0]]);
+    assert.equal(invalid.code, 1); assert.equal(updates.length, 0);
+    const drained = await run(["drain", "--all", "--wait"]);
+    assert.equal(drained.code, 0, drained.output); assert.equal(updates.length, 2);
+    active = 1;
+    const blocked = await run(["rotate", "--all", "--credential-dir", join(directory, "blocked")]);
+    assert.equal(blocked.code, 1); assert.equal(updates.length, 2);
+    active = 0;
+    const target = join(directory, "upgraded");
+    const upgraded = await run(["upgrade", "--all", "--credential-dir", target]);
+    assert.equal(upgraded.code, 0, upgraded.output);
+    assert.equal(updates.length, 4);
+    for (const id of ids.slice(0, 2)) {
+      const token = readFileSync(join(target, `${id}.token`), "utf8").trim();
+      assert.ok(!upgraded.output.includes(token));
+      assert.ok(updates.some(fields => fields.credential_hash === hashWorkerCredential(token)));
+    }
+    assert.equal(rows[2].recipe_version, "9"); assert.equal(rows[2].draining, false);
+    assert.ok(!upgraded.output.includes("test-secret-never-log"));
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

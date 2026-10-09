@@ -31,8 +31,8 @@ transport. Current workspace manifests use 0.2.3.
 Release 0.2.3 keeps protocol v1 and introduces no database migrations. Recipe
 10 accounts for the Emscripten 6.0.11 compiler update and prevents reuse of
 recipe 9 artifacts that may have used different compilers. Drain active work,
-deploy matching web/gateway/worker images, and re-enroll remote workers for
-recipe 10 using the [deployment procedure](deployment.md). Recipe 9 enrollments
+deploy matching web/gateway/worker images, and upgrade worker enrollment for
+recipe 10 using the [compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist). Recipe 9 enrollments
 are incompatible; rotating their tokens alone does not update the recipe.
 
 Node images and types align with the Node 24 development/CI baseline. TypeScript
