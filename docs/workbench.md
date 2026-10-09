@@ -9,6 +9,8 @@ Signed-in users land on build history. Search by platform, profile, or build ID,
 filter by state, and open a build to inspect compiler activity, recipe, and artifact.
 The Builds menu includes history, new build, and saved recipes; the account menu
 provides settings/sign-out. SuperAdmins also see administrative navigation.
+History uses a table on desktop and compact cards on narrow screens. Search and
+filters apply to the latest 50 loaded builds; clear filters from the empty state.
 
 ## Build monitor
 
@@ -16,6 +18,25 @@ The monitor places live counters and a stage rail above compiler output, with
 Performance, Artifact, and Recipe inspector tabs. At narrow widths the workspace
 stacks. Tabs support arrow keys, Home/End, visible focus, and reduced-motion
 preferences. Output-follow can be disabled to inspect earlier lines.
+
+Completed builds lead with the download, package size, measured official/custom
+size bars when a reference is available, and instructions for the exact editor
+version, platform, template kinds, and Web thread mode. The custom-template
+instructions use the shared package filename mapping. Dry-run diagnostics never
+show template-installation instructions. Completed-build activity and compiler
+diagnostics are collapsed and can be reopened.
+
+Failed builds show the recorded reason with actions to retry, review the recipe,
+and copy diagnostics. The copied summary contains the build ID, recorded stage,
+error, recipe, and retained output; review it before sharing. If clipboard access
+is unavailable, a selectable text field provides a manual copy fallback. An exact
+failure stage is still unavailable when the backend did not retain it; timing
+observations are not presented as proof of which stage failed.
+
+The configuration sidebar keeps build actions visible and groups saving,
+importing, and exporting recipes in an expandable section. Editing a saved recipe
+opens that section. Loading, unavailable-build, and load-error screens provide
+feedback and a route back to history.
 
 Build details poll every 2.5 seconds without overlapping requests, abort on
 unmount, and stop at terminal states. Active history refreshes every 10 seconds

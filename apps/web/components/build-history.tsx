@@ -115,7 +115,21 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
         <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
       </select>
     </div>
-    <div className="build-table-scroll rounded-md border border-[var(--border)]">
+    <div className="build-history-cards">
+      {rows.map(build => {
+        const config = build.config as BuildConfigSummary;
+        const cacheHit = build.performance_metrics?.artifactCacheHit === true;
+        return <Card key={build.id} className="build-history-card">
+          <div className="build-history-card-heading"><h3>{profile(build.config)}</h3><span className={`status-tag ${build.status}`}>{build.status === "complete" ? "Ready" : build.status === "failed" ? "Failed" : build.status === "queued" ? "Queued" : "Building"}</span></div>
+          <PlatformTarget platform={config.platform} architecture={config.architecture} />
+          <p className="build-history-card-description">Godot {config.godotVersion ?? "—"} · {config.templateKinds?.join(" + ") || "Custom configuration"}</p>
+          <p className="build-history-card-stage">{cacheHit ? "Served from artifact cache" : build.stage}</p>
+          <dl><div><dt>Duration</dt><dd>{duration(build, now)}</dd></div><div><dt>Created</dt><dd><time dateTime={build.created_at}>{formatBuildTime(build.created_at)}</time></dd></div></dl>
+          <div className="build-history-card-actions"><Link href={`/build/${build.id}`} className="row-action">View build</Link>{build.status === "complete" && build.artifact_id && <a href={`/api/builds/${build.id}/download`} className="row-action row-action-primary">Download</a>}<code title={build.id}>{build.id.slice(0, 8)}</code></div>
+        </Card>;
+      })}
+    </div>
+    <div className="build-history-desktop build-table-scroll rounded-md border border-[var(--border)]">
       <table className="build-table">
         <thead><tr><th>Recipe / build ID</th><th>Target</th><th>Godot</th><th>Status</th><th>Duration</th><th>Created</th><th>Artifact</th><th>Actions</th></tr></thead>
         <tbody>{rows.map(build => {
@@ -149,8 +163,12 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
           </tr>;
         })}</tbody>
       </table>
-      {!rows.length && <div className="p-8 text-center text-sm text-[var(--muted)]">{builds.length ? "No builds match these filters." : <><p>No builds yet.</p><Link href="/build/new" className="mt-3 inline-block text-[var(--accent-strong)] hover:underline">Create your first template</Link></>}</div>}
     </div>
+    {!rows.length && <Card className="build-history-empty">
+      <h3>{builds.length ? "No matching builds" : "Your first template starts here"}</h3>
+      <p>{builds.length ? "Try another search or clear the filters to see your recent builds." : "Choose a target and preset. Your progress and downloads will appear here."}</p>
+      {builds.length ? <button type="button" className="secondary-action" onClick={() => { setQuery(""); setStatus("all"); setTarget("all"); }}>Clear filters</button> : <Link href="/build/new" className="tool-action">Create your first template →</Link>}
+    </Card>}
     <p className="mt-3 text-xs text-[var(--muted)]" aria-live="polite">Showing {rows.length} of {builds.length} loaded builds{builds.length === 50 ? " · limited to the latest 50" : ""}.</p>
   </section>;
 }
