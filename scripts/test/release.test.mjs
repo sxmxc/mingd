@@ -90,6 +90,26 @@ test('one compiler image can advance without forcing sibling image tags to match
     assert.match(f.read('deployment.env'), /^WEB_BUILDER_IMAGE_TAG=v0.2.3$/m);
   } finally { f.close(); }
 });
+test('repeated selectors bump the chosen images and their shared workspace once', () => {
+  const f = fixture();
+  try {
+    const services = ['builder', 'web-builder', 'android-builder', 'macos-builder', 'web', 'builder'];
+    const args = ['bump', 'minor', ...services.flatMap(service => ['--service', service])];
+    const preview = f.run([...args, '--dry-run']);
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.equal(JSON.parse(f.read('services/builder/package.json')).version, '0.2.3');
+    const result = f.run(args);
+    assert.equal(result.status, 0, result.stderr);
+    for (const service of new Set(services)) assert.match(f.read('.env'), new RegExp(`^${tagVariable(service)}=v0\\.3\\.0$`, 'm'));
+    assert.equal(JSON.parse(f.read('services/builder/package.json')).version, '0.3.0');
+    assert.equal(JSON.parse(f.read('apps/web/package.json')).version, '0.3.0');
+    assert.equal(JSON.parse(f.read('package.json')).version, '0.2.3');
+    assert.equal(JSON.parse(f.read('services/worker-gateway/package.json')).version, '0.2.3');
+    assert.doesNotMatch(f.read('.env'), /MAINTENANCE_IMAGE_TAG|WORKER_GATEWAY_IMAGE_TAG/);
+    assert.equal((result.stdout.match(/services\/builder: /g) ?? []).length, 1);
+    assert.equal(f.run(['bump', 'patch', '--service', 'all', '--service', 'web']).status, 1);
+  } finally { f.close(); }
+});
 test('dry run and lockfile inconsistency do not mutate any release files', () => {
   const f = fixture();
   try {

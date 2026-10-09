@@ -5,31 +5,33 @@ import { bumpVersion, imagePackages, imageVersions, newest, tagVariable, updateT
 
 const root = process.cwd();
 const read = path => readFileSync(resolve(root, path), 'utf8');
-const usage = 'Usage: npm run release -- bump <patch|minor|major> [--service <name|all>] [--dry-run], or tags [--env-file <file>] [--dry-run].';
+const usage = 'Usage: npm run release -- bump <patch|minor|major> [--service <name> ... | --service all] [--dry-run], or tags [--env-file <file>] [--dry-run].';
 try {
   const { values, positionals } = parseArgs({ options: {
-    'dry-run': { type: 'boolean' }, 'env-file': { type: 'string' }, service: { type: 'string' },
+    'dry-run': { type: 'boolean' }, 'env-file': { type: 'string' }, service: { type: 'string', multiple: true },
   }, allowPositionals: true, strict: true });
   const [command, kind] = positionals;
   if (!['bump', 'tags'].includes(command) || positionals.length !== (command === 'bump' ? 2 : 1)) throw new Error(usage);
   if (command === 'bump' && values['env-file'] || command === 'tags' && values.service) throw new Error(usage);
-  const selection = values.service ?? 'all';
-  if (selection !== 'all' && !Object.hasOwn(imagePackages, selection)) throw new Error(`Unknown service. Choose all or ${Object.keys(imagePackages).join(', ')}.`);
+  const selections = [...new Set(values.service ?? ['all'])];
+  const all = selections.includes('all');
+  if (all && selections.length > 1) throw new Error('Use all alone, or name the selected services.');
+  if (selections.some(service => service !== 'all' && !Object.hasOwn(imagePackages, service))) throw new Error(`Unknown service. Choose all or ${Object.keys(imagePackages).join(', ')}.`);
   const manifest = JSON.parse(read('package.json'));
   if (manifest.name !== 'mingd') throw new Error('Run from the mingd repository root.');
   const currentImages = imageVersions(root);
   const versions = { ...currentImages }, changes = new Map(), summary = [];
   if (command === 'bump') {
-    const services = selection === 'all' ? Object.keys(versions) : [selection];
+    const services = all ? Object.keys(versions) : selections;
     for (const service of services) {
       versions[service] = bumpVersion(currentImages[service], kind);
       summary.push(`${service}: v${currentImages[service]} -> v${versions[service]}`);
     }
-    const paths = selection === 'all'
+    const paths = all
       ? ['package.json', ...['apps', 'packages', 'services'].flatMap(base => readdirSync(resolve(root, base), { withFileTypes: true })
         .filter(entry => entry.isDirectory() && existsSync(resolve(root, base, entry.name, 'package.json')))
         .map(entry => `${base}/${entry.name}/package.json`))]
-      : [`${imagePackages[selection]}/package.json`];
+      : [...new Set(selections.map(service => `${imagePackages[service]}/package.json`))];
     const lock = JSON.parse(read('package-lock.json'));
     for (const path of paths) {
       const data = JSON.parse(read(path)), key = path === 'package.json' ? '' : dirname(path);
@@ -63,7 +65,7 @@ try {
   }
   const envPath = resolve(root, command === 'tags' ? values['env-file'] ?? '.env' : '.env');
   const original = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-  const selectedVersions = command === 'bump' && selection !== 'all' ? { [selection]: versions[selection] } : versions;
+  const selectedVersions = command === 'bump' && !all ? Object.fromEntries(selections.map(service => [service, versions[service]])) : versions;
   // Preserve IMAGE_TAG as a fallback; explicit service tags carry the releases.
   changes.set(envPath, updateTags(original, selectedVersions));
   for (const path of changes.keys()) {

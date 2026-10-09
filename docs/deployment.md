@@ -281,6 +281,10 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    `npm run release -- bump patch --service web`, then
    `npm run build -- web --release` and `npm run push -- web --release`.
    That leaves the repo version and other services' image tags unchanged.
+   Repeat `--service` to select several services in one bump, for example
+   `npm run release -- bump minor --service builder --service web-builder --service android-builder --service macos-builder --service web --dry-run`.
+   Review the preview, then remove `--dry-run` to prepare those releases. Each
+   selected image advances once, and each shared workspace advances once.
    Compiler variants and maintenance share `services/builder/package.json`;
    its software version advances when any of those services is released, while
    their individual image tags retain separate histories. Bulk worker enrollment
