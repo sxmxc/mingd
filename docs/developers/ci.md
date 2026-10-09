@@ -1,11 +1,11 @@
 ---
 title: "Continuous integration"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/ci.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/ci.md
 ---
 
 # Continuous integration
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on pull requests,
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on pull requests,
 pushes to `main`, and manual GitHub Actions runs. It uses GitHub-hosted Ubuntu
 24.04 runners with read-only repository permissions and cancels older runs for
 the same ref. No production secrets or private-network access are required.
@@ -47,7 +47,7 @@ flows. Native-toolchain/source opt-in checks skip missing prerequisites. See
 Application CI does not apply production migrations, publish release images, or deploy the application.
 Deployment supports local builds or publishing locally built images to GHCR
 and pulling them on production after checks pass; see
-[deployment](deployment.md#build-here-pull-on-production-ghcr).
+[deployment](../operators/deployment.md#build-here-pull-on-production-ghcr).
 
 ## Branch protection and workflow changes
 
@@ -58,11 +58,12 @@ Keep CI builds isolated from production credentials and services.
 
 ## Documentation workflow
 
-The separate [Documentation workflow](../.github/workflows/docs.yml) runs
+The separate [Documentation workflow](../../.github/workflows/docs.yml) runs
 `Documentation checks` for changes to the docs, Starlight workspace, npm metadata,
 Node version, or its workflow. It checks and builds the static site on pull
-requests and publishes successful builds from `main` to GitHub Pages. It also
-runs on `doc*` branches, where the application workflow skips its jobs.
+requests and publishes successful builds from `main` to GitHub Pages. Documentation
+pull requests use this workflow even when their `doc*` source branch causes the
+application workflow to skip its jobs. Push builds run on `main`.
 See [documentation site setup](documentation.md) for the one-time Pages setting
 and local preview commands. Its path-filtered check is not part of the five
 application checks listed above.

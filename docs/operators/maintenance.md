@@ -1,11 +1,11 @@
 ---
 title: "Scheduled maintenance"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/maintenance.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/maintenance.md
 ---
 
 # Scheduled maintenance
 
-The [scheduled-maintenance migration](../supabase/migrations/20261007051155_scheduled_maintenance.sql)
+The [scheduled-maintenance migration](../../supabase/migrations/20261007051155_scheduled_maintenance.sql)
 creates five schedules; the distributed-execution migration adds upload cleanup
 for **six pg_cron schedules** total. Four execute SQL directly. Two request durable
 backend tasks processed by the Compose `maintenance` service. Seeing two rows in
@@ -109,7 +109,7 @@ Coverage is eight Linux/Windows/Web reference rows per supported release, and
 22 rows for 4.6.3/4.7.2, which also support Android/macOS. Android uses engine
 `.so` bytes inside each APK. macOS records the universal executable and matching
 ARM64/x86_64 slices. These exclude wrappers/runtime support files. Older
-partial inventories are backfilled. See [comparisons](recipes-and-comparisons.md).
+partial inventories are backfilled. See [size comparisons](../users/template-sizes.md).
 
 ## Inspect or request work
 
@@ -133,5 +133,25 @@ select public.request_maintenance('artifact_cleanup');
 A request respects active leases and `retry_after`; it does not immediately retry
 an ineligible task. Change schedules/retention through reviewed source-controlled
 migrations, not unrecorded dashboard edits. Application verification is covered
-by [`scheduled_maintenance.sql`](../supabase/tests/scheduled_maintenance.sql)
-and builder maintenance/reference tests; see [development](development.md).
+by [`scheduled_maintenance.sql`](../../supabase/tests/scheduled_maintenance.sql)
+and builder maintenance/reference tests; see [development](../developers/development.md).
+
+## Import reference measurements manually
+
+Normally [scheduled refresh](#official-release-and-reference-refresh) manages these. For an operator-run import,
+download the exact standard official TPZ from `godotengine/godot-builds`, then:
+
+```bash
+node --import tsx scripts/import-template-references.mjs --version 4.7.2 --archive /path/to/Godot_v4.7.2-stable_export_templates.tpz --dry-run
+node --import tsx scripts/import-template-references.mjs --version 4.7.2 --archive /path/to/Godot_v4.7.2-stable_export_templates.tpz
+```
+
+Python 3 and outbound official release API access are required. The importer
+checks identity, file size, official SHA-256, embedded version, and ELF/PE/WASM/
+Mach-O structure before upsert. It never executes templates; bounded nested
+archives can spool to temporary disk. Missing/invalid entries abort the import.
+
+`--dry-run` measures without accessing Supabase. Write mode loads root `.env`
+and prefers `NEXT_PUBLIC_SUPABASE_URL` over `SUPABASE_URL`; confirm the intended
+URL/privileged key before running. Only operators should import into production.
+

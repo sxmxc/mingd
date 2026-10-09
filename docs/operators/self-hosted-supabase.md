@@ -1,6 +1,6 @@
 ---
 title: "Self-hosted Supabase"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/self-hosted-supabase.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/self-hosted-supabase.md
 ---
 
 # Self-hosted Supabase
@@ -63,7 +63,7 @@ changes the upstream default. Use your installation's service names/launcher.
 
 Configure SMTP on the Supabase server, enable email confirmations, and keep secure
 email changes enabled. This repository provides confirmation, recovery, and
-email-change HTML in [`supabase/templates`](../supabase/templates). Recovery
+email-change HTML in [`supabase/templates`](../../supabase/templates). Recovery
 links use `/auth/confirm` to verify the token, set session cookies, and open
 `/account/reset-password`.
 

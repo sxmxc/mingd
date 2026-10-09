@@ -1,31 +1,15 @@
 ---
-title: "Recipe files, Android and macOS templates"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/recipe-files-and-mobile-templates.md
+title: "Android and macOS worker toolchains"
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/worker-toolchains.md
 ---
 
-# Recipe files, Android and macOS templates
+# Android and macOS worker toolchains
 
-## Portable recipes
-
-Export `.gdbuild` from the build form, saved recipes or a shared recipe. Import
-one in the build form to load an editable copy. Importing neither queues a build
-nor overwrites a saved recipe. Save explicitly to create a private recipe.
-
-The file is UTF-8 JSON with `format: "gdbuild"`, `version: 1`, a recipe `name`,
-and a validated `config`. It contains semantic settings only: no account IDs,
-share tokens, credentials, source URLs, compiler commands or filesystem paths.
-Files are limited to 64 KiB. Unknown keys, unsupported format versions and build
-settings are rejected. The exact Godot version must appear in the verified
-release catalog; import never substitutes another patch version. These files
-can be committed beside `project.godot`; they are min.gd recipes, not a Godot
-engine file format or executable build script.
+This guide is for operators provisioning the platform workers. Users only need
+[platform choices](../users/build-profiles.md) and [export instructions](../users/install-templates.md).
+Use [deployment](deployment.md) for publishing and updating the worker fleet.
 
 ## Android
-
-Android supports exact Godot 4.6.3 and 4.7.2 releases. Choose ARM64,
-ARMv7, x86_64 or x86 and release, debug or both. Each recipe builds one ABI; enable
-only that ABI in the Godot Android export preset. Templates contain the selected
-kinds and include `android_source.zip` with matching AARs for Gradle exports.
 
 The worker pins NDK 29.0.14206865, Android SDK 36, build tools 36.1.0 and Java 17,
 matching the checked Godot sources. It compiles native libraries with SCons,
@@ -51,15 +35,6 @@ Its queue is consumed by the gateway in production or the direct worker locally.
 Allow several additional GB of disk for the SDK image and ample compile space.
 
 ## macOS on Linux
-
-The application supports Apple Silicon, Intel and universal macOS recipes for
-exact Godot 4.6.3 and 4.7.2.
-Universal recipes compile two architectures and combine them with `lipo`.
-Output is `macos.zip` nested in the TPZ with the matching Godot app skeleton and
-per-kind binaries. Mach-O headers and architectures are checked, and executable
-permissions are preserved. Use the Compatibility/OpenGL renderer; Metal,
-Vulkan, ANGLE and AccessKit are disabled in this initial recipe. Sign and
-notarize your exported game using your own distribution workflow.
 
 The operator-provisioning example uses `/data/mingd-toolchains/Xcode_27.xip`
 and macOS SDK **27.0**. These files are not supplied by the repository; adapt
@@ -141,35 +116,3 @@ enroll the worker, and pull/start its image on the worker host.
 The optional macOS profile is `macos-builder` in root `compose.yml` and `macos`
 in `compose.workers.prod.yml`. Each uses dedicated cache/workspace volumes.
 Provision and verify the complete toolchain before enabling macOS.
-
-## Cache and comparisons
-
-Current global recipe **9** changes cache identity for every platform compared
-with older recipes. Android also includes toolchain recipe 1; macOS includes
-cross-toolchain recipe 2 and its operator-supplied archive SHA-256. Recipe 2 passes
-`LD_LIBRARY_PATH` into SCons subprocesses so relocated linkers can load the bundled
-BlocksRuntime, libdispatch and TAPI libraries. Older artifacts
-remain downloadable but are not reused by new identities. Architecture and
-selected kinds remain part of normalized configuration. Bump the relevant platform identity whenever
-its toolchain or compilation/packaging semantics change. See
-[cache architecture](architecture.md#cache-identity).
-
-The official reference importer supports all five platforms. For Android it
-measures the engine's ELF shared library inside each debug/release APK for every
-supported ABI. For macOS it validates the universal Mach-O executables and records
-both their full lengths and their ARM64/x86_64 slice lengths. Comparisons require
-exact release, architecture and template-kind matches, using engine binary bytes
-rather than APK/app wrapper sizes. Maintenance backfills older desktop-only
-reference inventories. Coverage follows the build policy: Android/macOS rows are
-required for Godot 4.6.3 and 4.7.2; other supported releases retain desktop/Web
-coverage. The archive is verified against its official SHA-256 before measuring.
-
-## Validation and acceptance
-
-Pure tests cover portable file validation, architecture combinations, cache
-identity and SCons generation. Fixture tests cover Android APK/AAR consistency,
-Mach-O architecture and archive permissions. For compiled templates, test
-Android debug/release exports on devices for each offered ABI. Test macOS exports
-on both architectures, including a universal export after SDK provisioning.
-Record results using [platform smoke tests](smoke-tests.md); run automated checks
-using [development validation](development.md).

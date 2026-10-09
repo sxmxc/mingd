@@ -1,12 +1,12 @@
 ---
 title: "Development and validation"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/development.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/development.md
 ---
 
 # Development and validation
 
 Use [getting started](getting-started.md) to configure development services.
-Use [AGENTS.md](../AGENTS.md) for repository boundaries and change rules.
+Use [AGENTS.md](../../AGENTS.md) for repository boundaries and change rules.
 Commands here run from the repository root.
 
 ## Browser access to the dev server
@@ -36,9 +36,8 @@ npm run build
 ```
 
 `next typegen` prepares generated route types on a fresh checkout. Next.js 16
-loads the web config in the production phase for this command. The build uses
-configured public frontend settings; neither a successful typecheck nor a build
-establishes working Auth or database connectivity.
+loads the web config in the production phase for this command. The web image reads deployment configuration at runtime; a successful
+typecheck or build does not establish working Auth or database connectivity.
 
 The root `package.json` records version-specific `allowScripts` approvals for
 esbuild's binary setup and msgpackr-extract's native addon setup. With the npm
@@ -86,7 +85,7 @@ dependency versions being validated. If a clean build still fails, inspect the
 new panic log before changing bundlers or dependency versions.
 
 Gateway enrollment and idle-heartbeat diagnostics are documented in
-[worker control](distributed-workers.md#authentication-and-operator-controls).
+[worker control](../operators/distributed-workers.md#authentication-and-operator-controls).
 The operator CLI reads root `.env`; the HTTPS probe needs only its worker token.
 
 For Next.js route/UI changes, exercise affected states in development and run the
@@ -104,7 +103,7 @@ smoke tests, then bump `BUILD_RECIPE_VERSION` before publishing new workers.
 Recipe 10 accounts for the Emscripten 6.0.11 update; it invalidates recipe 9
 artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
 not establish native acceptance of the new compiler. Follow the
-[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
+[compiler rollout checklist](../operators/deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
 for releasing these changes; this guide covers local validation, not production deployment.
 Every recipe change requires rebuilding web, gateway and each deployed compiler
 image because they embed the shared recipe, regardless of which workspace's own
@@ -121,7 +120,7 @@ source files changed. Application versions can remain independent.
 
 For template installation, export, and launch checks, use
 [smoke tests](smoke-tests.md). Previous results are in the
-[acceptance record](build-profiles.md#acceptance-tracking).
+[acceptance record](../archive/template-test-reports.md#acceptance-tracking).
 
 With a configured checkout, test inside the desktop image when host archive/
 compiler tools are missing:
@@ -156,7 +155,7 @@ npx supabase test db --local
 This reapplies the complete migration history, then tests all SQL files in
 `supabase/tests`. Reset destroys local data. Never point this workflow at the
 self-hosted production database. Production applies pending migrations using
-[deployment commands](deployment.md#database-migrations).
+[deployment commands](../operators/deployment.md#database-migrations).
 
 ## Direct worker development
 
@@ -209,7 +208,7 @@ schema, defaults/presets, normalization, guidance, SCons mapping, tests, and cac
 identity as needed. Never accept raw compiler/source/command inputs.
 
 Update setup/examples when configuration changes, and update the relevant guide
-plus [documentation index](README.md). Preserve user edits and deployed migration
+plus [documentation index](../README.md). Preserve user edits and deployed migration
 history. Review `git diff --check` and changes before submitting.
 
 Local screenshots, `.playwright-mcp/`, secrets, SDK/toolchain archives, and
@@ -219,3 +218,27 @@ state actual checks and skips, rather than repeating old success counts.
 
 [CI](ci.md) provides application/database/image gates. It currently does not
 compile every Godot target, test real Auth emails, or deploy production.
+
+## Distributed integration checks
+
+Repository tests cover protocol boundaries, credential operations, queue/lease
+adapters, process cancellation and package validation. SQL/RLS tests cover ownership,
+capacity, expiry/replacement, terminal states, upload publication and cleanup.
+The optional local integration runner uses real HTTPS with an ephemeral test CA,
+two credential-only worker processes, local Redis/Supabase, dry-run packaging,
+streamed uploads, integrity verification, cache reuse, missing-delivery repair,
+expiry, gateway restart and revocation:
+
+```bash
+MINGD_INTEGRATION_REDIS_URL=redis://127.0.0.1:16379 node --import tsx services/worker-gateway/integration/distributed.ts
+```
+
+Use a disposable local Redis database and a running local Supabase stack. The
+runner creates/removes its own users, builds, workers and artifacts. Set
+`MINGD_INTEGRATION_WORKER_IMAGE` to a newly built desktop image to run workers in
+separate worker-image containers instead of host processes; each gets only its own token
+and test files. These runs use diagnostic archives. Test compiled templates
+with the [export and launch procedure](smoke-tests.md), and check multi-host
+recovery using the [cutover procedure](../operators/deployment.md#distributed-cutover-and-rollback).
+Earlier results are recorded in [worker release history](../archive/worker-release-history.md#recorded-validation).
+

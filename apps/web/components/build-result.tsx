@@ -46,7 +46,7 @@ export function BuildResult({ id, status, config, rawConfig, error, stage, logTa
         {artifact && <div className="build-result-actions"><a href={`/api/builds/${id}/download`} className="tool-action"><Download size={17} aria-hidden="true" />{diagnostic ? "Download diagnostic" : "Download template .tpz"}</a><span className="build-download-size">{(artifact.size_bytes / 1048576).toFixed(2)} MiB package</span></div>}
         {!artifact && <div className="build-result-actions"><button type="button" className="secondary-action" onClick={() => window.location.reload()}>Refresh artifact details</button></div>}
         {artifact && !diagnostic && config && <InstallGuide config={config} />}
-        {artifact && !diagnostic && !config && <p className="build-result-description">Use the exact editor version recorded in this build's recipe. <a className="text-[var(--accent-strong)]" href="https://sxmxc.github.io/mingd/smoke-tests/">Read the installation guide →</a></p>}
+        {artifact && !diagnostic && !config && <p className="build-result-description">Use the exact editor version recorded in this build's recipe. <a className="text-[var(--accent-strong)]" href="https://sxmxc.github.io/mingd/install-templates/">Read the installation guide →</a></p>}
       </div>
       {artifact && !diagnostic && artifact.comparison && <div className="build-result-comparison"><TemplateSizeComparison comparison={artifact.comparison} /></div>}
     </div>
@@ -72,6 +72,6 @@ export function InstallGuide({ config }: { config: BuildConfig }) {
       <li><span>3</span><div><strong>Export for {target}</strong><p>{config.templateKinds.length === 2 ? "Release and debug templates are included. Enable Export With Debug for a debug export; disable it for release." : config.templateKinds[0] === "debug" ? "Only the debug template is included. Enable Export With Debug." : "Only the release template is included. Disable Export With Debug."} {platformNote}</p></div></li>
     </ol>
     <details><summary>Use a custom template for this project</summary><p>Extract the TPZ and select the matching {config.platform === "web" || config.platform === "macos" ? "nested ZIP" : config.platform === "android" ? "APK" : "executable"} in the export preset's Custom Template fields:</p><ul>{files.map(file => <li key={file}><code>{file}</code></li>)}</ul></details>
-    <a href="https://sxmxc.github.io/mingd/smoke-tests/" target="_blank" rel="noopener noreferrer">Full installation and launch guide ↗</a>
+    <a href="https://sxmxc.github.io/mingd/install-templates/" target="_blank" rel="noopener noreferrer">Full installation and export guide ↗</a>
   </section>;
 }

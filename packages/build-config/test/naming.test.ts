@@ -25,5 +25,5 @@ test("visible branding retains min.gd and Godot fixture success copy agrees with
   assert.match(read("apps/web/app/layout.tsx"), /title: "min\.gd"/);
   assert.match(read("apps/web/components/site-header.tsx"), /aria-label="min\.gd"/);
   assert.match(read("tests/fixtures/smoke-project/main.gd"), /min\.gd smoke test passed/);
-  assert.match(read("docs/smoke-tests.md"), /min\.gd smoke test passed/);
+  assert.match(read("docs/developers/smoke-tests.md"), /min\.gd smoke test passed/);
 });

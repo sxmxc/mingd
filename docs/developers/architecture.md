@@ -1,6 +1,6 @@
 ---
 title: "Architecture and build lifecycle"
-editUrl: https://github.com/sxmxc/mingd/edit/main/docs/architecture.md
+editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/architecture.md
 ---
 
 # Architecture and build lifecycle
@@ -8,7 +8,7 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/architecture.md
 min.gd uses npm workspaces and one shared build contract. The frontend does not
 compile Godot; isolated workers consume validated recipes.
 
-Production uses [distributed HTTPS workers](distributed-workers.md): the gateway
+Production uses [distributed HTTPS workers](../operators/distributed-workers.md): the gateway
 holds Redis/Supabase credentials on the application host, while dedicated build
 hosts receive individual enrollment tokens. Direct workers remain available for
 local development and rollback.
@@ -68,13 +68,29 @@ creating independent frontend and worker contracts.
    a short-lived signed URL for private Storage.
 
 Completion requires a validated, uploaded artifact and recorded metadata.
-Heartbeats and sanitized output are persisted. See [workbench](workbench.md) and
-[queue recovery](accounts-and-admin.md#queue-recovery).
+Heartbeats and sanitized output are persisted. See [workbench](../users/workbench.md) and
+[queue recovery](#queue-recovery).
+
+## Queue recovery
+
+A queued database build is the durable submission record. Direct workers scan
+unfinished builds every 30 seconds; in distributed mode the gateway scans every
+five seconds. They enqueue missing deliveries with the original build ID. Redis failure does not discard that record. BullMQ recovers stalled jobs;
+ordinary failures have two total attempts with exponential backoff. Exhausted
+or inconsistent jobs become failed builds with a retry action that submits a
+new build using the same recipe.
+
+Each delivery has an isolated attempt workspace. Upload identities include the
+content digest, and artifact cache insertion preserves the first committed
+result. Late attempts cannot regress a completed build to working/failed state.
+Application version changes alone do not require re-enrollment under the current
+compatibility contract. Protocol, recipe and enrolled capabilities must match.
+Remote attempts additionally use database leases; see [distributed recovery](../operators/distributed-workers.md#assignment-and-build-lifecycle).
 
 ## Cache identity
 
-Current build recipe version **9** is defined in
-[`recipe.ts`](../packages/build-config/src/recipe.ts). SHA-256 input includes
+Current build recipe version **10** is defined in
+[`recipe.ts`](../../packages/build-config/src/recipe.ts). SHA-256 input includes
 recipe version, exact source URL/checksum, and canonical normalized settings:
 version, platform, architecture, kinds, optimization, Web threads, and features.
 Android adds its pinned toolchain recipe; macOS adds its platform recipe and
@@ -99,7 +115,7 @@ The requested patch version is never silently substituted.
 Maintenance separately persists the verified catalog and fills official-template
 measurements. Its daily cron does not replace web/worker hourly discovery.
 Android/macOS stay limited to their exact version allow-list even when newer
-releases appear. See [profiles](build-profiles.md) and [maintenance](maintenance.md).
+releases appear. See [profiles](../users/build-profiles.md) and [maintenance](../operators/maintenance.md).
 
 ## Authorization and execution
 

@@ -5,45 +5,55 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/README.md
 
 # min.gd documentation
 
-Start with the guide for your task. Commands assume the repository root unless
-a guide names the production deployment directory or separate Supabase directory.
+min.gd builds custom Godot export templates from the features you choose.
+Start with **Using min.gd** to build and export your game. Running the service
+and changing its code have separate guides below.
 
-## Setup and operations
+## Using min.gd
 
-| Guide | Covers |
+You can use an existing instance without setting up servers or compilers.
+
+| I want to… | Guide |
 | --- | --- |
-| [Local development setup](getting-started.md) | Local services, first Linux build, and optional workers |
-| [Configuration](configuration.md) | Environment files, process-specific variables, queues, and URLs |
-| [Deployment](deployment.md) | Authoritative release/publish/deploy sequence, compiler rollout checklist, initial production setup and rollback |
-| [Self-hosted Supabase](self-hosted-supabase.md) | Separate Supabase server, Auth URLs, SMTP, and email templates |
-| [Maintenance](maintenance.md) | Six cron schedules, two backend tasks, retention, retries, and references |
-| [Troubleshooting](troubleshooting.md) | Auth errors, queued/stalled builds, maintenance failures, and cache issues |
-| [Accounts and administration](accounts-and-admin.md) | First SuperAdmin, access controls, worker telemetry, site settings, and account emails |
+| Make my first custom template | [Build your first template](users/first-template.md) |
+| Choose a platform, preset and engine features | [Platforms and features](users/build-profiles.md) |
+| Install templates and export my game | [Install and use templates](users/install-templates.md) |
+| Find downloads or understand build progress | [Build history and results](users/workbench.md) |
+| Save or share a configuration | [Saved recipes](users/recipes-and-comparisons.md) |
+| Keep a recipe file with my project | [Portable .gdbuild recipes](users/recipe-files-and-mobile-templates.md) |
+| Understand size reductions | [Template sizes](users/template-sizes.md) |
+| Manage my profile or reset my password | [Your account](users/account.md) |
+| Resolve a build, export or sign-in problem | [User help](users/user-help.md) |
 
-## Building and using templates
+## Operating an instance
 
-| Guide | Covers |
+These guides are for people hosting or administering min.gd. Commands assume
+the repository root unless a guide names a production or Supabase directory.
+
+| Task | Guide |
 | --- | --- |
-| [Build profiles](build-profiles.md) | Release/platform matrix, presets, restrictions, packages, and acceptance records |
-| [Recipes and comparisons](recipes-and-comparisons.md) | Private recipes, share links, compatibility guidance, and measured savings |
-| [Recipe files and mobile templates](recipe-files-and-mobile-templates.md) | `.gdbuild`, Android builds, and optional macOS SDK provisioning |
-| [Workbench](workbench.md) | Build history, output, heartbeat and stage semantics |
-| [Performance](performance.md) | Timings, memory scope, compiler cache, and benchmarking |
-| [Template smoke tests](smoke-tests.md) | Installation, export, native/browser/device launch, and pass criteria |
+| Deploy or update the service | [Deployment](operators/deployment.md) |
+| Configure processes and environments | [Configuration reference](operators/configuration.md) |
+| Configure the separate Supabase server and email | [Self-hosted Supabase](operators/self-hosted-supabase.md) |
+| Enroll and manage HTTPS workers | [Distributed workers](operators/distributed-workers.md) |
+| Provision Android/macOS worker toolchains | [Worker toolchains](operators/worker-toolchains.md) |
+| Manage users, administrators and announcements | [Administration](operators/accounts-and-admin.md) |
+| Understand cleanup and reference refresh | [Maintenance](operators/maintenance.md) |
+| Diagnose server or worker failures | [Operator troubleshooting](operators/troubleshooting.md) |
 
-## Contributing
+## Developing min.gd
 
-| Guide | Covers |
+| Task | Guide |
 | --- | --- |
-| [Architecture](architecture.md) | Component boundaries, lifecycle, cache identity, and authorization |
-| [Distributed workers](distributed-workers.md) | HTTPS gateway, private production topology, enrollment, version targets, health/cache telemetry, resource limits and acceptance |
-| [Development and validation](development.md) | Local checks, migrations, compiler audits, and contribution workflow |
-| [Documentation site](documentation.md) | Starlight preview, guide editing, and GitHub Pages publishing |
-| [CI](ci.md) | GitHub Actions jobs, branch checks, and coverage limits |
-| [Naming](naming.md) | Brand, technical names, and infrastructure identities |
-| [Worker release history](worker-release-history.md) | Earlier distributed-worker rollouts and recorded validation results |
-| [Agent instructions](../AGENTS.md) | Repository-specific inspection, change, and validation rules |
+| Run the repository locally | [Local development setup](developers/getting-started.md) |
+| Understand components and build semantics | [Architecture](developers/architecture.md), [compiler/package reference](developers/build-reference.md) |
+| Make changes and run checks | [Development and validation](developers/development.md), [CI](developers/ci.md) |
+| Check exported templates with the fixture | [Template smoke tests](developers/smoke-tests.md) |
+| Interpret or benchmark compiler measurements | [Performance](developers/performance.md) |
+| Edit and preview this documentation | [Documentation site](developers/documentation.md) |
+| Understand repository names or v1 scope | [Naming](developers/naming.md), [v1 product scope](developers/v1-readiness.md) |
+| Work as a coding agent | [Agent instructions](../AGENTS.md) |
 
-Update the relevant guide when behavior changes, and link to it from the
-[root README](../README.md). Record template export and launch results using
-[smoke tests](smoke-tests.md).
+Historical reports are kept separately: [worker release history](archive/worker-release-history.md)
+and [template test reports](archive/template-test-reports.md). Use the current
+operator guides for deployment rather than commands from old rollout notes.
