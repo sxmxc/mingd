@@ -106,6 +106,9 @@ artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
 not establish native acceptance of the new compiler. Follow the
 [compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
 for releasing these changes; this guide covers local validation, not production deployment.
+Every recipe change requires rebuilding web, gateway and each deployed compiler
+image because they embed the shared recipe, regardless of which workspace's own
+source files changed. Application versions can remain independent.
 
 | Checks | What they establish | Additional requirements |
 | --- | --- | --- |

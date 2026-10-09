@@ -30,7 +30,7 @@ services:
       retries: 3
 
   worker-gateway:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.3}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.4}}
     restart: unless-stopped
     environment:
       WORKER_GATEWAY_HOST: 0.0.0.0

@@ -87,10 +87,13 @@ npm run push -- web-builder --release
 npm run push -- android-builder --release
 npm run push -- macos-builder --release
 npm run push -- web --release
+npm run push -- worker-gateway --release
 ```
 
-Omit targets you did not build/use. Push `worker-gateway` or `maintenance` only
-if those services also received a new version and were rebuilt. If a push fails,
+Omit compiler targets you did not build/use. A recipe-version change requires
+new web, gateway and every deployed compiler image; gateway is required even
+when its own source files did not change. Push `maintenance` if its behavior also
+changed. If a push fails,
 finish publishing the tested image set before changing production. Never replace
 an already published version with different contents.
 
@@ -261,21 +264,40 @@ the application/operator host; worker hosts receive token files only.
 capacity, and history are preserved. No database migration is required for
 these commands. Keep a copy of the previous deployment tags and configuration.
 
+**A `BUILD_RECIPE_VERSION` change requires rebuilding and deploying web,
+worker-gateway, and every deployed compiler target from the new recipe.** The
+constant is copied into each image at build time; updating the checkout or a
+worker's enrollment does not update an existing gateway image. Independent
+application/image versions are supported, but the recipe identities must match.
+
+| Required image | Why it must carry the new recipe |
+| --- | --- |
+| `web` | Computes the canonical build/cache hash when submitting builds |
+| `worker-gateway` | Checks worker/enrollment recipe compatibility and creates assignments using that recipe |
+| Every deployed `builder`, `web-builder`, `android-builder`, `macos-builder` | Declares its recipe and verifies assignment/cache identity before compilation |
+
+Maintenance does not compute or enforce the compiler recipe identity. A recipe
+constant change alone does not require its image to change; update it when its
+maintenance/reference behavior or dependencies change. Newly built images need
+new tags for their own service; they do not need equal application versions.
+
 1. **Prepare and validate the new recipe on the build host.** Verify the exact
    supported Godot sources against the new toolchain. Bump
    `BUILD_RECIPE_VERSION` once for the changed binary semantics and update its
    cache tests. Do not bump it just for an application version change.
-   Select the services whose images changed, and bump their own versions.
-   For the compiler fleet plus web, a patch release preview is:
+   Bump web, gateway and all deployed compiler targets independently, including
+   services whose own source is unchanged but whose embedded recipe changed.
+   For the full compiler fleet plus web/gateway, a patch release preview is:
 
    ```bash
    nvm use
-   npm run release -- bump patch --service builder --service web-builder --service android-builder --service macos-builder --service web --dry-run
+   npm run release -- bump patch --service builder --service web-builder --service android-builder --service macos-builder --service web --service worker-gateway --dry-run
    ```
 
    Remove `--dry-run` to apply the chosen bump once. Use `minor` or `major` if
-   appropriate for the release. Omit unused targets; add `--service worker-gateway`
-   or `--service maintenance` when their images also changed. The root package
+   appropriate for the release. Omit unused compiler targets; keep web and gateway
+   selected for a recipe bump. Add `--service maintenance` when its behavior also
+   changed. The root package
    and unselected services stay on their own releases. If you already bumped,
    skip the bump commands. Do not increment an already-prepared recipe again.
 
@@ -293,7 +315,7 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    images, or change `BUILD_RECIPE_VERSION` automatically.
 
 2. **Build the selected images on the build host.** If they are already built,
-   skip to publication. For the compiler fleet plus web:
+   skip to publication. For the compiler fleet plus web/gateway:
 
    ```bash
    npm run build -- builder --release
@@ -301,9 +323,11 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    npm run build -- android-builder --release
    npm run build -- macos-builder --release
    npm run build -- web --release
+   npm run build -- worker-gateway --release
    ```
 
-   Omit unused targets. Building macOS requires the verified
+   Omit unused compiler targets; web and gateway remain required for recipe changes.
+   Building macOS requires the verified
    `toolchains/macos-toolchain.tar.xz` and matching `MACOS_TOOLCHAIN_SHA256`.
    Validate real compilation/export/launch on affected targets; diagnostic
    archives and unit checks do not establish compiler acceptance.
@@ -380,16 +404,17 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    On the **application host**, edit only the published services' tag entries
    in its existing `.env`: `WEB_IMAGE_TAG`, `WORKER_GATEWAY_IMAGE_TAG`, and/or
    `MAINTENANCE_IMAGE_TAG`. Leave unchanged services at their existing tags.
-   For a rollout that changed web but not gateway/maintenance, run there:
+   For a recipe rollout, both web and gateway must use the new recipe. Run there:
 
    ```bash
    docker compose -f compose.web.prod.yml config --images
-   docker compose -f compose.web.prod.yml pull web
-   docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never --force-recreate web
+   docker compose -f compose.web.prod.yml pull web worker-gateway
+   docker compose -f compose.web.prod.yml up -d --no-deps --no-build --pull never --force-recreate web worker-gateway
    ```
 
-   If gateway/maintenance were also rebuilt and published at new tags, append
-   their service names to the pull/up commands.
+   Append `maintenance` if that service was also rebuilt and published at a new tag.
+   Bring the new gateway up before recreating workers; an old gateway will reject
+   the new workers even with valid rotated tokens.
 
    On **each worker host**, edit the tags for its published targets in that host's
    existing `.env`: `BUILDER_IMAGE_TAG`, `WEB_BUILDER_IMAGE_TAG`,
@@ -418,7 +443,25 @@ these commands. Keep a copy of the previous deployment tags and configuration.
    Do not run `down -v`, flush Redis, or delete old artifact rows. The recipe hash
    separates artifact reuse automatically. Record deployed image digests.
 
-8. **Verify, then resume.** Confirm gateway `/healthz`, expected worker IDs,
+8. **Verify recipe identity, then resume.** A healthy gateway can still have an
+   old embedded recipe. On the application host, check its running image:
+
+   ```bash
+   docker compose -f compose.web.prod.yml exec -T worker-gateway node --import tsx --input-type=module -e 'import { BUILD_RECIPE_VERSION } from "@mingd/build-config"; console.log({ recipe: BUILD_RECIPE_VERSION });'
+   ```
+
+   On each worker host, check a compiler image without starting its worker loop:
+
+   ```bash
+   docker compose -f compose.workers.prod.yml run --rm --no-deps --entrypoint node builder --import tsx --input-type=module -e 'import { BUILD_RECIPE_VERSION } from "@mingd/build-config"; console.log({ recipe: BUILD_RECIPE_VERSION });'
+   ```
+
+   Repeat for each deployed target, replacing `builder` and adding its profile
+   when applicable. The gateway, compiler images and `workers -- list` enrollment
+   must all report the checkout's new recipe. Recipe mismatch returns HTTP 409;
+   rotating tokens does not correct an old gateway image.
+
+   Confirm gateway `/healthz`, expected worker IDs,
    current recipe/toolchain identity, heartbeats, and no unexpected failures in
    `/admin/workers`. Drained workers can heartbeat but cannot claim jobs. Then:
 

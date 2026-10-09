@@ -53,6 +53,14 @@ matching enrollment; token rotation changes only the secret. The bulk `upgrade`
 command updates drained enrollment to the checkout's recipe/release and rotates
 credentials while preserving worker IDs.
 
+A recipe-version change requires new web, gateway and every deployed compiler
+image, even if the gateway's own source files did not change. Each embeds the
+shared recipe at build time. Web hashes submissions with it; the gateway checks
+it before assigning work; workers declare and verify it. An old gateway recipe
+returns HTTP 409 to otherwise authenticated new workers. Update enrollment and
+deploy the new gateway before starting/resuming the new workers, following the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
+
 Bump the protocol for incompatible HTTP changes and the recipe when binary
 inputs or packaging change. Keep published release tags immutable. See
 [worker release history](worker-release-history.md) for earlier rollout details.
