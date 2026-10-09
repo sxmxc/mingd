@@ -1,4 +1,4 @@
-FROM node:25-bookworm-slim
+FROM node:24-bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*

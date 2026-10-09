@@ -29,7 +29,7 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | `IMAGE_TAG` | `latest` | Fallback image tag for services without an individual tag |
 
 Root and production Compose accept per-service tags. Production defaults to
-`v0.2.2`; the root checkout defaults to `latest`:
+`v0.2.3`; the root checkout defaults to `latest`:
 
 | Variable | Service | Production file (also supported in root Compose) |
 | --- | --- | --- |
@@ -145,7 +145,7 @@ update the canonical URL or allowed Auth redirects automatically.
 
 Use [`.env.web.prod.example`](../.env.web.prod.example) on the application host and
 [`.env.workers.prod.example`](../.env.workers.prod.example) on dedicated worker hosts.
-Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.2`; root Compose retains
+Production files default to `ghcr.io/sxmxc/mingd` and `v0.2.3`; root Compose retains
 `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.
 

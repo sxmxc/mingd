@@ -30,6 +30,6 @@ test("all desktop presets and template kinds agree between web and worker hashin
     const submittedHash = hashBuildConfig(config, source);
     const delivered = JSON.parse(JSON.stringify(reorderKeys(config)));
     assert.equal(createHash("sha256").update(canonicalBuildCacheInput(delivered, source)).digest("hex"), submittedHash, `${platform}/${preset}/${templateKinds}`);
-    assert.notEqual(createHash("sha256").update(canonicalBuildCacheInput(delivered, source).replace(/^9\n/, "8\n")).digest("hex"), submittedHash);
+    assert.notEqual(createHash("sha256").update(canonicalBuildCacheInput(delivered, source).replace(/^10\n/, "9\n")).digest("hex"), submittedHash);
   }
 });

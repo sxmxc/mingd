@@ -47,9 +47,9 @@ Other settings and service tags are preserved. A failed targeted build or push
 is not recorded as successful.
 
 `publish all` and `push all` push the configured local images without rebuilding
-or retagging them. For example, with `IMAGE_TAG=v0.2.2` and
+or retagging them. For example, with `IMAGE_TAG=v0.2.3` and
 `WEB_IMAGE_TAG=v0.2.4`, web stays at **v0.2.4** and unchanged workers stay at
-**v0.2.2**. `all` rejects a version argument and does not promote services to `latest`.
+**v0.2.3**. `all` rejects a version argument and does not promote services to `latest`.
 Only targeted push/publish updates a service's `latest` alias. Workspace versions
 and Git tags are unchanged. Choose a new tag when replacing a
 service's image; image tags do not have to match the application's version.
@@ -223,9 +223,11 @@ For a deployed file named `compose.yml` with those targets enabled:
 docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
 ```
 
-Release 0.2.2 uses `IMAGE_TAG=v0.2.2` and adds no migrations or protocol/recipe
-changes beyond 0.2.1. Apply the full migration history before deployment.
-Existing compatible enrollments keep their tokens; initial CPU readings at
+Release 0.2.3 uses `IMAGE_TAG=v0.2.3`, retains protocol v1, and adds no migrations.
+Recipe 10 accounts for the Emscripten 6.0.11 update. Drain work, deploy matching
+web/gateway/worker images, and re-enroll remote workers for recipe 10; recipe 9
+enrollment is incompatible. Apply the full migration history before deployment.
+For subsequent compatible upgrades, enrollments keep their tokens. Initial CPU readings at
 `/admin/workers` need two 30-second samples. See
 [worker release history](worker-release-history.md#upgrading-from-before-021)
 for deployments predating release-independent enrollment compatibility.
@@ -240,7 +242,7 @@ plain `--scale` with one mounted token is not the intended enrollment workflow.
 1. Pause submissions in `/admin/settings` and let queued/active direct builds finish.
    Keep the current release/configuration for rollback. Stopping an active compiler
    interrupts its job; prefer a drained transition.
-2. Apply migrations and publish matching 0.2.2 images. Copy the two production files
+2. Apply migrations and publish matching 0.2.3 images. Copy the two production files
    to their respective hosts. Preserve the application Compose project name and
    Redis volume. Configure NPM upload limits and worker HTTPS reachability.
 3. Stop existing direct builders using their old deployment definition:

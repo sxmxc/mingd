@@ -5,7 +5,7 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/distributed-workers.md
 
 # Distributed workers
 
-Release **0.2.2** includes the HTTPS gateway and remote workers introduced in 0.2.0,
+Release **0.2.3** includes the HTTPS gateway and remote workers introduced in 0.2.0,
 plus improved failure diagnostics and stable worker identities across application upgrades. Production uses
 separate application and build hosts. Redis stays inside the application Compose
 network; build hosts receive individual worker credentials and no privileged
@@ -43,9 +43,9 @@ or the retained direct mode for local development/rollback.
 ## Release compatibility
 
 Deploy web, gateway, and workers from a tested release set, preferably one
-immutable release tag. All workspace manifests currently use **0.2.2**.
+immutable release tag. All workspace manifests currently use **0.2.3**.
 Existing worker IDs and credentials survive routine application upgrades.
-Compatibility requires protocol **v1**, recipe **9**, the enrolled target, and
+Compatibility requires protocol **v1**, recipe **10**, the enrolled target, and
 macOS toolchain identity. Changing a recipe, target, or toolchain requires a
 matching enrollment; token rotation changes only the secret.
 
@@ -53,12 +53,15 @@ Bump the protocol for incompatible HTTP changes and the recipe when binary
 inputs or packaging change. Keep published release tags immutable. See
 [worker release history](worker-release-history.md) for earlier rollout details.
 
-Container Node remains **22 / Debian Bookworm**; operator Node is **24.21.0** via
+Container Node uses **24 / Debian Bookworm**; operator Node is **24.21.0** via
 `.nvmrc`. Fastify is exactly **5.12.5**. The lockfile retains BullMQ **6.3.11**,
 ioredis **6.0.0**, Supabase JS **2.117.2** and Next.js **16.3.8**. Redis retains the
 existing **8** major image policy. Record image digests when publishing because
 base tags can change.
-Release 0.2.2 retains recipe 9 and the previous compiler/toolchain settings.
+The original release 0.2.2 used recipe 9. Release 0.2.3 uses recipe
+10, accounts for Emscripten 6.0.11, and aligns Node images/types with Node 24.
+Deploy the matching web/gateway/workers together and re-enroll remote workers
+for recipe 10 before enabling them; recipe 9 enrollment is incompatible.
 NPM and production Supabase are managed separately.
 
 ## Authentication and operator controls

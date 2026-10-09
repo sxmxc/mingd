@@ -5,7 +5,7 @@ import { SUPPORTED_GODOT_VERSIONS, type SupportedGodotVersion } from "./versions
  * Bump this whenever compiler/toolchain choices or SCons-generation semantics
  * change in a way that should invalidate cached artifacts.
  */
-export const BUILD_RECIPE_VERSION = "9";
+export const BUILD_RECIPE_VERSION = "10";
 
 export function canonicalBuildCacheInput(input: unknown, resolvedSource?: SupportedGodotVersion, macosToolchainSha256?: string): string {
   const configJson = canonicalBuildConfigJson(input);

@@ -20,10 +20,30 @@ operator commands, use [distributed workers](distributed-workers.md).
 | **0.2.0** | Combined distributed implementation, local acceptance tests and production runbook |
 | **0.2.1** | Worker failure reasons and final diagnostics, source/copy output, extraction capability troubleshooting, contract-based upgrade compatibility, and admin worker health/cache/container telemetry |
 | **0.2.2** | Landing page and worker dashboard refinements, brand icons, and development origin configuration |
+| **0.2.3** | Dependency compatibility fixes, Node 24 runtime/type alignment, Astro editor configuration, process-test reliability, Dependabot major-upgrade holds, and recipe 10 for Emscripten 6.0.11 |
 
 The entries describe implementation milestones; not every intermediate image
 was published. Previously published `v0.1.2` images predate the completed
-transport. Current workspace manifests use 0.2.2.
+transport. Current workspace manifests use 0.2.3.
+
+## Upgrading to 0.2.3
+
+Release 0.2.3 keeps protocol v1 and introduces no database migrations. Recipe
+10 accounts for the Emscripten 6.0.11 compiler update and prevents reuse of
+recipe 9 artifacts that may have used different compilers. Drain active work,
+deploy matching web/gateway/worker images, and re-enroll remote workers for
+recipe 10 using the [deployment procedure](deployment.md). Recipe 9 enrollments
+are incompatible; rotating their tokens alone does not update the recipe.
+
+Node images and types align with the Node 24 development/CI baseline. TypeScript
+remains on 5.9.3 because Astro check does not support TypeScript 7. Major upgrades
+of TypeScript, Node images/types, and Emscripten require coordinated review;
+other Dependabot updates remain enabled.
+
+The compatibility checks passed workspace typechecks/tests, the docs build, and
+the webpack web build. Four toolchain tests were skipped; the Turbopack build
+hit a local-port restriction in the agent environment. These checks do not
+establish production deployment or native acceptance of Emscripten 6.
 
 ## Upgrading from before 0.2.1
 

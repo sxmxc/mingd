@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.2.2}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.2.3}}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
@@ -30,7 +30,7 @@ services:
       retries: 3
 
   worker-gateway:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.2}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.3}}
     restart: unless-stopped
     environment:
       WORKER_GATEWAY_HOST: 0.0.0.0
@@ -69,7 +69,7 @@ services:
       retries: 3
 
   maintenance:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/maintenance:${MAINTENANCE_IMAGE_TAG:-${IMAGE_TAG:-v0.2.2}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/maintenance:${MAINTENANCE_IMAGE_TAG:-${IMAGE_TAG:-v0.2.3}}
     restart: unless-stopped
     environment:
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}

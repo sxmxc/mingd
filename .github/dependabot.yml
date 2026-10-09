@@ -12,6 +12,13 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    ignore:
+      # Astro check uses the JavaScript compiler API; migrate majors together.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # Match the Node 24 runtime in .nvmrc and the Dockerfiles.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
     groups:
       next-react:
         patterns:
@@ -56,6 +63,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+      # Major compiler migrations require an explicit Godot compatibility audit.
+      - dependency-name: emscripten/emsdk
+        update-types: [version-update:semver-major]
+    # Review compiler image PRs with native acceptance and a cache recipe bump,
+    # including updates that only change the image digest.
 
   # Maintain Redis without touching app image release tags.
   - package-ecosystem: docker-compose

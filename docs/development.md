@@ -62,6 +62,16 @@ Node/tsx consumers, including package resolution and cache semantics.
 
 ## Test coverage and tool requirements
 
+Node 24 is the runtime baseline in `.nvmrc`, CI, Dockerfiles, and `@types/node`.
+Dependabot keeps minor and patch updates enabled but holds Node image/type and
+TypeScript major upgrades for coordinated validation. Emscripten major upgrades
+are also held; minor, patch, and digest PRs remain enabled. Compiler image PRs require
+manual review: verify the exact Godot releases with real compilation and export
+smoke tests, then bump `BUILD_RECIPE_VERSION` before publishing new workers.
+Recipe 10 accounts for the Emscripten 6.0.11 update; it invalidates recipe 9
+artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
+not establish native acceptance of the new compiler.
+
 | Checks | What they establish | Additional requirements |
 | --- | --- | --- |
 | Shared pure tests | Normalization, schemas, recipes/hashes, presets, versions, SCons arguments, comparisons, portable files | Node/npm |
