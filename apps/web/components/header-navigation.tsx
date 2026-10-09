@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ChevronDown, List, LogOut, Plus, UserRound } from "lucide-react";
+import { BookOpen, ChevronDown, List, LogOut, Plus, UserRound } from "lucide-react";
 import { signOut } from "@/app/dashboard/actions";
 import { NavLink } from "@/components/nav-link";
 
@@ -58,6 +58,12 @@ export function HeaderNavigation({ account }: { account: HeaderAccount | null })
       {account.admin && <NavLink href="/admin" className="header-nav-link">Admin</NavLink>}
     </nav>}
     <div className="header-actions">
+      <nav aria-label="Project resources" className="header-resource-links">
+        <a href="https://github.com/sxmxc/mingd" className="header-icon-link" aria-label="GitHub repository" title="GitHub repository" target="_blank" rel="noopener noreferrer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297a12 12 0 0 0-3.793 23.385c.6.111.82-.261.82-.577v-2.234c-3.338.726-4.043-1.416-4.043-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.304-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.536-1.524.117-3.176 0 0 1.008-.322 3.301 1.23a11.52 11.52 0 0 1 6.006 0c2.291-1.552 3.297-1.23 3.297-1.23.655 1.652.243 2.873.119 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.216.694.825.576A12 12 0 0 0 12 .297Z" /></svg>
+        </a>
+        <a href="https://sxmxc.github.io/mingd/" className="header-icon-link" aria-label="Documentation" title="Documentation" target="_blank" rel="noopener noreferrer"><BookOpen size={20} aria-hidden="true" /></a>
+      </nav>
       {account ? <HeaderDropdown account accessibleLabel={`Account menu for ${account.name}`} label={<>
         {account.avatar ? <img src={account.avatar} width={30} height={30} alt="" referrerPolicy="no-referrer" /> : <span className="header-avatar-fallback"><UserRound size={17} aria-hidden="true" /></span>}
       </>}>
