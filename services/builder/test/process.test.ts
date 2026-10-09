@@ -4,9 +4,29 @@ import { runProcess } from "../src/process.js";
 test("lost assignment stops compiler process groups, including descendants", async () => {
   if (process.platform === "win32") return;
   const controller = new AbortController(); let childPid: number | undefined;
+  let output = "";
   const started = Date.now();
-  await assert.rejects(runProcess(process.execPath, ["-e", `const {spawn}=require('node:child_process');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});console.log(child.pid);setInterval(()=>{},1000);`], {
-    signal: controller.signal, onOutput(chunk) { childPid=Number(chunk.toString().trim()); controller.abort(); },
+  await assert.rejects(runProcess(process.execPath, ["-e", `
+    const {spawn}=require('node:child_process');
+    const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+    console.error('fixture diagnostic: compiler starting');
+    setTimeout(()=>{
+      process.stdout.write('DESCENDANT_');
+      setTimeout(()=>process.stdout.write('PID='+child.pid+'\\n'),20);
+    },20);
+    setInterval(()=>{},1000);
+  `], {
+    timeoutMs: 5000,
+    signal: controller.signal, onOutput(chunk) {
+      // Output merges stdout/stderr and can split lines. Ignore diagnostics and
+      // never overwrite the PID after cancellation has started.
+      if (childPid !== undefined) return;
+      output += chunk.toString();
+      const match = output.match(/(?:^|\n)DESCENDANT_PID=(\d+)\r?\n/);
+      if (!match) return;
+      childPid = Number(match[1]);
+      controller.abort();
+    },
   }), /cancelled/);
   assert.ok(Date.now()-started < 6000);
   assert.ok(childPid);

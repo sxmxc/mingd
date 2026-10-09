@@ -60,7 +60,7 @@ test("SCons arguments are generated from allowlisted values", () => {
 
 test("cache input includes the build recipe", () => {
   const value = canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG);
-  assert.match(value, /^9\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
+  assert.match(value, /^10\nhttps:\/\/github\.com\/godotengine\/godot\/releases\/download\/4\.7\.2-stable/);
   assert.match(value, /a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481/);
 });
 

@@ -30,6 +30,15 @@ npm run docs:preview
 Search indexes are built during the production build. The docs need no Supabase,
 Redis, Docker, or application environment variables.
 
+The editor uses the workspace TypeScript version from `.vscode/settings.json`.
+If `astro/tsconfigs/strict` appears missing after an install, run **TypeScript:
+Select TypeScript Version → Use Workspace Version**, then **Developer: Reload
+Window**. The preset comes from the installed `astro` package; `npm ci` restores
+it. If the TypeScript 7 language server is enabled, run **Disable TypeScript 7
+Language Server** before selecting the workspace version. `@astrojs/check`
+0.9.10 accepts TypeScript 5 or 6, not 7. Keep the current
+TypeScript 5.9 version until a coordinated tooling migration passes all checks.
+
 ## Editing guides
 
 The header logo uses the same image as the application:

@@ -162,11 +162,12 @@ coverage; TPZ size is not main-binary size. See [recipes and comparisons](recipe
 
 ## Docker uses a different Node version or old code
 
-Repository commands use Node 24.21.0; Docker images use Node 22. Image-only
+Repository commands use Node 24.21.0; Dockerfiles use Node 24; deployed images keep their own baked-in runtime until updated. Image-only
 production needs no host Node installation. Pulling source or installing host
 dependencies does not update existing images. Publish a fresh release and repeat
-the production pull/start commands. For source deployments, use the affected
-`:build` command from the checkout. Public frontend
+the [production pull/recreate procedure](deployment.md#deploy-only-what-changed).
+For local source development, use `npm run build -- <service> --release` to build
+the affected Docker image. Public frontend
 settings are read at runtime by current web images; recreate web after changing
 them. See [deployment](deployment.md#source-checkout-command-reference).
 

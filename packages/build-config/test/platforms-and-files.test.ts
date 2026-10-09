@@ -57,5 +57,5 @@ test("platform toolchains separate cache keys without invalidating existing reci
   const macRecipe = canonicalBuildCacheInput(mac, undefined, "a".repeat(64));
   assert.match(macRecipe, /\nmacos-2:/);
   assert.notEqual(macRecipe, macRecipe.replace("\nmacos-2:", "\nmacos-1:"));
-  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^9\nhttps:/);
+  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^10\nhttps:/);
 });

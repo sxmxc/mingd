@@ -1,6 +1,6 @@
 # Debian Bookworm provides Python 3.11, GCC 12, and a glibc 2.36 baseline.
 # Keep BUILD_RECIPE_VERSION in sync with toolchain changes.
-FROM node:25-bookworm AS desktop
+FROM node:24-bookworm AS desktop
 LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,7 +37,7 @@ ENV GODOT_CACHE_DIR=/cache/godot \
 
 CMD ["node", "--import", "tsx", "services/builder/src/entrypoint.ts"]
 
-# Isolated Web toolchain; recipe 8 pins the Emscripten SDK version.
+# Isolated Web toolchain; recipe 10 accounts for the Emscripten 6 update.
 FROM emscripten/emsdk:6.0.11@sha256:cdefec943f04fd4b2b2fe23b0a1a346be9fc560ef5784a83faa27dd351381372 AS web-sdk
 FROM desktop AS web
 COPY --from=web-sdk /emsdk /emsdk

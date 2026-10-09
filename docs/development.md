@@ -40,9 +40,21 @@ loads the web config in the production phase for this command. The build uses
 configured public frontend settings; neither a successful typecheck nor a build
 establishes working Auth or database connectivity.
 
+The root `package.json` records version-specific `allowScripts` approvals for
+esbuild's binary setup and msgpackr-extract's native addon setup. With the npm
+version bundled with `.nvmrc`, inspect new install-script warnings from the
+repository root using `npm install-scripts ls`. After reviewing an updated
+package's script, run `npm install-scripts approve <package>` and commit the
+resulting approval. Approvals are pinned to the reviewed package versions;
+upgrading either dependency can require another review. Run `npm ci` again to
+apply approved scripts to a clean install.
+
 Root scripts cover all applicable workspaces. `npm run build` builds web and
-runs the Starlight documentation build and shared/service TypeScript build checks; builder runtime uses `tsx` rather than
-a generated `dist` service. Use workspace commands for focused tests:
+runs the Starlight documentation build and shared/service TypeScript build checks;
+builder runtime uses `tsx` rather than a generated `dist` service. Production
+web builds use Next.js's default Turbopack bundler through the same workspace
+script in local builds, CI, and Docker.
+Use workspace commands for focused tests:
 
 ```bash
 npm test --workspace @mingd/build-config
@@ -51,6 +63,27 @@ npm test --workspace @mingd/builder
 npm test --workspace @mingd/worker-protocol
 npm test --workspace @mingd/worker-gateway
 ```
+
+### Recovering a canceled Turbopack build
+
+An observed Next.js 16.3.8 `ModuleGraph::from_graphs_inner was canceled` panic
+repeated with dependencies matching the lockfile. Clearing generated `.next`
+state allowed the same installation to build successfully with Turbopack.
+The panic alone does not prove that every cancellation has this cause.
+
+Stop any dev server or concurrent build in this checkout before resetting the
+generated output. From the repository root:
+
+```bash
+nvm use
+rm -rf apps/web/.next
+npm run build
+```
+
+If the dependency installation may also be stale after a checkout or runtime
+change, run `npm ci` before rebuilding. Keep `package-lock.json`; it defines the
+dependency versions being validated. If a clean build still fails, inspect the
+new panic log before changing bundlers or dependency versions.
 
 Gateway enrollment and idle-heartbeat diagnostics are documented in
 [worker control](distributed-workers.md#authentication-and-operator-controls).
@@ -61,6 +94,21 @@ web build. For shared build-contract changes, validate both Next/Turbopack and
 Node/tsx consumers, including package resolution and cache semantics.
 
 ## Test coverage and tool requirements
+
+Node 24 is the runtime baseline in `.nvmrc`, CI, Dockerfiles, and `@types/node`.
+Dependabot keeps minor and patch updates enabled but holds Node image/type and
+TypeScript major upgrades for coordinated validation. Emscripten major upgrades
+are also held; minor, patch, and digest PRs remain enabled. Compiler image PRs require
+manual review: verify the exact Godot releases with real compilation and export
+smoke tests, then bump `BUILD_RECIPE_VERSION` before publishing new workers.
+Recipe 10 accounts for the Emscripten 6.0.11 update; it invalidates recipe 9
+artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
+not establish native acceptance of the new compiler. Follow the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
+for releasing these changes; this guide covers local validation, not production deployment.
+Every recipe change requires rebuilding web, gateway and each deployed compiler
+image because they embed the shared recipe, regardless of which workspace's own
+source files changed. Application versions can remain independent.
 
 | Checks | What they establish | Additional requirements |
 | --- | --- | --- |

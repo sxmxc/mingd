@@ -5,7 +5,7 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/distributed-workers.md
 
 # Distributed workers
 
-Release **0.2.2** includes the HTTPS gateway and remote workers introduced in 0.2.0,
+Release **0.2.3** includes the HTTPS gateway and remote workers introduced in 0.2.0,
 plus improved failure diagnostics and stable worker identities across application upgrades. Production uses
 separate application and build hosts. Redis stays inside the application Compose
 network; build hosts receive individual worker credentials and no privileged
@@ -42,23 +42,39 @@ or the retained direct mode for local development/rollback.
 
 ## Release compatibility
 
-Deploy web, gateway, and workers from a tested release set, preferably one
-immutable release tag. All workspace manifests currently use **0.2.2**.
+Deploy a tested set of compatible web, gateway and worker images. Each service
+keeps its own immutable image tag; the root package version does not select the
+whole deployment. The [deployment guide](deployment.md#build-here-pull-on-production-ghcr)
+owns the release, publication and production update commands.
 Existing worker IDs and credentials survive routine application upgrades.
-Compatibility requires protocol **v1**, recipe **9**, the enrolled target, and
+Compatibility requires protocol **v1**, recipe **10**, the enrolled target, and
 macOS toolchain identity. Changing a recipe, target, or toolchain requires a
-matching enrollment; token rotation changes only the secret.
+matching enrollment; token rotation changes only the secret. The bulk `upgrade`
+command updates drained enrollment to the checkout's recipe/release and rotates
+credentials while preserving worker IDs.
+
+A recipe-version change requires new web, gateway and every deployed compiler
+image, even if the gateway's own source files did not change. Each embeds the
+shared recipe at build time. Web hashes submissions with it; the gateway checks
+it before assigning work; workers declare and verify it. An old gateway recipe
+returns HTTP 409 to otherwise authenticated new workers. Update enrollment and
+deploy the new gateway before starting/resuming the new workers, following the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
 
 Bump the protocol for incompatible HTTP changes and the recipe when binary
 inputs or packaging change. Keep published release tags immutable. See
 [worker release history](worker-release-history.md) for earlier rollout details.
 
-Container Node remains **22 / Debian Bookworm**; operator Node is **24.21.0** via
+Container Node uses **24 / Debian Bookworm**; operator Node is **24.21.0** via
 `.nvmrc`. Fastify is exactly **5.12.5**. The lockfile retains BullMQ **6.3.11**,
 ioredis **6.0.0**, Supabase JS **2.117.2** and Next.js **16.3.8**. Redis retains the
 existing **8** major image policy. Record image digests when publishing because
 base tags can change.
-Release 0.2.2 retains recipe 9 and the previous compiler/toolchain settings.
+The original release 0.2.2 used recipe 9. Release 0.2.3 uses recipe
+10, accounts for Emscripten 6.0.11, and aligns Node images/types with Node 24.
+Use compatible web/gateway/workers and upgrade enrollment to recipe
+10 before enabling the new workers; recipe 9 enrollment is incompatible. Follow the
+[compiler rollout checklist](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist).
 NPM and production Supabase are managed separately.
 
 ## Authentication and operator controls
@@ -98,6 +114,10 @@ npm run workers -- resume --id <worker-id>
 npm run workers -- rotate --id <worker-id> --credential-file worker-tokens/desktop-new.token
 npm run workers -- revoke --id <worker-id>
 npm run workers -- enable --id <worker-id>
+npm run workers -- drain --all --wait --timeout-seconds 43200
+npm run workers -- upgrade --all --credential-dir worker-tokens/new-rollout
+npm run workers -- rotate --all --credential-dir worker-tokens/new-rotation
+npm run workers -- resume --all
 ```
 
 Draining allows active work to finish and blocks new claims. Rotation/revocation
@@ -106,6 +126,12 @@ first for planned rotation, replace the mounted token and recreate that worker.
 `enable` reverses revocation; `resume` reverses draining. An ambiguous database
 transport failure may still have committed enrollment/rotation: the CLI preserves
 the output file for recovery. Inspect `list` before retrying with a new file.
+Bulk operations select enabled workers; revoked workers are excluded. Bulk
+credentials require every selected worker to be draining with no active durable
+assignments. They write separate mode-0600 tokens and a private outcome manifest
+inside a new mode-0700 directory. Stop drained workers before upgrading, transfer
+each token to its corresponding host, recreate workers, verify heartbeats, then
+resume. See the rollout checklist for image tags, macOS identities, and recovery.
 
 For a one-shot authenticated check from a matching checkout:
 
@@ -285,7 +311,7 @@ MINGD_INTEGRATION_REDIS_URL=redis://127.0.0.1:16379 node --import tsx services/w
 Use a disposable local Redis database and a running local Supabase stack. The
 runner creates/removes its own users, builds, workers and artifacts. Set
 `MINGD_INTEGRATION_WORKER_IMAGE` to a newly built desktop image to run workers in
-separate Node 22 containers instead of host processes; each gets only its own token
+separate worker-image containers instead of host processes; each gets only its own token
 and test files. These runs use diagnostic archives. Test compiled templates
 with the [export and launch procedure](smoke-tests.md), and check multi-host
 recovery using the [cutover procedure](deployment.md#distributed-cutover-and-rollback).

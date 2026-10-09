@@ -58,7 +58,7 @@ the largest child process. See [worker telemetry](distributed-workers.md#admin-w
 4. An identical request normally bypasses compilation via artifact reuse. For an exact-repeat compiler benchmark use a disposable, isolated test harness/workspace without publishing an artifact; do not delete production artifact rows or flush the shared compiler cache merely to benchmark.
 5. Compare stages before deciding on changes: high misses suggest cache/path/recipe investigation; high linking time suggests linker settings; high workspace/source time suggests storage/copying; high packaging/upload time suggests compression/storage/network. Measure full container memory separately before increasing parallelism.
 
-Current recipe 9 separates versions, template kinds, targets and Web thread modes,
+Current recipe 10 separates versions, template kinds, targets and Web thread modes,
 pins the Web SDK image, and includes Android/macOS toolchain identities.
 Main-binary size sums engine executables/WASM/Android libraries across
 requested kinds, using matching macOS architecture output. Full-build speedup

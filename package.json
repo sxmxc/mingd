@@ -1,7 +1,7 @@
 {
   "name": "mingd",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Build only the Godot your game needs.",
   "workspaces": [
     "apps/*",
@@ -13,6 +13,7 @@
     "dev:builder": "npm run dev --workspace @mingd/builder",
     "dev:worker-gateway": "dotenv -- npm run dev --workspace @mingd/worker-gateway",
     "workers": "dotenv -- npm run operator --workspace @mingd/worker-gateway --",
+    "release": "node -- scripts/release.mjs",
     "dev:web-builder": "BUILDER_TARGET=web BUILDER_QUEUE_NAME=godot-web-builds dotenv -- npm run dev --workspace @mingd/builder",
     "build": "node scripts/publish-images.mjs build",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -38,5 +39,9 @@
     "@types/react-dom": "^19.3.0",
     "dotenv-cli": "^11.0.0",
     "supabase": "^2.119.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "msgpackr-extract@3.0.4": true
   }
 }

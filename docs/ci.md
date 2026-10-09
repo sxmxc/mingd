@@ -18,7 +18,7 @@ the same ref. No production secrets or private-network access are required.
 | `Database migrations and SQL tests` | Disposable local Supabase Postgres, full migration reset, pgTAP tests, cleanup even on failure |
 | `Docker build (web)` | Build existing web Dockerfile with BuildKit caching |
 | `Docker build (maintenance)` | Build existing maintenance Dockerfile with BuildKit caching |
-| `Docker build (worker-gateway)` | Build Fastify/Node 22 gateway image with upload validator |
+| `Docker build (worker-gateway)` | Build Fastify/Node 24 gateway image with upload validator |
 
 Application/SQL jobs use Node **24.21.0** from `.nvmrc`, matching repository
 operator commands; image-only production hosts need no Node/npm installation.
@@ -26,12 +26,16 @@ Supabase CLI is installed through the lockfile. Database tests cover access,
 recipes, platform constraints, references, and maintenance in `supabase/tests`;
 the job does not contact the deployed database.
 
-Dockerfiles currently use Node 22 independently of the host. These image checks
+Dockerfiles currently use Node 24 independently of the host. These image checks
 validate the Dockerfiles as deployed; changing their runtime is a separate rollout.
 Application checks use dummy public settings and loopback URLs. Docker image
 builds need no deployment URL/key arguments. Images are not pushed or deployed.
 The web app reads deployment configuration on the server at runtime, keeping
 privileged keys server-only.
+
+Production web builds use Next.js's default Turbopack bundler through the
+workspace script, including the web Dockerfile. For local build-cache recovery,
+see [development](development.md#recovering-a-canceled-turbopack-build).
 
 ## Coverage limits
 

@@ -44,4 +44,39 @@ export class WorkerOperator {
     if (error) throw new Error("Worker listing failed.");
     return data ?? [];
   }
+
+  async enabledWorkers() {
+    const workers = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await this.database.from("build_workers")
+        .select("id,name,target,software_release,recipe_version,toolchain_sha256,max_assignments,disabled,draining")
+        .eq("disabled", false).order("id").range(offset, offset + 99);
+      if (error) throw new Error("Worker listing failed.");
+      workers.push(...(data ?? []));
+      if (!data || data.length < 100) return workers;
+    }
+  }
+
+  async activeAssignments(ids: string[]) {
+    let total = 0;
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const { count, error } = await this.database.from("worker_assignments")
+        .select("id", { count: "exact", head: true }).in("worker_id", ids.slice(offset, offset + 100))
+        .eq("state", "active");
+      if (error || count == null || !Number.isSafeInteger(count) || count < 0) throw new Error("Assignment inspection failed.");
+      total += count;
+    }
+    return total;
+  }
+
+  async replaceDrainedCredential(workerId: string, credentialHash: string, hello?: WorkerHello) {
+    const capability = hello ? WorkerHelloSchema.parse(hello) : undefined;
+    const fields = { credential_hash: credentialHash, ...(capability ? {
+      software_release: capability.release, recipe_version: capability.recipeVersion,
+      toolchain_sha256: capability.toolchainSha256,
+    } : {}) };
+    const { error } = await this.database.from("build_workers").update(fields)
+      .eq("id", workerId).eq("disabled", false).eq("draining", true).select("id").single();
+    if (error) throw new Error("Drained worker update failed.");
+  }
 }
