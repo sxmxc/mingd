@@ -133,6 +133,7 @@ test('tags exports independent image versions without bumping or exposing secret
     writeFileSync(join(f.root, 'deployment.env'), 'WEB_IMAGE_TAG=v0.1.0\nSECRET=keep\n');
     const result = f.run(['tags', '--env-file', 'deployment.env']);
     assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes(`Saved 7 image-tag settings to ${join(f.root, 'deployment.env')}.`));
     assert.match(f.read('deployment.env'), /WEB_IMAGE_TAG=v0.2.4/);
     assert.match(f.read('deployment.env'), /WORKER_GATEWAY_IMAGE_TAG=v0.2.3/);
     assert.match(f.read('deployment.env'), /SECRET=keep/);

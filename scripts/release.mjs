@@ -76,6 +76,7 @@ try {
   if (!values['dry-run']) for (const [path, content] of changes) writeFileSync(resolve(root, path), content, { mode: 0o600 });
   console.log(`${values['dry-run'] ? 'Would prepare' : 'Prepared'} independent component versions:`);
   console.log((command === 'bump' ? summary : Object.entries(versions).map(([service, version]) => `${service}: v${version}`)).join('\n'));
+  if (command === 'tags') console.log(`${values['dry-run'] ? 'Would save' : 'Saved'} ${Object.keys(selectedVersions).length} image-tag settings to ${envPath}.`);
   console.log('No images built or published.');
 } catch (error) {
   console.error(error instanceof Error && !('code' in error) ? error.message : 'Release preparation failed; check file permissions and paths.');
