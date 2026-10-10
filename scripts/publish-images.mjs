@@ -71,27 +71,29 @@ try {
     }
   }
 
+  const imageIds = new Map();
   const images = selected.filter(([name, service]) => {
-    if (!all) return true;
+    if (!all && operation === "build") return true;
     if (operation === "build" && name === "macos-builder" && includeMacos) return true;
     if (operation === "build" && name !== "macos-builder") return true;
     const id = docker(["image", "inspect", service.image, "--format", "{{.Id}}"], {
-      capture: true, allowMissing: name === "macos-builder",
+      capture: true, allowMissing: all && name === "macos-builder",
     });
     if (id === null) {
       console.log("Skipping optional macos-builder: its configured local image is not built.");
       return false;
     }
+    imageIds.set(name, id);
     return true;
   });
-  if ((operation === "build" || (operation === "publish" && !all)) && !dryRun) {
+  if (operation === "build" && !dryRun) {
     const repository = images[0]?.[1].image?.match(/^ghcr\.io\/([^/]+\/[^/]+)\/[^/]+$/)?.[1];
     const source = env.MINGD_IMAGE_SOURCE ?? (env.GITHUB_REPOSITORY ? `https://github.com/${env.GITHUB_REPOSITORY}` : repository ? `https://github.com/${repository}` : undefined);
     docker(["compose", "build", ...images.map(([name]) => name)], { env: { ...env, ...(source ? { MINGD_IMAGE_SOURCE: source } : {}) } });
   }
   for (const [name, service] of images) {
     console.log(`${dryRun ? "Would " : ""}${operation} ${name}: ${service.image}`);
-    if (!all && operation !== "build") {
+    if (operation === "publish") {
       console.log(`${dryRun ? "Would update" : "Updating"} ${service.image.replace(/:[^/:]+$/, ":latest")}`);
     }
   }
@@ -99,14 +101,11 @@ try {
     console.log("Preflight passed; nothing built, tagged, pushed, or recorded.");
   } else {
     if (operation !== "build") {
-      for (const [, service] of images) {
-        if (all) {
-          docker(["push", service.image]);
-        } else {
-          const id = docker(["image", "inspect", service.image, "--format", "{{.Id}}"], { capture: true });
+      for (const [name, service] of images) {
+        docker(["push", service.image]);
+        if (operation === "publish") {
           const latest = service.image.replace(/:[^/:]+$/, ":latest");
-          docker(["image", "tag", id, latest]);
-          docker(["push", service.image]);
+          docker(["image", "tag", imageIds.get(name), latest]);
           docker(["push", latest]);
         }
       }
