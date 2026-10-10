@@ -59,7 +59,9 @@ export function WorkerDetails({ worker, now }: { worker: Worker; now: number }) 
     <div className={styles.detailContent}>
       <section className={styles.metadata}><h3>Worker information</h3><Values values={[
         ["Worker ID", worker.id], ["Target", worker.target],
-        ["App version", worker.release], ["Build recipe", worker.recipeVersion],
+        ["Package version (last reported)", telemetry?.serviceVersion ?? "Not reported"],
+        ["Image release tag (last reported)", telemetry?.imageTag === undefined ? "Not reported" : telemetry.imageTag ?? "Local build (no image tag)"],
+        ["Enrolled release", worker.release], ["Build recipe", worker.recipeVersion],
         ["Last seen", worker.lastSeenAt ? time(worker.lastSeenAt) : "Never"],
         ["Telemetry received", worker.telemetryAt ? time(worker.telemetryAt) : "Not reported"],
       ]} /></section>

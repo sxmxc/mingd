@@ -14,7 +14,7 @@ the same ref. No production secrets or private-network access are required.
 
 | Required check name | What runs |
 | --- | --- |
-| `Application checks (Node 24)` | Lockfile install, Next.js route type generation, workspace typecheck/tests, web/shared/service builds |
+| `Application checks (Node 24)` | Lockfile install, Next.js route type generation, workspace typecheck/tests, production web build |
 | `Database migrations and SQL tests` | Disposable local Supabase Postgres, full migration reset, pgTAP tests, cleanup even on failure |
 | `Docker build (web)` | Build existing web Dockerfile with BuildKit caching |
 | `Docker build (maintenance)` | Build existing maintenance Dockerfile with BuildKit caching |
@@ -32,12 +32,32 @@ Application checks use dummy public settings and loopback URLs. Docker image
 builds need no deployment URL/key arguments. Images are not pushed or deployed.
 The web app reads deployment configuration on the server at runtime, keeping
 privileged keys server-only.
+Validation image tags use the current `github.repository`, lowercased for GHCR,
+and their OCI source label identifies the same repository. Forks do not need to
+edit the workflow's registry namespace. Operator builds/deployments use their
+configured `IMAGE_PREFIX`; upstream production defaults remain available.
 
 Production web builds use Next.js's default Turbopack bundler through the
 workspace script, including the web Dockerfile. For local build-cache recovery,
 see [development](development.md#recovering-a-canceled-turbopack-build).
 
 ## Coverage limits
+
+Workspace tests check build contracts, rendered UI states, worker HTTP routes,
+packaging, and operator/release commands. Command tests use temporary checkouts
+and mocked Docker commands; they do not build or publish images. The Compose
+metadata test renders configuration with fixture environment files, so it needs
+no local `.env` or deployment credentials.
+
+Prefer tests of observable behavior. Extend an existing scenario when it covers
+a fix, rather than adding another overlapping test. Test version arithmetic and
+other pure rules directly; reserve subprocess tests for command behavior and
+file changes. Avoid assertions about source text, branding copy, exact layout
+counts, or log formatting unless those are part of a required contract.
+
+Workspace typechecking already checks the builder and gateway; the application
+job builds only the web workspace. Documentation builds run in the separate
+documentation workflow, and container checks validate image construction.
 
 CI does not compile real Godot templates, build all platform-worker images,
 provision Apple's SDK, perform native/device smoke tests, or test real Auth email
@@ -76,7 +96,7 @@ npm ci
 npm exec --workspace @mingd/web -- next typegen
 npm run typecheck
 npm test
-npm run build
+npm run build --workspace @mingd/web
 ```
 
 Use configured development environment values. SQL checks need a disposable

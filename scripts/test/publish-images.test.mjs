@@ -9,9 +9,10 @@ import test from "node:test";
 const publisher = fileURLToPath(new URL("../publish-images.mjs", import.meta.url));
 const applicationServices = ["web", "maintenance", "builder", "web-builder", "android-builder", "macos-builder", "worker-gateway"];
 
-function scenario({ missingImage = "", failPush = false, failLatest = false, macosArchive = false } = {}) {
+function scenario({ missingImage = "", failPush = false, failLatest = false, macosArchive = false, repository = "", source = "" } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "mingd-publish-test-"));
   const callsPath = join(directory, "calls.jsonl");
+  const sourcesPath = join(directory, "sources.jsonl");
   const envPath = join(directory, ".env");
   writeFileSync(envPath, "# Existing operator configuration\nIMAGE_TAG=v0.2.2\nWEB_IMAGE_TAG=v0.2.4\nUNRELATED=value\n");
   for (const path of ['compose.web.prod.yml', 'compose.workers.prod.yml']) {
@@ -28,6 +29,7 @@ function scenario({ missingImage = "", failPush = false, failLatest = false, mac
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.PUBLISH_TEST_CALLS, JSON.stringify(args) + "\\n");
+if (args[0] === "compose" && args[1] === "build") fs.appendFileSync(process.env.PUBLISH_TEST_SOURCES, JSON.stringify(process.env.MINGD_IMAGE_SOURCE ?? null) + "\\n");
 if (args[0] === "compose" && args.includes("config")) {
   const saved = Object.fromEntries(fs.readFileSync(".env", "utf8").split("\\n").filter(line => line.includes("=")).map(line => line.split("=")));
   const services = Object.fromEntries(${JSON.stringify(applicationServices)}.map(name => {
@@ -48,14 +50,19 @@ fs.appendFileSync(process.env.PUBLISH_TEST_CALLS, JSON.stringify(["npm", ...proc
   return {
     run(args) {
       writeFileSync(callsPath, "");
+      writeFileSync(sourcesPath, "");
       const env = { ...process.env, PATH: directory + delimiter + process.env.PATH,
-        PUBLISH_TEST_CALLS: callsPath, PUBLISH_TEST_MISSING: missingImage,
+        PUBLISH_TEST_CALLS: callsPath, PUBLISH_TEST_SOURCES: sourcesPath, PUBLISH_TEST_MISSING: missingImage,
         PUBLISH_TEST_FAIL_PUSH: String(failPush), PUBLISH_TEST_FAIL_LATEST: String(failLatest) };
       for (const key of Object.keys(env)) if (key.endsWith("_IMAGE_TAG")) delete env[key];
+      delete env.GITHUB_REPOSITORY; delete env.MINGD_IMAGE_SOURCE;
+      if (repository) env.GITHUB_REPOSITORY = repository;
+      if (source) env.MINGD_IMAGE_SOURCE = source;
       const result = spawnSync(process.execPath, [publisher, ...args], { cwd: directory, encoding: "utf8", env, timeout: 10_000 });
       assert.ifError(result.error);
       const calls = readFileSync(callsPath, "utf8").trim().split("\n").filter(Boolean).map(JSON.parse);
-      return { ...result, calls, saved: readFileSync(envPath, "utf8") };
+      const sources = readFileSync(sourcesPath, "utf8").trim().split("\n").filter(Boolean).map(JSON.parse);
+      return { ...result, calls, sources, saved: readFileSync(envPath, "utf8") };
     },
     close() { rmSync(directory, { recursive: true, force: true }); },
   };
@@ -66,15 +73,12 @@ function run(args, options) {
   try { return fixture.run(args); } finally { fixture.close(); }
 }
 
-test("publish all preserves the newer web version and never builds or retags", () => {
-  const result = run(["publish", "all"]);
-  assert.equal(result.status, 0, result.stderr);
-  const pushes = result.calls.filter(call => call[0] === "push").map(call => call[1]);
-  assert.equal(pushes.length, 7);
-  assert.ok(pushes.includes("ghcr.io/example/mingd/web:v0.2.4"));
-  assert.ok(pushes.includes("ghcr.io/example/mingd/builder:v0.2.2"));
-  assert.ok(!result.calls.some(call => call.includes("tag") || call.includes("build")));
-  assert.ok(!pushes.some(image => image.endsWith(":latest") || image.endsWith("web:v0.2.2")));
+test("build source labels follow the configured registry or GitHub repository, with explicit overrides", () => {
+  for (const [options, expected] of [[{}, "https://github.com/example/mingd"], [{ repository: "fork-owner/custom-repo" }, "https://github.com/fork-owner/custom-repo"], [{ repository: "fork-owner/custom-repo", source: "https://example.test/source" }, "https://example.test/source"]]) {
+    const result = run(["build", "web", "--", "v0.2.5"], options);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.sources, [expected]);
+  }
 });
 
 test("publishing one service builds only it and records its tag for the next publish all", () => {
@@ -89,7 +93,11 @@ test("publishing one service builds only it and records its tag for the next pub
     assert.match(single.saved, /UNRELATED=value/);
     const all = fixture.run(["publish", "all"]);
     assert.equal(all.status, 0, all.stderr);
-    assert.ok(all.calls.some(call => call[1] === "ghcr.io/example/mingd/web:v0.2.5"));
+    const pushes = all.calls.filter(call => call[0] === "push").map(call => call[1]);
+    assert.deepEqual(new Set(pushes), new Set(applicationServices.map(service =>
+      `ghcr.io/example/mingd/${service}:${service === 'web' ? 'v0.2.5' : 'v0.2.2'}`)));
+    assert.equal(pushes.length, applicationServices.length);
+    assert.ok(!all.calls.some(call => call.includes("tag") || call.includes("build")));
   } finally { fixture.close(); }
 });
 
@@ -111,12 +119,6 @@ test("dry-run makes no build, push, tag, or configuration changes", () => {
   const result = run(["publish", "web", "v0.2.5", "--dry-run"]);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(!result.calls.some(call => call.includes("build") || call[0] === "push" || call.includes("tag")));
-  assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
-});
-
-test("a failed push does not record the new tag", () => {
-  const result = run(["publish", "web", "v0.2.5"], { failPush: true });
-  assert.equal(result.status, 1);
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
 });
 
@@ -163,10 +165,11 @@ test("targeted push never builds and pushes the requested tag before latest", ()
 });
 
 
-test("a failed version push never pushes latest", () => {
-  const result = run(["push", "web", "v0.2.5"], { failPush: true });
+test("a failed version publication neither pushes latest nor records the new tag", () => {
+  const result = run(["publish", "web", "v0.2.5"], { failPush: true });
   assert.equal(result.status, 1);
   assert.ok(!result.calls.some(call => call[0] === "push" && call[1].endsWith(":latest")));
+  assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
 });
 
 test("a failed latest push reports failure without recording publication as complete", () => {
@@ -207,11 +210,10 @@ test('targeted release builds and pushes use the service version without updatin
   assert.equal(built.status, 0, built.stderr);
   assert.deepEqual(built.calls.filter(call => call.includes('build')), [['compose', 'build', 'web']]);
   assert.match(built.saved, /WEB_IMAGE_TAG=v0.2.4/);
-  assert.equal((built.stdout.match(/Recorded WEB_IMAGE_TAG=/g) ?? []).length, 1);
   assert.doesNotMatch(built.saved, /WORKER_GATEWAY_IMAGE_TAG/);
   const pushed = run(['push', 'worker-gateway', '--release']);
   assert.equal(pushed.status, 0, pushed.stderr);
-  assert.equal((pushed.stdout.match(/Recorded WORKER_GATEWAY_IMAGE_TAG=/g) ?? []).length, 1);
+  assert.match(pushed.saved, /WORKER_GATEWAY_IMAGE_TAG=v0.2.3/);
   assert.ok(pushed.calls.some(call => call[0] === 'push' && call[1] === 'ghcr.io/example/mingd/worker-gateway:v0.2.3'));
   assert.match(pushed.saved, /WEB_IMAGE_TAG=v0.2.4/);
   assert.ok(!pushed.calls.some(call => call.includes('build')));

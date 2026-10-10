@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { WorkerTelemetrySchema } from "@mingd/worker-protocol";
 import { parseCcacheCounters, WorkerTelemetrySampler } from "../src/worker-telemetry.js";
+import { BUILDER_SERVICE_VERSION } from "../src/service-version.js";
 
 test("aborting telemetry never signals a ccache process that failed to spawn", async t => {
   const dir = await mkdtemp("/tmp/mingd-telemetry-missing-");
@@ -20,6 +21,8 @@ test("aborting telemetry never signals a ccache process that failed to spawn", a
   const sampling = new WorkerTelemetrySampler(dir, dir).sample(controller.signal);
   controller.abort();
   const report = await sampling;
+  assert.equal(report.serviceVersion, BUILDER_SERVICE_VERSION);
+  assert.equal(report.imageTag, null);
   assert.equal(report.ccache, null);
   assert.equal(kill.mock.callCount(), 0, "Failed spawns have no child to signal");
 });
@@ -72,6 +75,14 @@ test("container sampler reports its group, quota and CPU deltas; missing control
 test("telemetry contract rejects nonfinite counters, unknown properties and oversized counter sets", () => {
   const value = { schemaVersion: 1, uptimeSeconds: 1, ccache: null, container: null };
   assert.ok(WorkerTelemetrySchema.safeParse(value).success);
+  assert.ok(WorkerTelemetrySchema.safeParse({ ...value, serviceVersion: BUILDER_SERVICE_VERSION }).success);
+  for (const imageTag of ["v0.3.2", null]) assert.ok(WorkerTelemetrySchema.safeParse({ ...value, imageTag }).success);
+  for (const imageTag of ["bad/tag", "tag\nsecret", "x".repeat(129)]) {
+    assert.equal(WorkerTelemetrySchema.safeParse({ ...value, imageTag }).success, false);
+  }
+  for (const serviceVersion of ["image:latest", "secret", "1.2.3\nsecret", "x".repeat(65)]) {
+    assert.equal(WorkerTelemetrySchema.safeParse({ ...value, serviceVersion }).success, false);
+  }
   for (const invalid of [{ ...value, uptimeSeconds: -1 }, { ...value, token: "secret" }, { ...value, uptimeSeconds: Infinity }]) assert.equal(WorkerTelemetrySchema.safeParse(invalid).success, false);
   const ccache = { hits: 0, misses: 0, sizeBytes: 0, files: 0, maxSize: "5.0G", version: "ccache 4.7.5", counters: Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`counter_${i}`, i])) };
   assert.equal(WorkerTelemetrySchema.safeParse({ ...value, ccache }).success, false);

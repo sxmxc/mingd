@@ -9,8 +9,10 @@ min.gd uses npm workspaces and one shared build contract. The frontend does not
 compile Godot; isolated workers consume validated recipes.
 
 Production uses [distributed HTTPS workers](../operators/distributed-workers.md): the gateway
-holds Redis/Supabase credentials on the application host, while dedicated build
-hosts receive individual enrollment tokens. Direct workers remain available for
+holds Redis/Supabase credentials in application services, while compiler workers
+receive individual enrollment tokens. Separate hosts are recommended, but the
+services can share a host while retaining container and credential isolation.
+Direct workers remain available for
 local development and rollback.
 
 ```mermaid
@@ -20,7 +22,7 @@ flowchart LR
   Web --> DB[Postgres: builds and recipes]
   Web --> Redis[Redis / BullMQ]
   Redis --> Gateway[Fastify worker gateway]
-  Workers[Dedicated desktop, Web, Android, macOS hosts] -->|Authenticated HTTPS| Gateway
+  Workers[Isolated desktop, Web, Android, macOS workers] -->|Authenticated HTTPS| Gateway
   Gateway --> DB
   Workers --> Official[Official Godot source]
   Gateway --> Storage[Private Supabase Storage]
@@ -89,10 +91,10 @@ Remote attempts additionally use database leases; see [distributed recovery](../
 
 ## Cache identity
 
-Current build recipe version **10** is defined in
+Current build recipe version **11** is defined in
 [`recipe.ts`](../../packages/build-config/src/recipe.ts). SHA-256 input includes
 recipe version, exact source URL/checksum, and canonical normalized settings:
-version, platform, architecture, kinds, optimization, Web threads, and features.
+version, platform, architecture, kinds, optimization, LTO, Web threads, and features.
 Android adds its pinned toolchain recipe; macOS adds its platform recipe and
 operator archive digest.
 

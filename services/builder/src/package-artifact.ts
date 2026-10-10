@@ -3,7 +3,8 @@ import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@mingd/build-config";
-import { godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
+import { BUILD_RECIPE_VERSION, godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename, templateArchiveFilename } from "@mingd/build-config";
+import { BUILDER_IMAGE_TAG, BUILDER_SERVICE_VERSION } from "./service-version.js";
 import { packageMacosTemplate, validateAndroidApk, validateAndroidSource, androidNativeLibrary } from "./platform-package.js";
 import { runProcess } from "./process.js";
 import { writeZip } from "./zip.js";
@@ -104,6 +105,10 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
   await writeFile(join(packageDir, "README-mingd.txt"), [
     "min.gd custom Godot export template", "",
     `Godot: ${versionIdentifier}`,
+    `Builder image release tag: ${BUILDER_IMAGE_TAG ?? "Local build (no image tag)"}`,
+    `Builder package version: ${BUILDER_SERVICE_VERSION}`,
+    `Build recipe: ${BUILD_RECIPE_VERSION}`,
+    `Optimization: ${config.optimization}; release LTO: ${config.lto && config.templateKinds.includes("release") ? "enabled" : "disabled"}; debug LTO: disabled.`,
     `Target: ${config.platform} ${config.architecture} template_${config.templateKinds.join(", template_")}`,
     "Install this TPZ with Godot's Export template manager, or extract and select the template in Custom Template > Release/Debug.",
     `Included template kinds: ${config.templateKinds.join(", ")}. Match Export With Debug to an included template.`,
@@ -121,7 +126,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     ] : config.platform === "windows" ? ["Keep the Windows console wrapper beside its main executable."] : []),
   ].join("\n"));
 
-  const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
+  const artifact = join(outputDir, templateArchiveFilename(config));
   const packageFiles = await readdir(packageDir);
   await writeZip(artifact, await Promise.all(packageFiles.map(async (name) => ({
     name,

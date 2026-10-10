@@ -12,12 +12,16 @@ FROM dependencies AS build
 COPY packages/build-config packages/build-config
 COPY packages/worker-protocol packages/worker-protocol
 COPY apps/web apps/web
+COPY scripts/write-image-release.mjs scripts/write-image-release.mjs
+ARG MINGD_IMAGE_TAG
+RUN node scripts/write-image-release.mjs apps/web/image-release.json
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web
 
 FROM node:24-bookworm-slim AS runtime
-LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
+ARG MINGD_IMAGE_SOURCE=https://github.com/sxmxc/mingd
+LABEL org.opencontainers.image.source=$MINGD_IMAGE_SOURCE
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

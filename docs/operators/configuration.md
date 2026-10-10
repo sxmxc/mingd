@@ -14,7 +14,7 @@ secret in documentation, source control, or a `NEXT_PUBLIC_*` variable.
 | --- | --- | --- |
 | Root/deployment `.env` | Compose; operator scripts when run from a checkout | Recreate affected containers |
 | `apps/web/.env.local` | Web workspace Next.js development commands | Restart development after changing settings |
-| Supabase deployment `.env` / Compose | Separately installed production Auth/API/Storage/database | Recreate relevant Supabase services with that installation's launcher |
+| Supabase provider settings or self-hosted `.env` / Compose | Production Auth/API/Storage/database | Apply settings through the provider or recreate affected self-hosted services |
 | `supabase/config.toml` | Local Supabase CLI stack only | Apply changes to the appropriate local development stack |
 
 Direct builder/maintenance npm commands do not automatically load root `.env`.
@@ -27,6 +27,7 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | --- | --- | --- |
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
 | `IMAGE_TAG` | `latest` | Fallback image tag for services without an individual tag |
+| `MINGD_IMAGE_SOURCE` | Derived by image build commands; direct Compose defaults to the upstream repository | Optional OCI source label override for Docker builds |
 
 Root and production Compose accept per-service tags. Production defaults are
 recorded independently in the two production Compose files; root Compose falls
@@ -52,6 +53,9 @@ their tags in the root `.env`, production Compose defaults and production env
 examples. Build and push use `--release` to select those prepared tags. The root
 package version does not force a shared image version. For the exact command
 order, use [deployment](deployment.md#build-here-pull-on-production-ghcr).
+After preparing components, `release platform` bumps only the root/platform
+version and captures their versions in `releases/v<version>.json`. It does not
+change image selection or deployment configuration.
 
 Each production host's existing `.env` is its deployment configuration. Copy only
 published services' `*_IMAGE_TAG` values from the prepared env examples; preserve
@@ -71,6 +75,7 @@ production `.env` files or restart containers. Pull/recreate is a separate actio
 | `SUPABASE_DB_URL` | Migration scripts | Private, percent-encoded PostgreSQL URI for self-hosted database |
 | `REDIS_URL` | Web, gateway and direct workers | Required; host example `redis://127.0.0.1:6379`; Compose sets `redis://redis:6379` |
 | `WEB_PORT` | Compose frontend | Host port, default `3000` |
+| `WORKER_GATEWAY_INTERNAL_URL` | Web server | Gateway origin for the Administration version footer; npm defaults to `http://127.0.0.1:3001`, Compose to `http://worker-gateway:3001`. Set npm overrides in `apps/web/.env.local`; no credentials or URL paths |
 | `ARTIFACT_BUCKET` | Web, gateway, direct workers, maintenance | `build-artifacts`; must match the private migrated bucket |
 | `SIGNED_DOWNLOAD_TTL_SECONDS` | Download route | `900`; issued links remain usable until expiry |
 | `MACOS_TOOLCHAIN_SHA256` | Web and macOS image/worker | Verified operator archive digest, required for macOS submissions/builds |
@@ -143,7 +148,8 @@ update the canonical URL or allowed Auth redirects automatically.
 ## Distributed-worker settings
 
 Use [`.env.web.prod.example`](../../.env.web.prod.example) on the application host and
-[`.env.workers.prod.example`](../../.env.workers.prod.example) on dedicated worker hosts.
+[`.env.workers.prod.example`](../../.env.workers.prod.example) for workers, whether on
+dedicated hosts or a separate Compose project on the application host.
 Production files default to `ghcr.io/sxmxc/mingd` and per-service release tags;
 root Compose retains `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.
@@ -163,7 +169,8 @@ privileged application configuration to remote hosts.
 | `WORKER_GATEWAY_URL` | Remote worker | `https://worker.mingd.voidmoose.net`; HTTPS origin, no paths/redirects |
 | `WORKER_TOKEN_FILE` | Remote worker | `/run/secrets/worker_token`; per-process enrollment file |
 | `WORKER_CPUS` | Worker Compose | 4 CPU limit per container |
-| `WORKER_MEMORY_LIMIT` | Worker Compose | 8 GiB per container |
+| `WORKER_MEMORY_LIMIT` | Worker Compose | 8 GiB per non-desktop container |
+| `DESKTOP_WORKER_MEMORY_LIMIT` | Worker Compose | 16 GiB for the desktop container, independently of `WORKER_MEMORY_LIMIT` |
 | `DESKTOP_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/desktop.token` |
 | `WEB_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/web.token` |
 | `ANDROID_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/android.token`; android profile |

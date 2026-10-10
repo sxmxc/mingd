@@ -35,8 +35,11 @@ recipe. Saving a recipe does not make a worker available.
 - **Debug:** debugging exports; turn on **Export With Debug**.
 - **Release + debug:** includes both kinds in one package.
 
-All builds use size optimization with LTO disabled. These are fixed settings;
-the form does not provide arbitrary optimization or compiler flags.
+All builds use size optimization. New Linux and Windows recipes enable link-time
+optimization (LTO) for release templates by default; uncheck **Smaller release
+template (LTO)** for a faster build. Imported and saved recipes retain their LTO
+choice. Debug templates and Web, Android, and macOS builds keep LTO disabled.
+The form does not provide arbitrary compiler flags.
 
 ## Presets and custom features
 

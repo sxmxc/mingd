@@ -35,6 +35,8 @@ export function normalizeBuildConfig(input: unknown): BuildConfig {
   return BuildConfigSchema.parse({
     ...parsed,
     templateKinds: [...parsed.templateKinds].sort(),
+    // LTO is supported only for desktop release templates; other targets keep it disabled.
+    lto: (parsed.platform === "linux" || parsed.platform === "windows") && parsed.lto,
     webThreads: parsed.platform === "web" && parsed.webThreads,
     features,
   });

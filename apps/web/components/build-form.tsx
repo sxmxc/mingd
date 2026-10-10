@@ -24,6 +24,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
   const [architecture, setArchitecture] = useState<BuildConfig["architecture"]>(initialConfig?.architecture ?? defaultArchitecture(initialConfig?.platform ?? "linux"));
   const [godotVersion, setGodotVersion] = useState<GodotVersionId>(initialConfig?.godotVersion ?? versions.find(version => version.id === DEFAULT_BUILD_CONFIG.godotVersion)?.id ?? versions[0].id);
   const [templateSelection, setTemplateSelection] = useState(initialConfig?.templateKinds.length === 2 ? "both" : initialConfig?.templateKinds[0] ?? "release");
+  const [lto, setLto] = useState(initialConfig?.lto ?? DEFAULT_BUILD_CONFIG.lto);
   const [webThreads, setWebThreads] = useState(initialConfig?.webThreads ?? false);
   const [startingProfile, setStartingProfile] = useState<SupportedPresetId | null>(() => initialConfig ? buildPresetId(normalizeBuildConfig(initialConfig)) : "standard");
   const [features, setFeatures] = useState<BuildFeatures>({ ...(initialConfig?.features ?? PRESETS.standard.features) });
@@ -35,7 +36,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
   const [featureSearch, setFeatureSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => Object.fromEntries(FEATURE_GROUPS.map(group => [group.label, true])));
   const templateKinds: TemplateKind[] = templateSelection === "both" ? ["release", "debug"] : [templateSelection as TemplateKind];
-  const config = normalizeBuildConfig({ ...(initialConfig ?? DEFAULT_BUILD_CONFIG), platform, godotVersion, templateKinds, webThreads, architecture, features });
+  const config = normalizeBuildConfig({ ...(initialConfig ?? DEFAULT_BUILD_CONFIG), platform, godotVersion, templateKinds, lto, webThreads, architecture, features });
   const supportedVersion = platformVersionSupported(platform, godotVersion);
   const profile = buildPresetId(config);
   const profileLabel = profile ? PRESETS[profile].label : "Custom";
@@ -91,7 +92,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
       if (!versions.some(version => version.id === recipe.config.godotVersion)) throw new Error("This recipe's exact Godot version is unavailable in the verified catalog. Its version has not been substituted.");
       setPlatform(recipe.config.platform); setArchitecture(recipe.config.architecture); setGodotVersion(recipe.config.godotVersion);
       setTemplateSelection(recipe.config.templateKinds.length === 2 ? "both" : recipe.config.templateKinds[0]);
-      setWebThreads(recipe.config.webThreads); setFeatures(recipe.config.features); setStartingProfile(buildPresetId(recipe.config)); setName(recipe.name); setSavedId(undefined);
+      setLto(recipe.config.lto); setWebThreads(recipe.config.webThreads); setFeatures(recipe.config.features); setStartingProfile(buildPresetId(recipe.config)); setName(recipe.name); setSavedId(undefined);
       setNotice("Recipe imported. Review it before saving or building.");
       window.history.replaceState(null, "", window.location.pathname);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not import recipe."); }
@@ -178,7 +179,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
               <div className="build-target-grid" role="radiogroup" aria-label="Export target">
                 {(["linux", "windows", "web", "android", "macos"] as const).map(value =>
                   <label key={value} className={`build-target-choice ${platform === value ? "selected" : ""}`}>
-                    <input type="radio" name="platform" checked={platform === value} onChange={() => { setPlatform(value); setArchitecture(defaultArchitecture(value)); }} />
+                    <input type="radio" name="platform" checked={platform === value} onChange={() => { setPlatform(value); setArchitecture(defaultArchitecture(value)); setLto(value === "linux" || value === "windows"); }} />
                     <PlatformIcon platform={value} />
                     <span><strong>{platformLabels[value]}</strong><small>{platformDescriptions[value]}</small></span>
                   </label>,
@@ -197,6 +198,10 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
                   <option value="both">Release + debug — both in one package</option>
                 </select>
               </label>
+              {(platform === "linux" || platform === "windows") && templateKinds.includes("release") && <label className="build-thread-option">
+                <input type="checkbox" checked={lto} onChange={event => setLto(event.target.checked)} />
+                <span><strong>Smaller release template (LTO)</strong><small>Optimize across engine modules to reduce release size. Builds take longer; debug templates are unaffected.</small></span>
+              </label>}
               {platform === "web" && <label className="build-thread-option">
                 <input type="checkbox" checked={webThreads} onChange={event => setWebThreads(event.target.checked)} />
                 <span><strong>Thread support</strong><small>Match Thread Support in Godot's Web export preset. Threaded hosting requires COOP/COEP headers; single-threaded exports do not require cross-origin isolation.</small></span>
@@ -320,7 +325,7 @@ export function BuildForm({ versions, catalogStale, initialConfig, recipeId, ini
 
           <details className="build-generated-recipe">
             <summary>Generated recipe and SCons arguments <span>Read-only</span></summary>
-            <dl className="inspector mt-4"><dt>Source</dt><dd>Godot {config.godotVersion} · checksum verified by worker</dd><dt>Template</dt><dd>{config.templateKinds.join(" + ")} · {config.architecture}</dd><dt>Optimization</dt><dd>Size · LTO disabled</dd></dl>
+            <dl className="inspector mt-4"><dt>Source</dt><dd>Godot {config.godotVersion} · checksum verified by worker</dd><dt>Template</dt><dd>{config.templateKinds.join(" + ")} · {config.architecture}</dd><dt>Optimization</dt><dd>Size · {config.lto && templateKinds.includes("release") ? "Release LTO enabled" : "LTO disabled"}</dd></dl>
             <pre className="build-scons-preview">{config.templateKinds.flatMap(kind => buildArchitectures(config).map(arch => toSconsArgs({ ...config, architecture: arch }, kind).join("\n"))).join("\n\n")}</pre>
           </details>
         </Card>

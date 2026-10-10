@@ -32,7 +32,7 @@ export const DEFAULT_BUILD_CONFIG: BuildConfig = {
   architecture: "x86_64",
   templateKinds: ["release"],
   optimization: "size",
-  lto: false,
+  lto: true,
   webThreads: false,
   features: DEFAULT_FEATURES,
 };

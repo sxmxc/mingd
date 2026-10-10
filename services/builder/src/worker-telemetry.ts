@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { promisify } from "node:util";
 import { WorkerTelemetrySchema, type WorkerTelemetry } from "@mingd/worker-protocol";
+import { BUILDER_IMAGE_TAG, BUILDER_SERVICE_VERSION } from "./service-version.js";
 const exec = promisify(execFile);
 
 async function readCcache(args: string[], cacheDir: string, signal?: AbortSignal) {
@@ -43,7 +44,7 @@ export class WorkerTelemetrySampler {
   private previous?: { usage: number; time: number };
   constructor(private readonly cacheDir: string, private readonly cgroupDir = "/sys/fs/cgroup") {}
   async sample(signal?: AbortSignal): Promise<WorkerTelemetry> {
-    const report: WorkerTelemetry = { schemaVersion: 1, uptimeSeconds: process.uptime(), ccache: null, container: null };
+    const report: WorkerTelemetry = { schemaVersion: 1, serviceVersion: BUILDER_SERVICE_VERSION, imageTag: BUILDER_IMAGE_TAG, uptimeSeconds: process.uptime(), ccache: null, container: null };
     const cache = async () => {
       try {
         const [stats, size, version] = await Promise.all([
@@ -74,6 +75,6 @@ export class WorkerTelemetrySampler {
     await Promise.all([cache(), container()]);
     const parsed = WorkerTelemetrySchema.safeParse(report);
     // A malformed local tool result cannot break the compiler or worker lease.
-    return parsed.success ? parsed.data : { schemaVersion: 1, uptimeSeconds: process.uptime(), ccache: null, container: null };
+    return parsed.success ? parsed.data : { schemaVersion: 1, serviceVersion: BUILDER_SERVICE_VERSION, imageTag: BUILDER_IMAGE_TAG, uptimeSeconds: process.uptime(), ccache: null, container: null };
   }
 }

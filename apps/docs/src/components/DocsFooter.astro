@@ -1,0 +1,32 @@
+---
+import Footer from '@astrojs/starlight/components/Footer.astro';
+---
+<Footer><slot /></Footer>
+<script>
+  const sources = new WeakMap<HTMLElement, string>();
+  let rendering = Promise.resolve();
+  function renderDiagrams() {
+    rendering = rendering.then(async () => {
+      const nodes = [...document.querySelectorAll<HTMLElement>('.mermaid-diagram')];
+      if (!nodes.length) return;
+      const { default: mermaid } = await import('mermaid');
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict',
+        theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default' });
+      for (const node of nodes) {
+        const source = sources.get(node) ?? node.textContent ?? '';
+        sources.set(node, source);
+        node.textContent = source;
+        node.removeAttribute('data-processed');
+        try { await mermaid.run({ nodes: [node] }); }
+        catch (error) { node.textContent = source; console.error('Mermaid diagram could not be rendered', error); }
+      }
+    }).catch(error => console.error('Mermaid renderer could not be loaded', error));
+  }
+  new MutationObserver(renderDiagrams).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  document.addEventListener('astro:page-load', renderDiagrams);
+  renderDiagrams();
+</script>
+<style is:global>
+  .sl-markdown-content .mermaid-diagram { overflow-x: auto; background: transparent; padding: 1rem; }
+  .mermaid-diagram svg { display: block; margin-inline: auto; max-width: none; }
+</style>

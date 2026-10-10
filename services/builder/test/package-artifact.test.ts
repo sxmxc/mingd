@@ -5,7 +5,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import test from "node:test";
-import { DEFAULT_BUILD_CONFIG, PRESETS, normalizeBuildConfig, compiledTemplateFilename } from "@mingd/build-config";
+import { BUILD_RECIPE_VERSION, DEFAULT_BUILD_CONFIG, PRESETS, normalizeBuildConfig, compiledTemplateFilename } from "@mingd/build-config";
+import { BUILDER_SERVICE_VERSION } from "../src/service-version.js";
 import { packageArtifact, validateWindowsBinary } from "../src/package-artifact.js";
 import { writeZip } from "../src/zip.js";
 
@@ -42,6 +43,7 @@ test("debug and release Windows binaries and wrappers stay distinct in one packa
       await writeFile(join(source, "bin", compiledTemplateFilename(config, kind, console)), pe(console));
     }
     const result = await packageArtifact(source, output, config);
+    assert.equal(basename(result.artifactPath), "mingd-4.6.3-windows-x86_64-debug-release.tpz");
     assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes);
     const names = execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).trim().split("\n");
     for (const kind of config.templateKinds) {
@@ -49,6 +51,11 @@ test("debug and release Windows binaries and wrappers stay distinct in one packa
       assert.ok(names.includes(`windows_${kind}_x86_64_console.exe`));
     }
     assert.equal(execFileSync("unzip", ["-p", result.artifactPath, "version.txt"], { encoding: "utf8" }), "4.6.3.stable\n");
+    const readme = execFileSync("unzip", ["-p", result.artifactPath, "README-mingd.txt"], { encoding: "utf8" });
+    assert.match(readme, /Builder image release tag: Local build \(no image tag\)/);
+    assert.ok(readme.includes(`Builder package version: ${BUILDER_SERVICE_VERSION}\n`));
+    assert.ok(readme.includes(`Build recipe: ${BUILD_RECIPE_VERSION}\n`));
+    assert.match(readme, /release LTO: enabled; debug LTO: disabled/);
     assert.equal(result.binarySizeBytes, 1024);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

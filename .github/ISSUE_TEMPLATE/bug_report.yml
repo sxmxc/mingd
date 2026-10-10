@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a problem with the application, templates, or deployment.
+body:
+  - type: markdown
+    attributes:
+      value: "Include enough detail to reproduce the problem. Remove credentials, worker tokens, private URLs, and personal information from logs."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the build configuration or relevant command when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions and environment
+      description: "Include what you know: platform release, image tags/package versions, recipe, browser/OS, and Godot version/target. Running service versions appear in Administration and worker details; template metadata is in the build README."
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Include relevant sanitized output or screenshots.

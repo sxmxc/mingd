@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "platformVersion": "1.0.0",
+  "packages": {
+    "@mingd/docs": "0.2.3",
+    "@mingd/web": "0.3.4",
+    "@mingd/build-config": "0.2.3",
+    "@mingd/worker-protocol": "0.2.3",
+    "@mingd/builder": "0.3.2",
+    "@mingd/worker-gateway": "0.2.5"
+  },
+  "images": {
+    "web": {
+      "tag": "v0.3.4",
+      "package": "@mingd/web"
+    },
+    "worker-gateway": {
+      "tag": "v0.2.5",
+      "package": "@mingd/worker-gateway"
+    },
+    "maintenance": {
+      "tag": "v0.2.3",
+      "package": "@mingd/builder"
+    },
+    "builder": {
+      "tag": "v0.3.1",
+      "package": "@mingd/builder"
+    },
+    "web-builder": {
+      "tag": "v0.3.1",
+      "package": "@mingd/builder"
+    },
+    "android-builder": {
+      "tag": "v0.3.1",
+      "package": "@mingd/builder"
+    },
+    "macos-builder": {
+      "tag": "v0.3.2",
+      "package": "@mingd/builder"
+    }
+  }
+}

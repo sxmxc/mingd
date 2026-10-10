@@ -33,8 +33,9 @@ the repository root unless a guide names a production or Supabase directory.
 | Task | Guide |
 | --- | --- |
 | Deploy or update the service | [Deployment](operators/deployment.md) |
+| Compare package/image versions and platform releases | [Platform release matrix](operators/release-matrix.md) |
 | Configure processes and environments | [Configuration reference](operators/configuration.md) |
-| Configure the separate Supabase server and email | [Self-hosted Supabase](operators/self-hosted-supabase.md) |
+| Configure Supabase and application email | [Supabase configuration](operators/self-hosted-supabase.md) |
 | Enroll and manage HTTPS workers | [Distributed workers](operators/distributed-workers.md) |
 | Provision Android/macOS worker toolchains | [Worker toolchains](operators/worker-toolchains.md) |
 | Manage users, administrators and announcements | [Administration](operators/accounts-and-admin.md) |

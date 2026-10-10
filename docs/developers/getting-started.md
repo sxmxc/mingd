@@ -13,8 +13,8 @@ machine. For access from another computer, see
 and [URLs and networking](../operators/configuration.md#urls-and-networking); review the app
 origin and Supabase Auth redirects for the address you use.
 
-For production with separate application and build hosts and a separately managed
-Supabase installation, follow the [deployment guide](../operators/deployment.md).
+For production, including recommended separate hosts and single-host deployments,
+follow the [deployment guide](../operators/deployment.md).
 
 ## Prerequisites
 

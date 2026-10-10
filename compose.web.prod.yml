@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.3.3}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/web:${WEB_IMAGE_TAG:-${IMAGE_TAG:-v0.3.4}}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
@@ -15,6 +15,7 @@ services:
       MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
       ARTIFACT_BUCKET: ${ARTIFACT_BUCKET:-build-artifacts}
       SIGNED_DOWNLOAD_TTL_SECONDS: ${SIGNED_DOWNLOAD_TTL_SECONDS:-900}
+      WORKER_GATEWAY_INTERNAL_URL: ${WORKER_GATEWAY_INTERNAL_URL:-http://worker-gateway:3001}
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
@@ -30,7 +31,7 @@ services:
       retries: 3
 
   worker-gateway:
-    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.4}}
+    image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/worker-gateway:${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-v0.2.5}}
     restart: unless-stopped
     environment:
       WORKER_GATEWAY_HOST: 0.0.0.0

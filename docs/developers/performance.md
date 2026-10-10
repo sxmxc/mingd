@@ -58,8 +58,10 @@ the largest child process. See [worker telemetry](../operators/distributed-worke
 4. An identical request normally bypasses compilation via artifact reuse. For an exact-repeat compiler benchmark use a disposable, isolated test harness/workspace without publishing an artifact; do not delete production artifact rows or flush the shared compiler cache merely to benchmark.
 5. Compare stages before deciding on changes: high misses suggest cache/path/recipe investigation; high linking time suggests linker settings; high workspace/source time suggests storage/copying; high packaging/upload time suggests compression/storage/network. Measure full container memory separately before increasing parallelism.
 
-Current recipe 10 separates versions, template kinds, targets and Web thread modes,
-pins the Web SDK image, and includes Android/macOS toolchain identities.
+Current recipe 11 separates versions, template kinds, targets, LTO and Web thread
+modes, pins the Web SDK image, and includes Android/macOS toolchain identities.
+New desktop release recipes enable full LTO by default. Measure link time and
+whole-container peak memory on the worker host; the measurements below predate LTO.
 Main-binary size sums engine executables/WASM/Android libraries across
 requested kinds, using matching macOS architecture output. Full-build speedup
 claims require measurements from real builds.

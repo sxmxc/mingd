@@ -94,3 +94,10 @@ exported game are handled through your own distribution workflow.
 See [help](user-help.md) for version mismatches, missing templates and project
 compatibility. Developers checking compiler or packaging changes can use the
 [smoke-project procedure](../developers/smoke-tests.md).
+
+## Build version information
+
+`README-mingd.txt` records the Godot version, builder image release tag and package version,
+build recipe, optimization and release LTO setting used for the artifact.
+Cached artifacts retain the information from their original build; downloading
+an artifact again does not rewrite it with the current service versions.

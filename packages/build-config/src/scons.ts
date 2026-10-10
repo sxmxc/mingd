@@ -88,9 +88,9 @@ export function assertRealBuildSupported(input: unknown): BuildConfig {
 
   if (!platformVersionSupported(config.platform, config.godotVersion)) throw new Error("Android and macOS currently support Godot 4.6.3 and 4.7.2. Choose an exact verified release.");
   if (
-    config.optimization !== "size" || config.lto
+    config.optimization !== "size"
   ) {
-    throw new Error("Real builds require optimize=size and LTO disabled.");
+    throw new Error("Real builds require optimize=size.");
   }
   if (!config.features.tilemap) throw new Error("TileMap must remain enabled: supported Godot releases have no TileMap-only build flag.");
   return config;

@@ -89,8 +89,11 @@ export const CompletionReceiptSchema = z.object({ protocolVersion: z.literal(1),
 export const AssignmentStatusSchema = z.object({ protocolVersion: z.literal(1), assignmentId: WorkerIdSchema, artifactId: WorkerIdSchema.nullable() }).strict();
 
 export const WORKER_TELEMETRY_INTERVAL_MS = 30_000;
+export const ImageTagSchema = z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/);
 export const WorkerTelemetrySchema = z.object({
   schemaVersion: z.literal(1), uptimeSeconds: CounterSchema,
+  serviceVersion: ReleaseSchema.optional(),
+  imageTag: ImageTagSchema.nullable().optional(),
   ccache: z.object({ hits: CounterSchema, misses: CounterSchema, sizeBytes: CounterSchema,
     files: CounterSchema, maxSize: z.string().max(40).regex(/^[0-9.]+[A-Za-z]*$/), version: z.string().max(200),
     counters: z.record(z.string().regex(/^[a-z][a-z0-9_]{0,99}$/), CounterSchema)

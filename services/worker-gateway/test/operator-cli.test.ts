@@ -134,7 +134,9 @@ test("bulk CLI drains and upgrades enabled workers without leaking tokens or cha
     assert.equal(upgraded.code, 0, upgraded.output);
     assert.equal(updates.length, 4);
     for (const id of ids.slice(0, 2)) {
-      const token = readFileSync(join(target, `${id}.token`), "utf8").trim();
+      const file = join(target, `desktop-${id}.token`);
+      assert.ok(upgraded.output.includes(file));
+      const token = readFileSync(file, "utf8").trim();
       assert.ok(!upgraded.output.includes(token));
       assert.ok(updates.some(fields => fields.credential_hash === hashWorkerCredential(token)));
     }

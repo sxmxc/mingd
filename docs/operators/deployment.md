@@ -5,12 +5,13 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/deployment.md
 
 # Deployment and operations
 
-Production uses two image-only deployment files on **separate Docker hosts**:
+The recommended production layout uses separate application and worker hosts.
+The same services can also run on one host. Two image-only deployment files are provided:
 [`compose.web.prod.yml`](../../compose.web.prod.yml) for web, worker gateway,
 maintenance and private Redis; [`compose.workers.prod.yml`](../../compose.workers.prod.yml)
-for dedicated HTTPS build workers. Supabase and Nginx Proxy Manager remain
-separately managed installations. Neither production host needs this source
-checkout or npm. See [distributed workers](distributed-workers.md) for architecture,
+for HTTPS build workers. Supabase may be managed or self-hosted, on the same or
+another host. Use an HTTPS reverse proxy of your choice. Image-only deployments
+need Docker Compose, not this source checkout or npm. See [distributed workers](distributed-workers.md) for architecture,
 protocol, security, resource budgets and release milestones.
 
 The source checkout's `compose.yml` retains direct builders for local development
@@ -19,8 +20,13 @@ and rollback. Do not run direct and distributed workers against the same queues.
 ## Build here, pull on production (GHCR)
 
 From an authorized source checkout, use `.nvmrc`, run `npm ci`, and pass the
-[CI checks](../developers/ci.md). Set `IMAGE_PREFIX=ghcr.io/sxmxc/mingd` in the checkout's root
+[CI checks](../developers/ci.md). Set `IMAGE_PREFIX=ghcr.io/<owner>/<repository>` in the checkout's root
 `.env`. Authenticate with `docker login ghcr.io` using Docker's credential storage.
+The upstream examples use `ghcr.io/sxmxc/mingd`; forks can use their own prefix.
+Local image build commands derive the OCI source label from that GHCR prefix,
+or use `GITHUB_REPOSITORY` when running in GitHub Actions. Set `MINGD_IMAGE_SOURCE`
+to override it. CI derives its namespace/source label from `github.repository`
+and validates images without publishing them.
 
 ### Where each command runs
 
@@ -40,8 +46,9 @@ root Compose file as the distributed production stack.
 
 ### Build, push, and publish
 
-The normal release path is **bump selected services → validate → build those
-images → push those images → update production tags → pull/recreate**.
+The normal release path is **bump selected services → capture a platform release
+when needed → validate → build those images → push those images → update
+production tags → pull/recreate**.
 Each service keeps its own image version; the root package version does not
 select all images. Once a step has succeeded, continue to the next step.
 
@@ -64,6 +71,41 @@ each selected service using its name and `--release`. `minor` resets patch;
 For binary-affecting compiler/toolchain changes, use the
 [compiler rollout checklist](#compiler-recipe-and-toolchain-upgrade-checklist),
 which adds recipe identity, draining and worker enrollment steps.
+
+### Platform releases
+
+The root `package.json` version names the platform release. Package versions name
+the service/shared code; image tags name each container variant. Four compiler
+images and maintenance share `@mingd/builder`, so their tags can differ from the
+package version. The build recipe separately determines binary/cache compatibility.
+
+Prepare component versions first with explicit `--service` selections. Once those
+versions are final, capture them under a platform version:
+
+```bash
+npm run release -- platform major --dry-run
+npm run release -- platform major
+```
+
+From a pre-1.0 platform version, this prepares **v1.0.0**. Later use `patch`,
+`minor`, or `major` as appropriate. Run the real command once, then review and
+commit its changes with the release. It updates only the root package/lockfile
+version and writes `releases/v<version>.json`, containing every workspace package
+version and each prepared image tag with its owning package. Existing snapshots
+are never overwritten. It also refreshes the readable
+[platform release matrix](release-matrix.md), including historical tables from
+those snapshots. Component bumps update its current tables automatically;
+publication does not increment versions again. Use `npm run release -- matrix`
+to refresh documentation after manual version edits or explicitly tagged image
+commands outside release preparation. The snapshot records release intent, not publication or
+what is running in production; keep deployed image digests in deployment records.
+
+The command does not bump components, change `.env` or Compose defaults, build,
+publish, or deploy. Component changes after capture belong in a new platform
+release. The legacy unselected `release bump` still advances all workspaces,
+including the root; use explicit service selections for this separate-version workflow.
+
+### Image build commands
 
 `npm run build` without arguments validates/builds application workspaces;
 it does **not** build Docker images. `build -- <service> --release` builds one
@@ -161,15 +203,13 @@ Keep `compose.web.prod.yml` and `.env` in a stable directory. Start from
 [`.env.web.prod.example`](../../.env.web.prod.example), replacing keys and reviewing
 release/URL settings. Preserve existing deployment values when migrating.
 
-The checked-in examples use `https://mingd.voidmoose.net`,
-`https://worker.mingd.voidmoose.net` and `https://supabase.voidmoose.net`.
-Replace these with your instance's reachable origins. The illustrated deployment
-uses private addresses and NPM providing trusted HTTPS. NPM forwards
-web to port 3000 and gateway to port **3001**, using HTTP upstreams. No gateway
+Set the app, gateway and Supabase origins to addresses reachable by their clients.
+Terminate trusted HTTPS at your reverse proxy and forward web to port 3000 and
+gateway to port **3001**, using HTTP upstreams. No gateway
 bind-IP setting is required. Redis has **no published host port** in this file.
 
 Configure the worker proxy to permit a 512 MiB body and sufficiently long uploads.
-In NPM's proxy-host advanced settings, the relevant Nginx directives are:
+For Nginx, the relevant directives are:
 
 ```nginx
 client_max_body_size 512m;
@@ -178,7 +218,7 @@ proxy_read_timeout 330s;
 proxy_send_timeout 330s;
 ```
 
-Check the generated NPM configuration for conflicting location-level settings
+Check the proxy configuration for conflicting location-level settings
 and reload successfully. These proxy limits do not bypass gateway ownership,
 checksum, archive or timeout checks. The gateway still buffers to private disk
 before publishing to Storage. The proxy and workers must route to their private
@@ -192,7 +232,7 @@ docker compose -f compose.web.prod.yml config --quiet
 docker compose -f compose.web.prod.yml pull
 docker compose -f compose.web.prod.yml up -d --no-build --pull never
 docker compose -f compose.web.prod.yml ps
-curl --fail https://worker.mingd.voidmoose.net/healthz
+curl --fail https://worker.mingd.example.com/healthz
 ```
 
 Enable both `WORKER_GATEWAY_WORKERS_ENABLED=true` and
@@ -201,12 +241,15 @@ false for safe deployment; the example explicitly enables them. With execution
 running, health reports `acceptingAssignments:true`. This describes queue dispatch
 readiness, not worker capacity or successful native compilation.
 
-Only this host/operator checkout holds server-only Supabase keys. The web image
+Only application services and the authorized operator checkout hold server-only Supabase keys. The web image
 reads URL/key settings at runtime; no environment-specific web rebuild is needed.
 Changing settings requires recreating the relevant containers. Supabase SMTP/Auth
 configuration remains in the [Supabase installation](self-hosted-supabase.md).
 
 ### Dedicated worker host
+
+This is the recommended placement. For co-located workers, use the same worker
+configuration and isolation described in [single-host deployment](#single-host-deployment).
 
 Keep `compose.workers.prod.yml`, `.env` and `worker-tokens/` on each worker host.
 Use [`.env.workers.prod.example`](../../.env.workers.prod.example). Transfer the
@@ -229,9 +272,10 @@ or both to **every** command when enabling those targets. macOS needs a matching
 verified toolchain digest in enrollment, application `.env`, worker `.env` and the
 image. The build-time toolchain archive is not needed on the pulling host.
 
-Limits are **per container**: default four CPUs, 8 GiB RAM, 512 PIDs, concurrency 1
-and four SCons jobs. Two defaults can consume eight CPUs/16 GiB; budget the sum
-against the actual host. Tune `WORKER_CPUS`, `WORKER_MEMORY_LIMIT`, `SCONS_JOBS` and
+Limits are **per container**: default four CPUs, 16 GiB RAM for desktop and 8 GiB
+for each other target, 512 PIDs, concurrency 1 and four SCons jobs. Desktop and Web
+can together consume eight CPUs/24 GiB; budget the sum against the actual host.
+Tune `WORKER_CPUS`, `DESKTOP_WORKER_MEMORY_LIMIT`, `WORKER_MEMORY_LIMIT`, `SCONS_JOBS` and
 `BUILDER_CONCURRENCY`. Enrolled capacity must cover configured concurrency. Local
 source/cache/work volumes persist independently on each host. Root worker
 containers retain only CHOWN, DAC_OVERRIDE and FOWNER for host-owned token/cache
@@ -246,9 +290,9 @@ For a deployed file named `compose.yml` with those targets enabled:
 docker compose --profile android up -d --no-build --pull never --force-recreate web-builder android-builder
 ```
 
-Recipe 10 accounts for the Emscripten 6.0.11 update. Recipe 9 enrollment is
-incompatible. Use the [compiler rollout checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
-when updating enrolled recipe/toolchain capabilities; application-only upgrades
+Use the [compiler rollout checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
+when updating enrolled recipe/toolchain capabilities; the current recipe is **11**.
+Application-only upgrades
 keep existing tokens when compatibility is unchanged. Initial CPU readings at
 `/admin/workers` need two 30-second samples. Earlier deployment milestones are in
 [worker release history](../archive/worker-release-history.md).
@@ -257,6 +301,26 @@ Add another host by copying this worker deployment and enrolling new identities.
 Do not share a token across running worker replicas. Within one host, separate
 Compose project names and token paths create independent instances/volumes;
 plain `--scale` with one mounted token is not the intended enrollment workflow.
+
+### Single-host deployment
+
+The application and HTTPS worker services can run on the same Docker host. Keep
+them in separate deployment directories with their own `.env` files, token paths,
+and explicit Compose project names, for example `COMPOSE_PROJECT_NAME=mingd-app`
+and `COMPOSE_PROJECT_NAME=mingd-workers`. Use the application and worker procedures
+above in their respective directories. Separate projects prevent one deployment's
+commands from treating the other's containers as orphans or sharing unintended volumes.
+
+Workers still use the gateway's trusted HTTPS origin and receive only their own
+tokens. Container loopback cannot reach another container; the gateway hostname
+must resolve and route from the workers through the proxy to the published gateway
+port. Supabase can also run on this host with its own configuration and volumes;
+point clients at its reachable API origin and avoid port conflicts.
+
+Budget aggregate worker CPU, RAM and disk alongside web, gateway, Redis,
+maintenance and any self-hosted backend. Reduce limits/concurrency to leave room
+for those services. Separate hosts are recommended to keep compiler resource
+pressure from affecting application availability; they are not a protocol requirement.
 
 ## Compiler recipe and toolchain upgrade checklist
 
@@ -387,8 +451,12 @@ new tags for their own service; they do not need equal application versions.
    digest. For secret-only maintenance, `rotate --all --credential-dir <new-dir>`
    rotates the fleet without changing recipe enrollment.
 
-   Every worker receives a distinct `<worker-id>.token` file with mode 0600. The
-   private `manifest.json` maps ID/name/target to its file and update outcome.
+   Tokens use `desktop.token`, `web.token`, `android.token` and
+   `macos.token`, with mode 0600. If several enabled workers share a target,
+   each gets `<platform>-<worker-id>.token` to avoid collisions. The private
+   `manifest.json` and command output map ID/name/target to the file and outcome.
+   Enrollment uses the filename passed to `--credential-file`; bulk commands
+   cannot recover that original path, so match the destination on the worker host.
    Transfer only each host's tokens securely and update its existing
    `*_WORKER_TOKEN_FILE` settings to the new files. Do not copy privileged env
    files or the whole token directory to every host. A failed bulk update can
@@ -488,7 +556,7 @@ new tags for their own service; they do not need equal application versions.
    interrupts its job; prefer a drained transition.
 2. Apply migrations and publish a tested set of compatible service images. Copy the two production files
    to their respective hosts. Preserve the application Compose project name and
-   Redis volume. Configure NPM upload limits and worker HTTPS reachability.
+   Redis volume. Configure proxy upload limits and worker HTTPS reachability.
 3. Stop existing direct builders using their old deployment definition:
    `docker compose --profile '*' stop builder web-builder android-builder macos-builder`.
    Stop only services that actually exist in that deployment.
@@ -512,6 +580,11 @@ only after reviewing queue/recipe compatibility. Do not run both consumers.
 
 Each host's existing `.env` selects independent per-service image tags.
 `IMAGE_TAG` is a fallback for unset service tags, not a lockstep release version.
+Compose builds bake the selected per-service tag into each image for worker
+details, the Administration footer, and build READMEs. Existing `build`, `push`,
+`publish`, and `release` syntax is unchanged. Retagging an existing image retains
+its original baked release tag. Direct Docker builds can supply
+`--build-arg MINGD_IMAGE_TAG=<tag>`; without it the image reports **local build**.
 Use [deploy only what changed](#deploy-only-what-changed) for application-only
 updates and the [compiler checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
 for binary recipe/toolchain changes. Rollback uses prior service tags with the
@@ -548,6 +621,8 @@ use Docker commands directly.
 
 | Command | Effect |
 | --- | --- |
+| `npm run release -- platform <patch\|minor\|major> [--dry-run]` | Bump only the platform/root version and capture current package/image versions in an immutable release snapshot |
+| `npm run release -- matrix [--dry-run]` | Refresh the platform release matrix from current metadata and captured snapshots without bumping versions |
 | `npm run release -- bump <patch\|minor\|major> [--dry-run]` | Advance every component from its own current version; update lockfile, defaults and per-service image tags |
 | `npm run release -- bump patch --service web` | Advance only the web package/image release; keep the repo and other services' versions |
 | `npm run release -- tags [--env-file <file>]` | Optional local env-file editor; does not publish, deploy, or reach another host. Not a required release step |

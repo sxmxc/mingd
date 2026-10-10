@@ -5,8 +5,8 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/troubleshooting
 
 # Troubleshooting
 
-Start with the affected process and its configuration. The app and the separate
-Supabase installation have different Compose files and environment settings.
+Start with the affected process and its configuration. App settings and Supabase
+Auth/backend settings are configured independently, even when they share a host.
 Do not paste keys, database URIs, recovery tokens, or full private environment
 output into issue reports.
 
@@ -33,9 +33,10 @@ the public key with a privileged key. See
 
 ## Password-reset email opens Supabase instead of the app
 
-On the Supabase server, verify `SITE_URL`, allowed redirects, and the recovery
-HTML URL. This repo's local `config.toml` does not configure that deployment.
-Follow [self-hosted email setup](self-hosted-supabase.md#smtp-and-application-email-templates)
+In Supabase Auth, verify the site URL, allowed redirects, and recovery template.
+For self-hosted Auth, also check its template URL. This repo's local `config.toml`
+does not configure production Auth.
+Follow [email setup](self-hosted-supabase.md#smtp-and-application-email-templates)
 and request a new email. Old emails keep old links.
 
 The repository recovery template points at the app's `/auth/confirm`, then
@@ -191,9 +192,9 @@ See [naming](../developers/naming.md#infrastructure-identities).
 
 ## Distributed-worker connectivity
 
-If NPM returns 502 while gateway localhost `/healthz` succeeds, check its HTTP
+If the reverse proxy returns 502 while gateway localhost `/healthz` succeeds, check its HTTP
 upstream host/port 3001 and Docker reachability. Production gateway publication
-uses all interfaces; NPM's container loopback is not the application's loopback.
+uses all interfaces; the proxy container's loopback is not the application's loopback.
 `acceptingAssignments:false` means dispatch is disabled or not ready; enable both
 gateway flags only after migration and direct-worker cutover. A 401/409 on worker
 polls means rejected enrollment/token or recipe/target/toolchain mismatch.
@@ -202,7 +203,7 @@ Malformed or unsupported protocol declarations are rejected too. After the
 not invalidate a worker; keep existing token files when updating images.
 Use operator `workers -- list`; remote workers never need Redis/Supabase access.
 
-For upload 413/timeouts, check NPM's body/time settings and gateway's fixed 512 MiB
+For upload 413/timeouts, check the proxy's body/time settings and gateway's fixed 512 MiB
 limit. For lease loss, check gateway/worker connectivity and host resource pressure;
 workers stop abandoned processes and retries receive fresh identities. Preserve
 logs and distinguish structural validation from native runtime acceptance. See
