@@ -42,6 +42,7 @@ test("debug and release Windows binaries and wrappers stay distinct in one packa
       await writeFile(join(source, "bin", compiledTemplateFilename(config, kind, console)), pe(console));
     }
     const result = await packageArtifact(source, output, config);
+    assert.equal(basename(result.artifactPath), "mingd-4.6.3-windows-x86_64-debug-release.tpz");
     assert.equal(await validateUpload(result.artifactPath, config, false), result.binarySizeBytes);
     const names = execFileSync("unzip", ["-Z1", result.artifactPath], { encoding: "utf8" }).trim().split("\n");
     for (const kind of config.templateKinds) {

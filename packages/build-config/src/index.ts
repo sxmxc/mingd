@@ -12,3 +12,4 @@ export * from "./size-comparison.ts";
 export * from "./compatibility.ts";
 export * from "./platforms.ts";
 export * from "./gdbuild.ts";
+export * from "./artifact.ts";

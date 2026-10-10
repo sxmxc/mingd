@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { BuildConfig, TemplateKind } from "@mingd/build-config";
-import { godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename } from "@mingd/build-config";
+import { godotVersionIdentifier, expectedTemplateFilename, expectedConsoleTemplateFilename, compiledTemplateFilename, templateArchiveFilename } from "@mingd/build-config";
 import { packageMacosTemplate, validateAndroidApk, validateAndroidSource, androidNativeLibrary } from "./platform-package.js";
 import { runProcess } from "./process.js";
 import { writeZip } from "./zip.js";
@@ -121,7 +121,7 @@ export async function packageArtifact(sourceDir: string, outputDir: string, conf
     ] : config.platform === "windows" ? ["Keep the Windows console wrapper beside its main executable."] : []),
   ].join("\n"));
 
-  const artifact = join(outputDir, `mingd-${config.godotVersion}-${config.platform}-${config.architecture}-${config.templateKinds.join("-")}.tpz`);
+  const artifact = join(outputDir, templateArchiveFilename(config));
   const packageFiles = await readdir(packageDir);
   await writeZip(artifact, await Promise.all(packageFiles.map(async (name) => ({
     name,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAccount } from "@/lib/access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
-import { basename } from "node:path";
+import { BuildConfigSchema, templateArchiveFilename } from "@mingd/build-config";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -13,11 +13,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { data: build, error } = await supabase
     .from("builds")
-    .select("artifact_id")
+    .select("artifact_id,config")
     .eq("id", id)
     .eq("status", "complete")
     .single();
   if (error || !build?.artifact_id) return NextResponse.json({ error: "Artifact not available" }, { status: 404 });
+
+  const config = BuildConfigSchema.safeParse(build.config);
+  if (!config.success) return NextResponse.json({ error: "Build configuration not available" }, { status: 500 });
 
   const admin = createAdminClient();
   const { data: artifact, error: artifactError } = await admin
@@ -29,7 +32,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { data: signed, error: signedError } = await admin.storage
     .from(env.artifactBucket())
-    .createSignedUrl(artifact.storage_path, env.signedDownloadTtl(), { download: basename(artifact.storage_path) });
+    .createSignedUrl(artifact.storage_path, env.signedDownloadTtl(), { download: templateArchiveFilename(config.data) });
   if (signedError) return NextResponse.json({ error: signedError.message }, { status: 500 });
 
   return NextResponse.redirect(signed.signedUrl);
