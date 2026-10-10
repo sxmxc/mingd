@@ -6,6 +6,7 @@ import { buildPresetId, normalizeBuildConfig, PRESETS } from "@mingd/build-confi
 import { formatBuildTime } from "@/lib/format-build-time";
 import { Card } from "@/components/ui/card";
 import { PlatformTarget } from "@/components/platform-target";
+import { BuildRemoval } from "@/components/build-removal";
 
 type Row = {
   id: string;
@@ -88,13 +89,13 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
     ["Active", active, "building or waiting"],
     ["Queued", queued, "waiting for a worker"],
     ["Ready", ready, "completed builds"],
-    ["Failed", failed, "latest 50 builds"],
+    ["Failed", failed, "on this page"],
     ["Cached", cached, "served from artifact cache"],
   ] as const;
 
   return <section aria-label="Build history">
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p className="section-label">Latest {builds.length} of up to 50 builds</p>
+      <p className="section-label">{builds.length} builds on this page</p>
       <span className="text-xs text-[var(--muted)]">{active ? "Active builds refresh every 10 seconds" : "No builds running"}</span>
     </div>
     <div className="build-summary mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
@@ -103,8 +104,8 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
         <div className="mt-1 flex items-baseline justify-between gap-2"><strong className="font-mono text-xl tabular-nums">{count}</strong><span className="hidden text-right text-[10px] text-[var(--muted)] sm:block">{detail}</span></div>
       </Card>)}
     </div>
-    <div className="build-filters mb-3 grid gap-2 sm:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(130px,auto))]">
-      <input aria-label="Search builds" placeholder="Search recipe, target, version, or build ID…" className="h-9 min-w-0 rounded-md border px-3 text-sm" value={query} onChange={event => setQuery(event.target.value)} />
+    <div className="build-filters mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(130px,auto))_auto]">
+      <input aria-label="Search builds on this page" placeholder="Search this page by recipe, target, version, or ID…" className="h-9 min-w-0 rounded-md border px-3 text-sm" value={query} onChange={event => setQuery(event.target.value)} />
       <select aria-label="Filter build status" className="h-9 rounded-md border px-3 text-sm" value={status} onChange={event => setStatus(event.target.value as StatusFilter)}>
         <option value="all">All states</option><option value="active">Active</option><option value="complete">Ready</option><option value="failed">Failed</option>
       </select>
@@ -114,6 +115,7 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
       <select aria-label="Sort builds by creation time" className="h-9 rounded-md border px-3 text-sm" value={sort} onChange={event => setSort(event.target.value as "newest" | "oldest")}>
         <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
       </select>
+      <BuildRemoval />
     </div>
     <div className="build-history-cards">
       {rows.map(build => {
@@ -125,7 +127,7 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
           <p className="build-history-card-description">Godot {config.godotVersion ?? "—"} · {config.templateKinds?.join(" + ") || "Custom configuration"}</p>
           <p className="build-history-card-stage">{cacheHit ? "Served from artifact cache" : build.stage}</p>
           <dl><div><dt>Duration</dt><dd>{duration(build, now)}</dd></div><div><dt>Created</dt><dd><time dateTime={build.created_at}>{formatBuildTime(build.created_at)}</time></dd></div></dl>
-          <div className="build-history-card-actions"><Link href={`/build/${build.id}`} className="row-action">View build</Link>{build.status === "complete" && build.artifact_id && <a href={`/api/builds/${build.id}/download`} className="row-action row-action-primary">Download</a>}<code title={build.id}>{build.id.slice(0, 8)}</code></div>
+          <div className="build-history-card-actions"><Link href={`/build/${build.id}`} className="row-action">View build</Link>{build.status === "complete" && build.artifact_id && <a href={`/api/builds/${build.id}/download`} className="row-action row-action-primary">Download</a>}{["complete", "failed"].includes(build.status) && <BuildRemoval id={build.id} />}<code title={build.id}>{build.id.slice(0, 8)}</code></div>
         </Card>;
       })}
     </div>
@@ -159,6 +161,7 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
             <td><div className="flex items-center gap-1.5">
               <Link href={`/build/${build.id}`} className="row-action">View</Link>
               {build.status === "complete" && build.artifact_id && <a href={`/api/builds/${build.id}/download`} className="row-action row-action-primary">Download</a>}
+              {terminalStatus && <BuildRemoval id={build.id} />}
             </div></td>
           </tr>;
         })}</tbody>
@@ -169,6 +172,6 @@ export function BuildHistory({ builds }: { builds: Row[] }) {
       <p>{builds.length ? "Try another search or clear the filters to see your recent builds." : "Choose a target and preset. Your progress and downloads will appear here."}</p>
       {builds.length ? <button type="button" className="secondary-action" onClick={() => { setQuery(""); setStatus("all"); setTarget("all"); }}>Clear filters</button> : <Link href="/build/new" className="tool-action">Create your first template →</Link>}
     </Card>}
-    <p className="mt-3 text-xs text-[var(--muted)]" aria-live="polite">Showing {rows.length} of {builds.length} loaded builds{builds.length === 50 ? " · limited to the latest 50" : ""}.</p>
+    <p className="mt-3 text-xs text-[var(--muted)]" aria-live="polite">Showing {rows.length} of {builds.length} builds on this page. Search, filters, sort, and counts apply to this page.</p>
   </section>;
 }

@@ -5,10 +5,18 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/users/workbench.md
 
 # Build history and results
 
-Open **Builds → All builds** to see your latest 50 builds. Search by recipe,
+Open **Builds → All builds** to browse your history, 50 builds per page. Use
+**Previous** and **Next** to reach older builds. Search by recipe,
 target, version or build ID; filter by state and target; sort newest or oldest
 first. These controls apply to the loaded builds, rather than searching all
-older records. Open **View** or **View build** for details.
+other pages. Open **View** or **View build** for details.
+
+Use **Delete** on a completed or failed build to remove it from your history.
+The build page also offers Delete. Confirming removes its retained diagnostics
+and access through that build's download link. Active builds cannot be deleted.
+**Clear failed builds** removes all your failed builds, including older pages,
+after confirmation. Downloaded files and saved recipes are unaffected. Shared
+artifacts remain managed by the server's existing cache maintenance.
 
 ## Build monitor
 

@@ -148,6 +148,9 @@ Scripts use `--db-url` and skip Vault synchronization; no Cloud project link is
 required. Dry-run lists pending migrations without proving they will succeed.
 Distributed workers require the assignment, heartbeat and execution migrations
 through `20261008071856_worker_telemetry.sql`. Keep migration history intact.
+User build deletion and failed-build cleanup require
+`20261010013720_user_build_deletion.sql`; apply it before using those controls.
+It permits enabled users to delete only their own completed or failed records.
 Postgres need only be reachable from the migration host, not exposed publicly.
 
 ## Production with only Compose and .env

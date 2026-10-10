@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { CheckCircle2, Download, TriangleAlert } from "lucide-react";
 import { expectedTemplateFilename, type BuildConfig, type SizeComparison } from "@mingd/build-config";
 import { Card } from "@/components/ui/card";
@@ -48,7 +49,11 @@ export function BuildResult({ id, status, config, rawConfig, error, stage, logTa
         {artifact && !diagnostic && config && <InstallGuide config={config} />}
         {artifact && !diagnostic && !config && <p className="build-result-description">Use the exact editor version recorded in this build's recipe. <a className="text-[var(--accent-strong)]" href="https://sxmxc.github.io/mingd/install-templates/">Read the installation guide →</a></p>}
       </div>
-      {artifact && !diagnostic && artifact.comparison && <div className="build-result-comparison"><TemplateSizeComparison comparison={artifact.comparison} /></div>}
+      {artifact && !diagnostic && artifact.comparison && <div className="build-result-comparison">
+        <p className="section-label text-center">Template size</p>
+        <Image src="/gd_compress.png" alt="" width={970} height={833} sizes="132px" className="build-result-illustration" />
+        <TemplateSizeComparison comparison={artifact.comparison} />
+      </div>}
     </div>
   </Card>;
 }
