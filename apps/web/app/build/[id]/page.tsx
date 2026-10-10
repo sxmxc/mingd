@@ -2,12 +2,13 @@ import { notFound } from "next/navigation";
 import { requireAccount } from "@/lib/access";
 import { BuildStatus } from "@/components/build-status";
 import { artifactSummaryForOwnedBuild } from "@/lib/build-artifact";
+import { BuildRemoval } from "@/components/build-removal";
 
 export default async function BuildPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { supabase } = await requireAccount();
+  const { supabase, user } = await requireAccount();
 
-  const { data: build } = await supabase.from("builds").select("id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes,performance_metrics").eq("id", id).single();
+  const { data: build } = await supabase.from("builds").select("id,user_id,status,stage,progress,error,log_tail,config,artifact_id,created_at,started_at,completed_at,heartbeat_at,stage_started_at,last_output_at,output_bytes,performance_metrics").eq("id", id).single();
   if (!build) notFound();
 
   const config = build.config as { godotVersion?: string; platform?: string; architecture?: string; optimization?: string; templateKinds?: string[] };
@@ -23,7 +24,7 @@ export default async function BuildPage({ params }: { params: Promise<{ id: stri
             <span>Optimization: {config.optimization ?? "Not specified"}</span>
           </div>
         </div>
-        <p className="font-mono text-xs text-[var(--muted)]">Build <span className="text-[var(--foreground)]">{build.id}</span></p>
+        <div className="flex flex-wrap items-center gap-3"><p className="font-mono text-xs text-[var(--muted)]">Build <span className="text-[var(--foreground)]">{build.id}</span></p>{build.user_id === user.id && ["complete", "failed"].includes(build.status) && <BuildRemoval id={build.id} returnToHistory />}</div>
       </div>
       <BuildStatus initial={{ ...build, artifact: await artifactSummaryForOwnedBuild(build.artifact_id) }} />
     </main>
