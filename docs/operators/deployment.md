@@ -229,9 +229,10 @@ or both to **every** command when enabling those targets. macOS needs a matching
 verified toolchain digest in enrollment, application `.env`, worker `.env` and the
 image. The build-time toolchain archive is not needed on the pulling host.
 
-Limits are **per container**: default four CPUs, 8 GiB RAM, 512 PIDs, concurrency 1
-and four SCons jobs. Two defaults can consume eight CPUs/16 GiB; budget the sum
-against the actual host. Tune `WORKER_CPUS`, `WORKER_MEMORY_LIMIT`, `SCONS_JOBS` and
+Limits are **per container**: default four CPUs, 16 GiB RAM for desktop and 8 GiB
+for each other target, 512 PIDs, concurrency 1 and four SCons jobs. Desktop and Web
+can together consume eight CPUs/24 GiB; budget the sum against the actual host.
+Tune `WORKER_CPUS`, `DESKTOP_WORKER_MEMORY_LIMIT`, `WORKER_MEMORY_LIMIT`, `SCONS_JOBS` and
 `BUILDER_CONCURRENCY`. Enrolled capacity must cover configured concurrency. Local
 source/cache/work volumes persist independently on each host. Root worker
 containers retain only CHOWN, DAC_OVERRIDE and FOWNER for host-owned token/cache
@@ -387,8 +388,12 @@ new tags for their own service; they do not need equal application versions.
    digest. For secret-only maintenance, `rotate --all --credential-dir <new-dir>`
    rotates the fleet without changing recipe enrollment.
 
-   Every worker receives a distinct `<worker-id>.token` file with mode 0600. The
-   private `manifest.json` maps ID/name/target to its file and update outcome.
+   Tokens use `desktop.token`, `web.token`, `android.token` and
+   `macos.token`, with mode 0600. If several enabled workers share a target,
+   each gets `<platform>-<worker-id>.token` to avoid collisions. The private
+   `manifest.json` and command output map ID/name/target to the file and outcome.
+   Enrollment uses the filename passed to `--credential-file`; bulk commands
+   cannot recover that original path, so match the destination on the worker host.
    Transfer only each host's tokens securely and update its existing
    `*_WORKER_TOKEN_FILE` settings to the new files. Do not copy privileged env
    files or the whole token directory to every host. A failed bulk update can
@@ -512,6 +517,11 @@ only after reviewing queue/recipe compatibility. Do not run both consumers.
 
 Each host's existing `.env` selects independent per-service image tags.
 `IMAGE_TAG` is a fallback for unset service tags, not a lockstep release version.
+Compose builds bake the selected per-service tag into each image for worker
+details, the Administration footer, and build READMEs. Existing `build`, `push`,
+`publish`, and `release` syntax is unchanged. Retagging an existing image retains
+its original baked release tag. Direct Docker builds can supply
+`--build-arg MINGD_IMAGE_TAG=<tag>`; without it the image reports **local build**.
 Use [deploy only what changed](#deploy-only-what-changed) for application-only
 updates and the [compiler checklist](#compiler-recipe-and-toolchain-upgrade-checklist)
 for binary recipe/toolchain changes. Rollback uses prior service tags with the

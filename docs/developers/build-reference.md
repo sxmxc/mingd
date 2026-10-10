@@ -13,13 +13,13 @@ installation instructions live in [install templates](../users/install-templates
 
 | Target | Current recipe/toolchain |
 | --- | --- |
-| Linux | Debian Bookworm, GCC 12, glibc 2.36 baseline |
-| Windows | MinGW-w64 POSIX threads in the Linux worker |
+| Linux | Debian Bookworm, GCC 12, glibc 2.36 baseline; release LTO enabled by default |
+| Windows | MinGW-w64 POSIX threads in the Linux worker; release LTO enabled by default |
 | Web | Emscripten 6.0.11 in the digest-pinned SDK image |
 | Android | NDK 29.0.14206865, SDK 36, build tools 36.1.0, Java 17; platform recipe 1 |
 | macOS | Operator-provided OSXCross/SDK 27.0 archive; platform recipe 2 and archive digest |
 
-The global build recipe is **10**, defined in
+The global build recipe is **11**, defined in
 [`recipe.ts`](../../packages/build-config/src/recipe.ts). Source URL/checksum,
 normalized settings and relevant platform identities determine cache identity.
 See [architecture](architecture.md#cache-identity). Bump identity when compiler,

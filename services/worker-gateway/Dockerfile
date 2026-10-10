@@ -13,6 +13,9 @@ RUN npm ci --workspace @mingd/worker-gateway --include-workspace-root
 COPY packages/build-config packages/build-config
 COPY packages/worker-protocol packages/worker-protocol
 COPY services/worker-gateway services/worker-gateway
+COPY scripts/write-image-release.mjs scripts/write-image-release.mjs
+ARG MINGD_IMAGE_TAG
+RUN node scripts/write-image-release.mjs services/worker-gateway/image-release.json
 ENV NODE_ENV=production \
     WORKER_GATEWAY_HOST=0.0.0.0 \
     WORKER_GATEWAY_PORT=3001

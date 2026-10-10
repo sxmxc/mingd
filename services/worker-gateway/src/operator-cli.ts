@@ -22,6 +22,8 @@ Enrollment uses this checkout's builder release and recipe. Credentials are save
 new file with mode 0600; existing files are never overwritten. Bulk operations
 select enabled workers only. Bulk credentials require a drained, idle fleet;
 upgrade also updates recipe/release enrollment while preserving worker IDs.
+Bulk files use desktop.token, web.token, android.token and macos.token;
+multiple workers of one target use <platform>-<worker-id>.token instead.
 Relative paths
 resolve from the directory where you invoked npm. macOS requires
 --toolchain-sha256. No worker management HTTP routes are exposed.`;

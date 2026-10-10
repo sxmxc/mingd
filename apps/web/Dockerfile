@@ -12,6 +12,9 @@ FROM dependencies AS build
 COPY packages/build-config packages/build-config
 COPY packages/worker-protocol packages/worker-protocol
 COPY apps/web apps/web
+COPY scripts/write-image-release.mjs scripts/write-image-release.mjs
+ARG MINGD_IMAGE_TAG
+RUN node scripts/write-image-release.mjs apps/web/image-release.json
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web

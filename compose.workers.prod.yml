@@ -22,6 +22,7 @@ x-environment: &environment
 services:
   builder:
     <<: *worker
+    mem_limit: ${DESKTOP_WORKER_MEMORY_LIMIT:-16g}
     image: ${IMAGE_PREFIX:-ghcr.io/sxmxc/mingd}/builder:${BUILDER_IMAGE_TAG:-${IMAGE_TAG:-v0.3.0}}
     environment:
       <<: *environment

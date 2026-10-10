@@ -29,6 +29,9 @@ RUN npm ci --workspace @mingd/builder --include-workspace-root
 COPY packages/build-config packages/build-config
 COPY packages/worker-protocol packages/worker-protocol
 COPY services/builder services/builder
+COPY scripts/write-image-release.mjs scripts/write-image-release.mjs
+ARG MINGD_IMAGE_TAG
+RUN node scripts/write-image-release.mjs services/builder/image-release.json
 
 ENV GODOT_CACHE_DIR=/cache/godot \
     GODOT_WORK_DIR=/work/jobs \

@@ -149,12 +149,14 @@ test("telemetry routes authenticate and validate snapshots before persisting", a
       calls++;
       assert.equal(identity.credentialHash, credential.credentialHash);
       assert.equal(snapshot.ccache, null);
+      assert.equal(snapshot.serviceVersion, "0.3.0");
+      assert.equal(snapshot.imageTag, "v0.3.2");
       if (incoming.recipeVersion !== "9") return { outcome: "incompatible" };
       return { outcome: "ok", receipt: { protocolVersion: 1, workerId: identity.workerId, receivedAt: new Date().toISOString(), heartbeatIntervalMs: 10000, draining: false, acceptingAssignments: true } };
     },
   } });
   t.after(() => server.close());
-  const payload = { hello, telemetry: { schemaVersion: 1, uptimeSeconds: 10, ccache: null, container: null } };
+  const payload = { hello, telemetry: { schemaVersion: 1, serviceVersion: "0.3.0", imageTag: "v0.3.2", uptimeSeconds: 10, ccache: null, container: null } };
   const headers = { authorization: `Bearer ${credential.credential}` };
   const send = (body: unknown, auth = true) => server.inject({ method: "POST", url: "/v1/workers/telemetry", headers: auth ? headers : {}, payload: body as object });
   assert.equal((await send(payload, false)).statusCode, 401);

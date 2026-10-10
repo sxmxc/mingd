@@ -13,9 +13,15 @@ test("portable files round-trip normalized settings without account or build ide
 });
 test("portable imports reject commands, unknown settings, unsafe recipes and oversized files", () => {
   const file = JSON.parse(serializeGdBuildFile("Game", DEFAULT_BUILD_CONFIG));
-  for (const changed of [{ ...file, version: 2 }, { ...file, command: "scons arbitrary" }, { ...file, config: { ...file.config, sourceUrl: "https://evil.example" } }, { ...file, config: { ...file.config, lto: true } }, { ...file, config: { ...file.config, features: { ...file.config.features, custom: true } } }, { ...file, config: { ...file.config, godotVersion: "4.7.2-stable;curl evil" } }]) assert.throws(() => parseGdBuildFile(JSON.stringify(changed)), /Invalid/);
+  for (const changed of [{ ...file, version: 2 }, { ...file, command: "scons arbitrary" }, { ...file, config: { ...file.config, sourceUrl: "https://evil.example" } }, { ...file, config: { ...file.config, lto: "full" } }, { ...file, config: { ...file.config, features: { ...file.config.features, custom: true } } }, { ...file, config: { ...file.config, godotVersion: "4.7.2-stable;curl evil" } }]) assert.throws(() => parseGdBuildFile(JSON.stringify(changed)), /Invalid/);
   assert.throws(() => parseGdBuildFile("{"), /Invalid/);
   assert.throws(() => parseGdBuildFile(" ".repeat(65537)), /64 KiB/);
+});
+test("desktop portable recipes retain both LTO choices", () => {
+  for (const platform of ["linux", "windows"] as const) for (const lto of [false, true]) {
+    const file = parseGdBuildFile(serializeGdBuildFile("Game", { ...DEFAULT_BUILD_CONFIG, platform, lto }));
+    assert.equal(file.config.lto, lto);
+  }
 });
 test("new platform architectures normalize idempotently and use dedicated workers", () => {
   for (const platform of ["android", "macos"] as const) for (const architecture of PLATFORM_ARCHITECTURES[platform]) {
@@ -57,5 +63,5 @@ test("platform toolchains separate cache keys without invalidating existing reci
   const macRecipe = canonicalBuildCacheInput(mac, undefined, "a".repeat(64));
   assert.match(macRecipe, /\nmacos-2:/);
   assert.notEqual(macRecipe, macRecipe.replace("\nmacos-2:", "\nmacos-1:"));
-  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^10\nhttps:/);
+  assert.match(canonicalBuildCacheInput(DEFAULT_BUILD_CONFIG), /^11\nhttps:/);
 });

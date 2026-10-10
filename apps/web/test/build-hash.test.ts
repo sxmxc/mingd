@@ -15,7 +15,7 @@ function reorderKeys(value: unknown): unknown {
 test("reported Lean 2D Windows recipe preserves its web hash through queue and database serialization", async () => {
   const text = await readFile(new URL("../../../packages/build-config/test/fixtures/lean2d-windows.gdbuild", import.meta.url), "utf8");
   const { config } = parseGdBuildFile(text);
-  assert.deepEqual(config, { ...DEFAULT_BUILD_CONFIG, platform: "windows", templateKinds: ["debug", "release"], features: PRESETS.lean2d.features });
+  assert.deepEqual(config, { ...DEFAULT_BUILD_CONFIG, lto: false, platform: "windows", templateKinds: ["debug", "release"], features: PRESETS.lean2d.features });
   const source = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
   const submittedHash = hashBuildConfig(config, source);
   const delivered = assertRealBuildSupported(JSON.parse(JSON.stringify(reorderKeys(config))));
@@ -24,12 +24,12 @@ test("reported Lean 2D Windows recipe preserves its web hash through queue and d
 });
 
 test("all desktop presets and template kinds agree between web and worker hashing", () => {
-  for (const platform of ["linux", "windows"] as const) for (const preset of SUPPORTED_PRESET_IDS) for (const templateKinds of [["debug"], ["release"], ["release", "debug"]]) {
-    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, platform, features: PRESETS[preset].features, templateKinds });
+  for (const lto of [false, true]) for (const platform of ["linux", "windows"] as const) for (const preset of SUPPORTED_PRESET_IDS) for (const templateKinds of [["debug"], ["release"], ["release", "debug"]]) {
+    const config = assertRealBuildSupported({ ...DEFAULT_BUILD_CONFIG, lto, platform, features: PRESETS[preset].features, templateKinds });
     const source = SUPPORTED_GODOT_VERSIONS[config.godotVersion];
     const submittedHash = hashBuildConfig(config, source);
     const delivered = JSON.parse(JSON.stringify(reorderKeys(config)));
     assert.equal(createHash("sha256").update(canonicalBuildCacheInput(delivered, source)).digest("hex"), submittedHash, `${platform}/${preset}/${templateKinds}`);
-    assert.notEqual(createHash("sha256").update(canonicalBuildCacheInput(delivered, source).replace(/^10\n/, "9\n")).digest("hex"), submittedHash);
+    assert.notEqual(createHash("sha256").update(canonicalBuildCacheInput(delivered, source).replace(/^11\n/, "10\n")).digest("hex"), submittedHash);
   }
 });

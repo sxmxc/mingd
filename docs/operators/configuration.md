@@ -71,6 +71,7 @@ production `.env` files or restart containers. Pull/recreate is a separate actio
 | `SUPABASE_DB_URL` | Migration scripts | Private, percent-encoded PostgreSQL URI for self-hosted database |
 | `REDIS_URL` | Web, gateway and direct workers | Required; host example `redis://127.0.0.1:6379`; Compose sets `redis://redis:6379` |
 | `WEB_PORT` | Compose frontend | Host port, default `3000` |
+| `WORKER_GATEWAY_INTERNAL_URL` | Web server | Gateway origin for the Administration version footer; npm defaults to `http://127.0.0.1:3001`, Compose to `http://worker-gateway:3001`. Set npm overrides in `apps/web/.env.local`; no credentials or URL paths |
 | `ARTIFACT_BUCKET` | Web, gateway, direct workers, maintenance | `build-artifacts`; must match the private migrated bucket |
 | `SIGNED_DOWNLOAD_TTL_SECONDS` | Download route | `900`; issued links remain usable until expiry |
 | `MACOS_TOOLCHAIN_SHA256` | Web and macOS image/worker | Verified operator archive digest, required for macOS submissions/builds |
@@ -163,7 +164,8 @@ privileged application configuration to remote hosts.
 | `WORKER_GATEWAY_URL` | Remote worker | `https://worker.mingd.voidmoose.net`; HTTPS origin, no paths/redirects |
 | `WORKER_TOKEN_FILE` | Remote worker | `/run/secrets/worker_token`; per-process enrollment file |
 | `WORKER_CPUS` | Worker Compose | 4 CPU limit per container |
-| `WORKER_MEMORY_LIMIT` | Worker Compose | 8 GiB per container |
+| `WORKER_MEMORY_LIMIT` | Worker Compose | 8 GiB per non-desktop container |
+| `DESKTOP_WORKER_MEMORY_LIMIT` | Worker Compose | 16 GiB for the desktop container, independently of `WORKER_MEMORY_LIMIT` |
 | `DESKTOP_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/desktop.token` |
 | `WEB_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/web.token` |
 | `ANDROID_WORKER_TOKEN_FILE` | Worker Compose | `./worker-tokens/android.token`; android profile |

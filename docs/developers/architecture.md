@@ -89,10 +89,10 @@ Remote attempts additionally use database leases; see [distributed recovery](../
 
 ## Cache identity
 
-Current build recipe version **10** is defined in
+Current build recipe version **11** is defined in
 [`recipe.ts`](../../packages/build-config/src/recipe.ts). SHA-256 input includes
 recipe version, exact source URL/checksum, and canonical normalized settings:
-version, platform, architecture, kinds, optimization, Web threads, and features.
+version, platform, architecture, kinds, optimization, LTO, Web threads, and features.
 Android adds its pinned toolchain recipe; macOS adds its platform recipe and
 operator archive digest.
 

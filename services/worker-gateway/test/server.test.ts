@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { WORKER_JSON_BODY_LIMIT_BYTES } from "@mingd/worker-protocol";
+import { BUILD_RECIPE_VERSION } from "@mingd/build-config";
+import { readFileSync } from "node:fs";
 import { gatewayConfigFromEnvironment } from "../src/config.js";
 import { buildServer } from "../src/server.js";
 import { ArtifactOperationError } from "../src/execution-errors.js";
@@ -20,7 +22,9 @@ test("health check reports listener liveness without claiming build readiness", 
   t.after(() => server.close());
   const response = await server.inject({ method: "GET", url: "/healthz" });
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json(), { status: "ok", protocolVersion: 1, acceptingAssignments: false });
+  const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  assert.deepEqual(response.json(), { status: "ok", protocolVersion: 1, acceptingAssignments: false,
+    serviceVersion: version, imageTag: null, buildRecipeVersion: BUILD_RECIPE_VERSION });
   assert.equal(response.headers["cache-control"], "no-store");
   assert.equal(response.headers["x-content-type-options"], "nosniff");
   assert.equal((await server.inject({ method: "POST", url: "/v1/assignments" })).statusCode, 404);

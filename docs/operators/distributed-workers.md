@@ -46,7 +46,7 @@ keeps its own immutable image tag; the root package version does not select the
 whole deployment. The [deployment guide](deployment.md#build-here-pull-on-production-ghcr)
 owns the release, publication and production update commands.
 Existing worker IDs and credentials survive routine application upgrades.
-Compatibility requires protocol **v1**, recipe **10**, the enrolled target, and
+Compatibility requires protocol **v1**, recipe **11**, the enrolled target, and
 macOS toolchain identity. Changing a recipe, target, or toolchain requires a
 matching enrollment; token rotation changes only the secret. The bulk `upgrade`
 command updates drained enrollment to the checkout's recipe/release and rotates
@@ -68,8 +68,9 @@ Worker containers use Node 24 / Debian Bookworm. Use `.nvmrc` for the operator
 runtime and `package-lock.json` for exact application dependencies. Record image
 digests when publishing because base tags can change.
 
-The current compiler recipe is **10**, including the digest-pinned Emscripten
-6.0.11 toolchain. Recipe 9 enrollment is incompatible with it. Use the
+The current compiler recipe is **11**, enabling desktop release LTO by default
+and including the digest-pinned Emscripten 6.0.11 toolchain. Earlier recipe
+enrollments, including recipe 10, are incompatible with it. Use the
 [compiler rollout procedure](deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
 when changing recipe/toolchain identities. Application and image versions are
 independent of the protocol and recipe numbers.
@@ -126,7 +127,14 @@ the output file for recovery. Inspect `list` before retrying with a new file.
 Bulk operations select enabled workers; revoked workers are excluded. Bulk
 credentials require every selected worker to be draining with no active durable
 assignments. They write separate mode-0600 tokens and a private outcome manifest
-inside a new mode-0700 directory. Stop drained workers before upgrading, transfer
+inside a new mode-0700 directory. For one worker per target, filenames are
+`desktop.token`, `web.token`, `android.token` and `macos.token`. Multiple
+workers of a target use `<platform>-<worker-id>.token`; output and the manifest
+include the worker name, target and file mapping. Desktop serves both Windows
+and Linux, regardless of its token filename. Initial enrollment accepts an
+explicit `--credential-file`, so match the destination path configured on each
+worker host. These filenames match the Compose defaults. Stop drained workers
+before upgrading, transfer
 each token to its corresponding host, recreate workers, verify heartbeats, then
 resume. See the rollout checklist for image tags, macOS identities, and recovery.
 
@@ -140,6 +148,20 @@ The worker process itself polls continuously; the probe is optional. `list` expo
 last-seen, enrolled capacity, release and drain/revoke state without credentials.
 
 ## Admin worker health and telemetry
+
+The Administration footer shows the web image release tag, package version and
+build recipe, plus the live gateway equivalents from `/healthz`. Gateway
+lookup failures show **Gateway version unavailable** without blocking the page.
+Image release tags are baked into images at build time; promoting a `latest`
+alias or changing runtime environment does not relabel them. These are not image
+digests. Local npm runs show **local build**; older reports show **not reported**.
+
+Worker details show the **Image release tag (last reported)** and distinguish
+the **Package version (last reported)** in telemetry
+from the **Enrolled release**. Upgrade changes enrollment before a replacement
+worker has started, so old telemetry may still show the previous service version;
+check the telemetry receipt time. Older workers without this field show
+**Not reported**. Deploy the new gateway before starting the new workers.
 
 SuperAdmins can view `/admin/workers`: authenticated last-seen status, target,
 observed app/recipe versions, capacity, active assignments, drain/revoke state,

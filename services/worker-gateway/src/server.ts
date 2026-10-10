@@ -1,6 +1,8 @@
 import Fastify, { LogController } from "fastify";
+import { readFileSync } from "node:fs";
+import { BUILD_RECIPE_VERSION } from "@mingd/build-config";
 import type { Writable } from "node:stream";
-import { WORKER_JSON_BODY_LIMIT_BYTES, WORKER_PROTOCOL_VERSION } from "@mingd/worker-protocol";
+import { ImageTagSchema, WORKER_JSON_BODY_LIMIT_BYTES, WORKER_PROTOCOL_VERSION } from "@mingd/worker-protocol";
 import type { GatewayLogLevel } from "./config.js";
 import type { WorkerControl } from "./workers.js";
 import { workerRoutes } from "./worker-routes.js";
@@ -10,6 +12,8 @@ import { ArtifactValidationError } from "./validate-upload.js";
 import { ArtifactOperationError, UploadCapacityError } from "./execution-errors.js";
 
 export function buildServer(options: { logger?: boolean; logLevel?: GatewayLogLevel; logStream?: Writable; workers?: WorkerControl; execution?: ExecutionControl; workDir?: string; maxUploads?: number } = {}) {
+  const serviceVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
+  const imageTag = ImageTagSchema.nullable().parse(JSON.parse(readFileSync(new URL("../image-release.json", import.meta.url), "utf8")).imageTag);
   const server = Fastify({
     logger: options.logger === false ? false : {
       level: options.logLevel ?? "info",
@@ -60,10 +64,12 @@ export function buildServer(options: { logger?: boolean; logLevel?: GatewayLogLe
   server.get("/healthz", {
     schema: { response: { 200: {
       type: "object", additionalProperties: false,
-      properties: { status: { type: "string", const: "ok" }, protocolVersion: { type: "integer", const: WORKER_PROTOCOL_VERSION }, acceptingAssignments: { type: "boolean" } },
-      required: ["status", "protocolVersion", "acceptingAssignments"],
+      properties: { status: { type: "string", const: "ok" }, protocolVersion: { type: "integer", const: WORKER_PROTOCOL_VERSION }, acceptingAssignments: { type: "boolean" },
+        serviceVersion: { type: "string", maxLength: 64 }, imageTag: { type: ["string", "null"], maxLength: 128 }, buildRecipeVersion: { type: "string", maxLength: 32 } },
+      required: ["status", "protocolVersion", "acceptingAssignments", "serviceVersion", "imageTag", "buildRecipeVersion"],
     } } },
-  }, async () => ({ status: "ok", protocolVersion: WORKER_PROTOCOL_VERSION, acceptingAssignments: options.execution?.accepting() ?? false }));
+  }, async () => ({ status: "ok", protocolVersion: WORKER_PROTOCOL_VERSION, acceptingAssignments: options.execution?.accepting() ?? false,
+    serviceVersion, imageTag, buildRecipeVersion: BUILD_RECIPE_VERSION }));
   if (options.workers) server.register(workerRoutes, { prefix: "/v1/workers", workers: options.workers });
   if (options.execution && options.workers) {
     server.register(executionRoutes, { prefix: "/v1/assignments", execution: options.execution, workers: options.workers, workDir: options.workDir ?? "/tmp/mingd-gateway", maxUploads: options.maxUploads ?? 2 });

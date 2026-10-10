@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assertRealBuildSupported, buildArchitectures, workerTargetForPlatform, godotVersionIdentifier, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
+import { BUILD_RECIPE_VERSION, assertRealBuildSupported, buildArchitectures, workerTargetForPlatform, godotVersionIdentifier, normalizeBuildConfig, toSconsArgs, type BuildConfig } from "@mingd/build-config";
 import type { CompilerRuntime } from "./compiler-runtime.js";
 import { ensureGodotSource } from "./source-cache.js";
 import { packageArtifact } from "./package-artifact.js";
@@ -9,6 +9,7 @@ import { BuildPerformance, LinkObserver } from "./performance.js";
 import { collectCacheDiagnostics, compilerCacheEnvironment } from "./cache-diagnostics.js";
 import { verifyPlatformToolchain } from "./toolchain.js";
 import { writeZip } from "./zip.js";
+import { BUILDER_IMAGE_TAG, BUILDER_SERVICE_VERSION } from "./service-version.js";
 
 export type BuildStage = "preparing_source" | "verifying_source" | "preparing_workspace" | "compiling" | "linking" | "validating" | "packaging";
 
@@ -44,7 +45,7 @@ export async function compileBuild(
     await onStage("compiling");
     const packageDir = join(outputDir, "dry-run");
     await mkdir(packageDir, { recursive: true });
-    await writeFile(join(packageDir, "README.txt"), `min.gd dry-run artifact\n\n${JSON.stringify(config, null, 2)}\n`);
+    await writeFile(join(packageDir, "README.txt"), `min.gd dry-run artifact\nBuilder image release tag: ${BUILDER_IMAGE_TAG ?? "Local build (no image tag)"}\nBuilder package version: ${BUILDER_SERVICE_VERSION}\nBuild recipe: ${BUILD_RECIPE_VERSION}\n\n${JSON.stringify(config, null, 2)}\n`);
     await writeFile(join(packageDir, "version.txt"), `${godotVersionIdentifier(config.godotVersion)}\n`);
     const artifact = join(outputDir, `mingd-${buildId}-DRY-RUN.tpz`);
     await onStage("packaging");
