@@ -14,7 +14,7 @@ for release preparation. For supported export targets and Godot releases, see
 
 ## Current prepared versions
 
-Platform version in the checkout: **v0.2.4**. Component bumps
+Platform version in the checkout: **v1.0.0**. Component bumps
 refresh these tables without changing past platform snapshots.
 
 Package versions describe source in the checkout. An unchanged image may have been
@@ -24,22 +24,22 @@ actually shipped in running processes. Image digests belong in deployment record
 
 | Image | Image tag | Owning package | Package version in checkout |
 | --- | --- | --- | --- |
-| web | v0.3.3 | @mingd/web | 0.3.3 |
-| worker-gateway | v0.2.4 | @mingd/worker-gateway | 0.2.4 |
-| maintenance | v0.2.3 | @mingd/builder | 0.3.0 |
-| builder | v0.3.0 | @mingd/builder | 0.3.0 |
-| web-builder | v0.3.0 | @mingd/builder | 0.3.0 |
-| android-builder | v0.3.0 | @mingd/builder | 0.3.0 |
-| macos-builder | v0.3.1 | @mingd/builder | 0.3.0 |
+| web | v0.3.4 | @mingd/web | 0.3.4 |
+| worker-gateway | v0.2.5 | @mingd/worker-gateway | 0.2.5 |
+| maintenance | v0.2.3 | @mingd/builder | 0.3.2 |
+| builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| web-builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| android-builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| macos-builder | v0.3.2 | @mingd/builder | 0.3.2 |
 
 | Workspace package | Version |
 | --- | --- |
 | @mingd/docs | 0.2.3 |
-| @mingd/web | 0.3.3 |
+| @mingd/web | 0.3.4 |
 | @mingd/build-config | 0.2.3 |
 | @mingd/worker-protocol | 0.2.3 |
-| @mingd/builder | 0.3.0 |
-| @mingd/worker-gateway | 0.2.4 |
+| @mingd/builder | 0.3.2 |
+| @mingd/worker-gateway | 0.2.5 |
 
 ## Platform release history
 
@@ -47,4 +47,25 @@ Each platform release captures the prepared component set at that time. Its
 tables remain unchanged when subsequent components advance. Optional images
 are included in the inventory even when an instance does not deploy them.
 
-No platform release snapshots have been captured yet.
+### v1.0.0
+
+[Release snapshot](../../releases/v1.0.0.json)
+
+| Image | Image tag | Owning package | Package version in checkout |
+| --- | --- | --- | --- |
+| web | v0.3.4 | @mingd/web | 0.3.4 |
+| worker-gateway | v0.2.5 | @mingd/worker-gateway | 0.2.5 |
+| maintenance | v0.2.3 | @mingd/builder | 0.3.2 |
+| builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| web-builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| android-builder | v0.3.1 | @mingd/builder | 0.3.2 |
+| macos-builder | v0.3.2 | @mingd/builder | 0.3.2 |
+
+| Workspace package | Version |
+| --- | --- |
+| @mingd/docs | 0.2.3 |
+| @mingd/web | 0.3.4 |
+| @mingd/build-config | 0.2.3 |
+| @mingd/worker-protocol | 0.2.3 |
+| @mingd/builder | 0.3.2 |
+| @mingd/worker-gateway | 0.2.5 |
