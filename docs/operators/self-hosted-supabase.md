@@ -1,16 +1,20 @@
 ---
-title: "Self-hosted Supabase"
+title: "Supabase configuration"
 editUrl: https://github.com/sxmxc/mingd/edit/main/docs/operators/self-hosted-supabase.md
 ---
 
-# Self-hosted Supabase
+# Supabase configuration
 
-Production uses separate application and build hosts, plus a separately managed
-Supabase server. `compose.web.prod.yml` runs web, the worker gateway, Redis, and
-maintenance; `compose.workers.prod.yml` runs the remote compiler workers.
-Use the official
+min.gd requires Supabase Auth, Postgres, Storage and its API endpoint. Supabase
+can be managed or self-hosted; a dedicated Supabase machine is not required.
+Apply this repository's migrations, configure the application URLs and keys,
+and set Auth redirects and email delivery in the Supabase deployment you use.
+For self-hosting, use the official
 [self-hosted distribution](https://supabase.com/docs/guides/self-hosting/docker)
-for production. `npx supabase start` is the separate local development stack.
+for production. `npx supabase start` is for local development. The supplied min.gd
+Compose files do not provision production Supabase. The self-hosted environment
+and Compose examples below are one setup option; managed projects use their
+provider's Auth and email settings instead.
 
 ## Configuration ownership
 
@@ -18,7 +22,7 @@ for production. `npx supabase start` is the separate local development stack.
 | --- | --- |
 | App URL, public API key, privileged Supabase key, gateway settings | Application host `.env`; `apps/web/.env.local` for web development |
 | Worker gateway URL, token files, target resource limits | Worker host `.env` and private `worker-tokens/`; no Supabase keys |
-| Auth site URL, allowed redirects, SMTP, email template URLs | Supabase server's deployment environment/Compose |
+| Auth site URL, allowed redirects, SMTP, email templates | Supabase project settings or self-hosted Auth configuration |
 | Application tables, policies, bucket, scheduled jobs | This repo's migrations, applied to Supabase Postgres |
 | Local mail/templates/ports | `supabase/config.toml`, affecting only local CLI Supabase |
 
@@ -36,7 +40,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://supabase.example.com
 SUPABASE_URL=https://supabase.example.com
 ```
 
-On the **Supabase server**, set the application site URL and allowed callback:
+In Supabase Auth, set the application site URL and allow
+`https://mingd.example.com/auth/callback`. For self-hosted Compose, an example is:
 
 ```dotenv
 SITE_URL=https://mingd.example.com
@@ -61,18 +66,19 @@ changes the upstream default. Use your installation's service names/launcher.
 
 ## SMTP and application email templates
 
-Configure SMTP on the Supabase server, enable email confirmations, and keep secure
+Configure SMTP in Supabase Auth, enable email confirmations, and keep secure
 email changes enabled. This repository provides confirmation, recovery, and
 email-change HTML in [`supabase/templates`](../../supabase/templates). Recovery
 links use `/auth/confirm` to verify the token, set session cookies, and open
 `/account/reset-password`.
 
-Auth fetches template HTML over HTTP; a mounted file alone is insufficient.
+For self-hosted Auth template URL settings, Auth fetches HTML over HTTP; a mounted file alone is insufficient.
 The local CLI's `content_path` is not remote Auth configuration. See
 [Supabase's template guide](https://supabase.com/docs/guides/self-hosting/custom-email-templates).
 
-Perform these steps **in the existing Supabase deployment**, not the min.gd
-Compose directory:
+Managed projects can set the repository HTML in their Auth email template editor.
+For self-hosted Auth, the following optional template service serves that HTML.
+Add it to the Supabase deployment's Compose configuration:
 
 1. Create `volumes/mingd-templates/` beside the Supabase Compose files.
 2. Copy the three HTML files from this repository's `supabase/templates/` into

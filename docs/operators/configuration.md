@@ -14,7 +14,7 @@ secret in documentation, source control, or a `NEXT_PUBLIC_*` variable.
 | --- | --- | --- |
 | Root/deployment `.env` | Compose; operator scripts when run from a checkout | Recreate affected containers |
 | `apps/web/.env.local` | Web workspace Next.js development commands | Restart development after changing settings |
-| Supabase deployment `.env` / Compose | Separately installed production Auth/API/Storage/database | Recreate relevant Supabase services with that installation's launcher |
+| Supabase provider settings or self-hosted `.env` / Compose | Production Auth/API/Storage/database | Apply settings through the provider or recreate affected self-hosted services |
 | `supabase/config.toml` | Local Supabase CLI stack only | Apply changes to the appropriate local development stack |
 
 Direct builder/maintenance npm commands do not automatically load root `.env`.
@@ -27,6 +27,7 @@ import scripts explicitly load root `.env`. Exported values take precedence.
 | --- | --- | --- |
 | `IMAGE_PREFIX` | `mingd` | Repository prefix for application images, e.g. `ghcr.io/sxmxc/mingd`; no trailing slash |
 | `IMAGE_TAG` | `latest` | Fallback image tag for services without an individual tag |
+| `MINGD_IMAGE_SOURCE` | Derived by image build commands; direct Compose defaults to the upstream repository | Optional OCI source label override for Docker builds |
 
 Root and production Compose accept per-service tags. Production defaults are
 recorded independently in the two production Compose files; root Compose falls
@@ -52,6 +53,9 @@ their tags in the root `.env`, production Compose defaults and production env
 examples. Build and push use `--release` to select those prepared tags. The root
 package version does not force a shared image version. For the exact command
 order, use [deployment](deployment.md#build-here-pull-on-production-ghcr).
+After preparing components, `release platform` bumps only the root/platform
+version and captures their versions in `releases/v<version>.json`. It does not
+change image selection or deployment configuration.
 
 Each production host's existing `.env` is its deployment configuration. Copy only
 published services' `*_IMAGE_TAG` values from the prepared env examples; preserve
@@ -144,7 +148,8 @@ update the canonical URL or allowed Auth redirects automatically.
 ## Distributed-worker settings
 
 Use [`.env.web.prod.example`](../../.env.web.prod.example) on the application host and
-[`.env.workers.prod.example`](../../.env.workers.prod.example) on dedicated worker hosts.
+[`.env.workers.prod.example`](../../.env.workers.prod.example) for workers, whether on
+dedicated hosts or a separate Compose project on the application host.
 Production files default to `ghcr.io/sxmxc/mingd` and per-service release tags;
 root Compose retains `mingd` and `latest`. Existing `.env` values override these defaults. Do not copy
 privileged application configuration to remote hosts.

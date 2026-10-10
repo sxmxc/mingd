@@ -10,34 +10,34 @@ covers their topology, compatibility, enrollment, protocol and diagnostics.
 [Deployment](deployment.md) owns publication and production update commands;
 [worker release history](../archive/worker-release-history.md) preserves older rollout notes.
 
-## Production topology
+## Recommended production topology
 
 ```mermaid
 flowchart LR
-  Browser -->|HTTPS| AppProxy[Nginx Proxy Manager: mingd.voidmoose.net]
+  Browser -->|HTTPS| AppProxy[HTTPS reverse proxy]
   AppProxy --> Web[Application host: web 3000]
   Web --> Redis[Internal Redis / BullMQ]
-  Build[Dedicated build hosts] -->|Authenticated outbound HTTPS| WorkerProxy[Nginx Proxy Manager: worker.mingd.voidmoose.net]
+  Build[Isolated compiler workers] -->|Authenticated outbound HTTPS| WorkerProxy[HTTPS gateway proxy]
   WorkerProxy --> Gateway[Application host: gateway 3001]
   Gateway --> Redis
-  Gateway --> Supabase[Separate Supabase host: supabase.voidmoose.net]
+  Gateway --> Supabase[Supabase API]
   Web --> Supabase
   Build --> Source[Allowlisted official Godot source]
 ```
 
-The hostnames above are deployment examples matching the checked-in settings.
-Use your own reachable app, gateway and Supabase addresses. Private DNS/TLS is
+Separate application and worker hosts are recommended; the same services can
+run in separate Compose projects on one host. Supabase hosting and proxy software
+are operator choices. See [single-host deployment](deployment.md#single-host-deployment).
+Use reachable app, gateway and Supabase addresses. Private DNS/TLS is
 supported; workers need a route to the gateway. Use trusted HTTPS certificates; workers require verified HTTPS and reject
-redirects. They expose no listener. NPM forwards HTTP to the application host's
+redirects. They expose no listener. The reverse proxy forwards HTTP to the application host's
 port **3001**, or `worker-gateway:3001` on a shared Docker network. Compose publishes
 the port without requiring a host-IP environment variable. Restrict upstream
 reachability to the proxy through your existing Docker-aware firewall rules.
 
-The repo is an npm-workspaces monorepo. `packages/build-config` owns build
-semantics; `packages/worker-protocol` owns strict HTTP schemas;
-`services/worker-gateway` runs Fastify and privileged orchestration;
-`services/builder` runs isolated compilation with either `BUILDER_MODE=remote`
-or the retained direct mode for local development/rollback.
+For code ownership and internal build flow, see the
+[architecture guide](../developers/architecture.md). The procedures here use
+HTTPS workers; direct workers remain available for local development and rollback.
 
 ## Release compatibility
 
@@ -141,7 +141,7 @@ resume. See the rollout checklist for image tags, macOS identities, and recovery
 For a one-shot authenticated check from a matching checkout:
 
 ```bash
-npm run probe --workspace @mingd/worker-gateway -- --gateway https://worker.mingd.voidmoose.net --credential-file worker-tokens/desktop.token --target desktop
+npm run probe --workspace @mingd/worker-gateway -- --gateway https://worker.mingd.example.com --credential-file worker-tokens/desktop.token --target desktop
 ```
 
 The worker process itself polls continuously; the probe is optional. `list` exposes
@@ -285,7 +285,7 @@ operation category (`reservation`, `storage_upload`, `measurements`, or `commit`
 
 Each route group has a bounded in-process pre-authentication budget of 600 requests
 per minute per socket peer, with at most 4096 peers. Fastify does not trust forwarded
-headers, so workers behind the same NPM peer share that budget. This limits a single
+headers, so workers behind the same proxy peer share that budget. This limits a single
 gateway's requests; global rate limiting and gateway replication are future work.
 
 ## Troubleshooting interrupted builds

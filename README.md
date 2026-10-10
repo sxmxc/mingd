@@ -29,12 +29,13 @@ You can use an existing instance without installing compilers or hosting the ser
 
 ## Host or develop min.gd
 
-Production uses a Next.js application, separately managed Supabase, a private
-Redis/BullMQ queue and an HTTPS gateway for isolated build workers. Remote
-workers receive enrollment credentials; the application host owns privileged
-backend access.
+min.gd uses a Next.js application, Supabase, a private Redis/BullMQ queue and an
+HTTPS gateway for isolated build workers. Separate application and worker hosts
+are recommended for production; a single host can run both. Supabase hosting and
+the HTTPS proxy are operator choices. Workers receive enrollment credentials;
+application services own privileged backend access.
 
-- **Host an instance:** [deployment](https://sxmxc.github.io/mingd/deployment/), [configuration](https://sxmxc.github.io/mingd/configuration/) and [self-hosted Supabase](https://sxmxc.github.io/mingd/self-hosted-supabase/).
+- **Host an instance:** [deployment](https://sxmxc.github.io/mingd/deployment/), [configuration](https://sxmxc.github.io/mingd/configuration/) and [Supabase setup](https://sxmxc.github.io/mingd/self-hosted-supabase/).
 - **Manage the service:** [workers](https://sxmxc.github.io/mingd/distributed-workers/), [administration](https://sxmxc.github.io/mingd/accounts-and-admin/) and [maintenance](https://sxmxc.github.io/mingd/maintenance/).
 - **Develop locally:** [local setup](https://sxmxc.github.io/mingd/getting-started/) and [development checks](https://sxmxc.github.io/mingd/development/). Use npm workspaces and the Node version pinned in [.nvmrc](.nvmrc).
 

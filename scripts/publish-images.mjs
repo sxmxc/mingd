@@ -67,7 +67,7 @@ try {
   if (release && selected.some(([name]) => !Object.hasOwn(versions, name))) throw new Error('Missing release version for a selected service.');
   for (const [, service] of selected) {
     if (operation !== "build" && !service.image?.startsWith("ghcr.io/")) {
-      throw new Error("Set IMAGE_PREFIX=ghcr.io/sxmxc/mingd in root .env before publishing.");
+      throw new Error("Set IMAGE_PREFIX=ghcr.io/<owner>/<repository> in root .env before publishing.");
     }
   }
 
@@ -85,7 +85,9 @@ try {
     return true;
   });
   if ((operation === "build" || (operation === "publish" && !all)) && !dryRun) {
-    docker(["compose", "build", ...images.map(([name]) => name)], { env });
+    const repository = images[0]?.[1].image?.match(/^ghcr\.io\/([^/]+\/[^/]+)\/[^/]+$/)?.[1];
+    const source = env.MINGD_IMAGE_SOURCE ?? (env.GITHUB_REPOSITORY ? `https://github.com/${env.GITHUB_REPOSITORY}` : repository ? `https://github.com/${repository}` : undefined);
+    docker(["compose", "build", ...images.map(([name]) => name)], { env: { ...env, ...(source ? { MINGD_IMAGE_SOURCE: source } : {}) } });
   }
   for (const [name, service] of images) {
     console.log(`${dryRun ? "Would " : ""}${operation} ${name}: ${service.image}`);

@@ -1,5 +1,6 @@
 FROM node:24-bookworm-slim
-LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
+ARG MINGD_IMAGE_SOURCE=https://github.com/sxmxc/mingd
+LABEL org.opencontainers.image.source=$MINGD_IMAGE_SOURCE
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

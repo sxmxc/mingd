@@ -9,9 +9,10 @@ import test from "node:test";
 const publisher = fileURLToPath(new URL("../publish-images.mjs", import.meta.url));
 const applicationServices = ["web", "maintenance", "builder", "web-builder", "android-builder", "macos-builder", "worker-gateway"];
 
-function scenario({ missingImage = "", failPush = false, failLatest = false, macosArchive = false } = {}) {
+function scenario({ missingImage = "", failPush = false, failLatest = false, macosArchive = false, repository = "", source = "" } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "mingd-publish-test-"));
   const callsPath = join(directory, "calls.jsonl");
+  const sourcesPath = join(directory, "sources.jsonl");
   const envPath = join(directory, ".env");
   writeFileSync(envPath, "# Existing operator configuration\nIMAGE_TAG=v0.2.2\nWEB_IMAGE_TAG=v0.2.4\nUNRELATED=value\n");
   for (const path of ['compose.web.prod.yml', 'compose.workers.prod.yml']) {
@@ -28,6 +29,7 @@ function scenario({ missingImage = "", failPush = false, failLatest = false, mac
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.PUBLISH_TEST_CALLS, JSON.stringify(args) + "\\n");
+if (args[0] === "compose" && args[1] === "build") fs.appendFileSync(process.env.PUBLISH_TEST_SOURCES, JSON.stringify(process.env.MINGD_IMAGE_SOURCE ?? null) + "\\n");
 if (args[0] === "compose" && args.includes("config")) {
   const saved = Object.fromEntries(fs.readFileSync(".env", "utf8").split("\\n").filter(line => line.includes("=")).map(line => line.split("=")));
   const services = Object.fromEntries(${JSON.stringify(applicationServices)}.map(name => {
@@ -48,14 +50,19 @@ fs.appendFileSync(process.env.PUBLISH_TEST_CALLS, JSON.stringify(["npm", ...proc
   return {
     run(args) {
       writeFileSync(callsPath, "");
+      writeFileSync(sourcesPath, "");
       const env = { ...process.env, PATH: directory + delimiter + process.env.PATH,
-        PUBLISH_TEST_CALLS: callsPath, PUBLISH_TEST_MISSING: missingImage,
+        PUBLISH_TEST_CALLS: callsPath, PUBLISH_TEST_SOURCES: sourcesPath, PUBLISH_TEST_MISSING: missingImage,
         PUBLISH_TEST_FAIL_PUSH: String(failPush), PUBLISH_TEST_FAIL_LATEST: String(failLatest) };
       for (const key of Object.keys(env)) if (key.endsWith("_IMAGE_TAG")) delete env[key];
+      delete env.GITHUB_REPOSITORY; delete env.MINGD_IMAGE_SOURCE;
+      if (repository) env.GITHUB_REPOSITORY = repository;
+      if (source) env.MINGD_IMAGE_SOURCE = source;
       const result = spawnSync(process.execPath, [publisher, ...args], { cwd: directory, encoding: "utf8", env, timeout: 10_000 });
       assert.ifError(result.error);
       const calls = readFileSync(callsPath, "utf8").trim().split("\n").filter(Boolean).map(JSON.parse);
-      return { ...result, calls, saved: readFileSync(envPath, "utf8") };
+      const sources = readFileSync(sourcesPath, "utf8").trim().split("\n").filter(Boolean).map(JSON.parse);
+      return { ...result, calls, sources, saved: readFileSync(envPath, "utf8") };
     },
     close() { rmSync(directory, { recursive: true, force: true }); },
   };
@@ -75,6 +82,14 @@ test("publish all preserves the newer web version and never builds or retags", (
   assert.ok(pushes.includes("ghcr.io/example/mingd/builder:v0.2.2"));
   assert.ok(!result.calls.some(call => call.includes("tag") || call.includes("build")));
   assert.ok(!pushes.some(image => image.endsWith(":latest") || image.endsWith("web:v0.2.2")));
+});
+
+test("build source labels follow the configured registry or GitHub repository, with explicit overrides", () => {
+  for (const [options, expected] of [[{}, "https://github.com/example/mingd"], [{ repository: "fork-owner/custom-repo" }, "https://github.com/fork-owner/custom-repo"], [{ repository: "fork-owner/custom-repo", source: "https://example.test/source" }, "https://example.test/source"]]) {
+    const result = run(["build", "web", "--", "v0.2.5"], options);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.sources, [expected]);
+  }
 });
 
 test("publishing one service builds only it and records its tag for the next publish all", () => {

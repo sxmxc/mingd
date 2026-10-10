@@ -9,8 +9,10 @@ min.gd uses npm workspaces and one shared build contract. The frontend does not
 compile Godot; isolated workers consume validated recipes.
 
 Production uses [distributed HTTPS workers](../operators/distributed-workers.md): the gateway
-holds Redis/Supabase credentials on the application host, while dedicated build
-hosts receive individual enrollment tokens. Direct workers remain available for
+holds Redis/Supabase credentials in application services, while compiler workers
+receive individual enrollment tokens. Separate hosts are recommended, but the
+services can share a host while retaining container and credential isolation.
+Direct workers remain available for
 local development and rollback.
 
 ```mermaid
@@ -20,7 +22,7 @@ flowchart LR
   Web --> DB[Postgres: builds and recipes]
   Web --> Redis[Redis / BullMQ]
   Redis --> Gateway[Fastify worker gateway]
-  Workers[Dedicated desktop, Web, Android, macOS hosts] -->|Authenticated HTTPS| Gateway
+  Workers[Isolated desktop, Web, Android, macOS workers] -->|Authenticated HTTPS| Gateway
   Gateway --> DB
   Workers --> Official[Official Godot source]
   Gateway --> Storage[Private Supabase Storage]

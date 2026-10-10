@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -140,5 +140,101 @@ test('tags exports independent image versions without bumping or exposing secret
     assert.doesNotMatch(f.read('deployment.env'), /never-print-this/);
     assert.match(f.read('.env'), /WEB_IMAGE_TAG=v0.2.4/);
     assert.equal(JSON.parse(f.read('package.json')).version, '0.2.3');
+  } finally { f.close(); }
+});
+
+test('platform release captures prepared independent components and changes only root versions', () => {
+  const f = fixture();
+  try {
+    assert.equal(f.run(['bump', 'minor', '--service', 'builder']).status, 0);
+    assert.equal(f.run(['bump', 'patch', '--service', 'web']).status, 0);
+    const paths = ['apps/web/package.json', 'services/builder/package.json', 'services/worker-gateway/package.json', '.env', 'compose.web.prod.yml', 'compose.workers.prod.yml', '.env.web.prod.example', '.env.workers.prod.example'];
+    const before = Object.fromEntries(paths.map(path => [path, f.read(path)]));
+    const previousLock = JSON.parse(f.read('package-lock.json'));
+    const preview = f.run(['platform', 'major', '--dry-run']);
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.match(preview.stdout, /Would prepare platform release v1.0.0/);
+    assert.equal(existsSync(join(f.root, 'releases')), false);
+    assert.equal(JSON.parse(f.read('package.json')).version, '0.2.3');
+    const result = f.run(['platform', 'major']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout + result.stderr, /never-print-this/);
+    assert.equal(JSON.parse(f.read('package.json')).version, '1.0.0');
+    const lock = JSON.parse(f.read('package-lock.json'));
+    assert.equal(lock.version, '1.0.0');
+    assert.equal(lock.packages[''].version, '1.0.0');
+    delete lock.packages['']; delete previousLock.packages[''];
+    assert.deepEqual(lock.packages, previousLock.packages);
+    for (const path of paths) assert.equal(f.read(path), before[path]);
+    const snapshot = JSON.parse(f.read('releases/v1.0.0.json'));
+    assert.equal(snapshot.platformVersion, '1.0.0');
+    assert.equal(snapshot.packages['apps/web'], '0.2.5');
+    assert.equal(snapshot.packages['services/builder'], '0.3.0');
+    assert.deepEqual(snapshot.images.builder, { tag: 'v0.3.0', package: 'services/builder' });
+    assert.deepEqual(snapshot.images['web-builder'], { tag: 'v0.2.3', package: 'services/builder' });
+    assert.equal(snapshot.images.web.tag, 'v0.2.5');
+    assert.equal(Object.keys(snapshot.images).length, 7);
+    const matrix = f.read('docs/operators/release-matrix.md');
+    assert.match(matrix, /### v1.0.0/);
+    assert.match(matrix, /\| builder \| v0.3.0 \| services\/builder \| 0.3.0 \|/);
+    assert.equal(f.run(['bump', 'patch', '--service', 'builder']).status, 0);
+    const updated = f.read('docs/operators/release-matrix.md');
+    assert.match(updated.split('## Platform release history')[0], /\| builder \| v0.3.1 \| services\/builder \| 0.3.1 \|/);
+    assert.match(updated.split('### v1.0.0')[1], /\| builder \| v0.3.0 \| services\/builder \| 0.3.0 \|/);
+    assert.deepEqual(JSON.parse(f.read('releases/v1.0.0.json')), snapshot);
+    assert.equal(f.run(['platform', 'patch']).status, 0);
+    assert.equal(JSON.parse(f.read('releases/v1.0.1.json')).platformVersion, '1.0.1');
+  } finally { f.close(); }
+});
+
+test('matrix refresh is deterministic, changes no versions, and dry runs write no documentation', () => {
+  const f = fixture();
+  try {
+    const files = ['package.json', 'package-lock.json', '.env', 'compose.web.prod.yml', 'compose.workers.prod.yml'];
+    const before = Object.fromEntries(files.map(path => [path, f.read(path)]));
+    assert.equal(f.run(['matrix', '--dry-run']).status, 0);
+    assert.equal(existsSync(join(f.root, 'docs')), false);
+    assert.equal(f.run(['matrix']).status, 0);
+    const matrix = f.read('docs/operators/release-matrix.md');
+    assert.match(matrix, /Platform version in the checkout: \*\*v0.2.3\*\*/);
+    assert.match(matrix, /\| web \| v0.2.4 \| apps\/web \| 0.2.3 \|/);
+    assert.doesNotMatch(matrix, /never-print-this/);
+    assert.equal(f.run(['matrix']).status, 0);
+    assert.equal(f.read('docs/operators/release-matrix.md'), matrix);
+    for (const path of files) assert.equal(f.read(path), before[path]);
+    assert.equal(f.run(['matrix', '--service', 'web']).status, 1);
+  } finally { f.close(); }
+});
+
+test('blocked matrix output prevents component and platform version mutations', () => {
+  for (const args of [['bump', 'patch', '--service', 'web'], ['platform', 'major']]) {
+    const f = fixture();
+    try {
+      const paths = ['package.json', 'package-lock.json', 'apps/web/package.json', '.env', 'compose.web.prod.yml'];
+      const before = Object.fromEntries(paths.map(path => [path, f.read(path)]));
+      mkdirSync(join(f.root, 'docs/operators/release-matrix.md'), { recursive: true });
+      assert.equal(f.run(args).status, 1);
+      for (const path of paths) assert.equal(f.read(path), before[path]);
+      assert.equal(existsSync(join(f.root, 'releases')), false);
+    } finally { f.close(); }
+  }
+});
+
+test('invalid platform options, inconsistent packages and existing snapshots do not mutate files', () => {
+  const f = fixture();
+  try {
+    const root = f.read('package.json'), lock = f.read('package-lock.json'), env = f.read('.env');
+    for (const args of [['platform', 'invalid'], ['platform', 'major', '--service', 'web'], ['platform', 'major', '--env-file', 'other.env']]) assert.equal(f.run(args).status, 1);
+    writeFileSync(join(f.root, 'services/builder/package.json'), JSON.stringify({ version: '0.9.0' }));
+    assert.equal(f.run(['platform', 'major']).status, 1);
+    assert.equal(existsSync(join(f.root, 'releases')), false);
+    writeFileSync(join(f.root, 'services/builder/package.json'), JSON.stringify({ name: 'services/builder', version: '0.2.3' }));
+    mkdirSync(join(f.root, 'releases'));
+    writeFileSync(join(f.root, 'releases/v1.0.0.json'), 'existing snapshot');
+    assert.equal(f.run(['platform', 'major']).status, 1);
+    assert.equal(f.read('releases/v1.0.0.json'), 'existing snapshot');
+    assert.equal(f.read('package.json'), root);
+    assert.equal(f.read('package-lock.json'), lock);
+    assert.equal(f.read('.env'), env);
   } finally { f.close(); }
 });

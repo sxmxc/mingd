@@ -14,9 +14,12 @@ live compiler output, cached artifact reuse, saved/shared recipes, portable
 HTTPS workers. These are described in the [user guides](../README.md#using-mingd)
 and [operator guides](../README.md#operating-an-instance).
 
-No additional feature is required merely to call this v1.0.0. The owner reports
-having tested everything available to them, including exports using the smoke
-project and generated templates, with good results.
+The platform version identifies a release of the application as a whole;
+service packages and container images retain independent versions. Prepare
+component bumps first, then use the [platform release command](../operators/deployment.md#platform-releases)
+to capture the package/image set. This snapshot does not certify deployment or
+native template acceptance; validate the targets being shipped using
+[smoke tests](smoke-tests.md).
 
 Further platforms, automation and scaling can be considered in later releases.
 The release decision belongs to the project owner, based on how the product

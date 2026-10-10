@@ -32,6 +32,10 @@ Application checks use dummy public settings and loopback URLs. Docker image
 builds need no deployment URL/key arguments. Images are not pushed or deployed.
 The web app reads deployment configuration on the server at runtime, keeping
 privileged keys server-only.
+Validation image tags use the current `github.repository`, lowercased for GHCR,
+and their OCI source label identifies the same repository. Forks do not need to
+edit the workflow's registry namespace. Operator builds/deployments use their
+configured `IMAGE_PREFIX`; upstream production defaults remain available.
 
 Production web builds use Next.js's default Turbopack bundler through the
 workspace script, including the web Dockerfile. For local build-cache recovery,

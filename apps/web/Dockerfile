@@ -20,7 +20,8 @@ RUN mkdir -p apps/web/public \
     && npm run build --workspace @mingd/web
 
 FROM node:24-bookworm-slim AS runtime
-LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
+ARG MINGD_IMAGE_SOURCE=https://github.com/sxmxc/mingd
+LABEL org.opencontainers.image.source=$MINGD_IMAGE_SOURCE
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

@@ -2,17 +2,19 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import { documentationLinks } from './src/documentation-links.mjs';
+import { mermaidDiagrams } from './src/mermaid-diagrams.mjs';
 
 export default defineConfig({
   site: 'https://sxmxc.github.io',
   base: '/mingd',
   trailingSlash: 'always',
   markdown: {
-    processor: unified({ remarkPlugins: [documentationLinks] }),
+    processor: unified({ remarkPlugins: [documentationLinks, mermaidDiagrams] }),
   },
   integrations: [
     starlight({
       title: 'min.gd',
+      components: { Footer: './src/components/DocsFooter.astro' },
       logo: { src: '../web/public/web-app-manifest-512x512.png', alt: '' },
       favicon: '/favicon.ico',
       description: 'Build only the Godot your game needs. User guides, instance operations, and developer documentation.',
@@ -26,7 +28,7 @@ export default defineConfig({
         },
         {
           label: 'Operating an instance',
-          items: ['deployment', 'configuration', 'self-hosted-supabase', 'distributed-workers', 'worker-toolchains', 'accounts-and-admin', 'maintenance', 'troubleshooting'],
+          items: ['deployment', 'release-matrix', 'configuration', 'self-hosted-supabase', 'distributed-workers', 'worker-toolchains', 'accounts-and-admin', 'maintenance', 'troubleshooting'],
         },
         {
           label: 'Developing min.gd',

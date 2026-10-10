@@ -63,6 +63,16 @@ Choose the audience before writing a guide:
 - `docs/archive/`: dated reports and historical rollout notes.
 
 Keep each procedure in one owning guide and link to it from related guides.
+State application requirements separately from recommendations and examples.
+Host placement, Supabase hosting, proxy software, and local domains are operator
+choices; document the required connectivity and credentials rather than assuming
+one installation layout.
+
+Mermaid fences render as diagrams in the site and remain readable in repository
+Markdown. The docs workspace bundles Mermaid locally; no CDN or renderer service
+is required. Diagrams follow the site's light/dark theme and scroll horizontally
+when necessary. Without JavaScript, their source remains visible. Use a
+`mermaid` code fence for diagrams and check rendering in the production preview.
 Check product claims against the form, routes and shared build contract. Do not
 turn untested cases into invented limitations or release requirements.
 

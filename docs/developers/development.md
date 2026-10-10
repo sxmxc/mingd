@@ -8,14 +8,16 @@ editUrl: https://github.com/sxmxc/mingd/edit/main/docs/developers/development.md
 Use [getting started](getting-started.md) to configure development services.
 Use [AGENTS.md](../../AGENTS.md) for repository boundaries and change rules.
 Commands here run from the repository root.
+GitHub provides a PR template and bug/feature issue forms under `.github/`.
+Include the relevant package/image versions and checks actually run; use the
+[release matrix](../operators/release-matrix.md) for prepared versions and the
+Administration/worker views for running versions.
 
 ## Browser access to the dev server
 
-Run `npm run dev:web` and open `http://localhost:3000` on the server, or
-`http://docker01.voidmoose.local:3000` from the local network. The web config
-explicitly allows that LAN hostname and `127.0.0.1` for Next.js development
-assets and the `/_next/hmr` WebSocket; localhost is allowed by Next.js itself.
-If you use a different LAN hostname, add its hostname (without scheme or port)
+Run `npm run dev:web` and open `http://localhost:3000` on the server. For access
+from another machine, use the development host's LAN address and add its
+hostname (without scheme or port)
 to `allowedDevOrigins` in `apps/web/next.config.ts`.
 
 A blocked HMR origin can prevent client hydration, leaving navbar menus
@@ -100,9 +102,9 @@ TypeScript major upgrades for coordinated validation. Emscripten major upgrades
 are also held; minor, patch, and digest PRs remain enabled. Compiler image PRs require
 manual review: verify the exact Godot releases with real compilation and export
 smoke tests, then bump `BUILD_RECIPE_VERSION` before publishing new workers.
-Recipe 10 accounts for the Emscripten 6.0.11 update; it invalidates recipe 9
-artifacts that may have used either Emscripten 4.0.11 or 6.0.11. Unit checks do
-not establish native acceptance of the new compiler. Follow the
+The current recipe is **11**, including desktop release LTO and the pinned
+Emscripten 6.0.11 toolchain. Unit checks do not establish native acceptance of
+compiler changes. Follow the
 [compiler rollout checklist](../operators/deployment.md#compiler-recipe-and-toolchain-upgrade-checklist)
 for releasing these changes; this guide covers local validation, not production deployment.
 Every recipe change requires rebuilding web, gateway and each deployed compiler

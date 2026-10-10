@@ -65,10 +65,10 @@ User-facing announcement controls are described in [your account](../users/accou
 
 Account settings and recovery steps are in [the user guide](../users/account.md).
 
-Sign-up, recovery, and secure email changes need SMTP on the separate Supabase
-server. Credentials belong there, not in web/browser settings. Set the Auth site
-URL/allowed callbacks and serve the three repository email templates using
-[self-hosted Supabase setup](self-hosted-supabase.md). Local Supabase uses its
+Sign-up, recovery, and secure email changes need SMTP configured in Supabase Auth.
+Credentials belong in Auth configuration, not web/browser settings. Set the Auth site
+URL/allowed callbacks and configure the three repository email templates using
+[Supabase setup](self-hosted-supabase.md). Local Supabase uses its
 mail viewer and checked-in `content_path` templates instead.
 
 Token-hash links at `/auth/confirm` verify the email token and set cookies, even

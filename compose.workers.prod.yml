@@ -1,4 +1,4 @@
-# Dedicated worker host: outbound HTTPS only; no Redis or Supabase credentials.
+# Isolated worker services: outbound HTTPS only; no Redis or Supabase credentials.
 x-worker: &worker
   restart: unless-stopped
   stop_grace_period: 30s

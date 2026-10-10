@@ -3,20 +3,26 @@ import { resolve, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
 import { bumpVersion, imagePackages, imageVersions, newest, tagVariable, updateTags } from './release-config.mjs';
 import { platformRelease } from './platform-release.mjs';
+import { releaseInventory, releaseMatrixPath, renderReleaseMatrix, writeReleaseMatrix } from './release-matrix.mjs';
 
 const root = process.cwd();
 const read = path => readFileSync(resolve(root, path), 'utf8');
-const usage = 'Usage: npm run release -- platform <patch|minor|major> [--dry-run], bump <patch|minor|major> [--service <name> ... | --service all] [--dry-run], or tags [--env-file <file>] [--dry-run].';
+const usage = 'Usage: npm run release -- platform <patch|minor|major> [--dry-run], bump <patch|minor|major> [--service <name> ... | --service all] [--dry-run], matrix [--dry-run], or tags [--env-file <file>] [--dry-run].';
 try {
   const { values, positionals } = parseArgs({ options: {
     'dry-run': { type: 'boolean' }, 'env-file': { type: 'string' }, service: { type: 'string', multiple: true },
   }, allowPositionals: true, strict: true });
   const [command, kind] = positionals;
-  if (!['bump', 'tags', 'platform'].includes(command) || positionals.length !== (command === 'tags' ? 1 : 2)) throw new Error(usage);
+  if (!['bump', 'tags', 'platform', 'matrix'].includes(command) || positionals.length !== (['tags', 'matrix'].includes(command) ? 1 : 2)) throw new Error(usage);
   if (command === 'bump' && values['env-file'] || command === 'tags' && values.service) throw new Error(usage);
   if (command === 'platform') {
     if (values.service || values['env-file']) throw new Error(usage);
     platformRelease(root, kind, { dryRun: values['dry-run'] });
+  } else if (command === 'matrix') {
+    if (values.service || values['env-file']) throw new Error(usage);
+    const matrix = renderReleaseMatrix(root, releaseInventory(root));
+    if (!values['dry-run']) writeReleaseMatrix(root, matrix);
+    console.log(`${values['dry-run'] ? 'Would update' : 'Updated'} ${releaseMatrixPath}. No versions changed.`);
   } else {
   const selections = [...new Set(values.service ?? ['all'])];
   const all = selections.includes('all');
@@ -73,15 +79,18 @@ try {
   const selectedVersions = command === 'bump' && !all ? Object.fromEntries(selections.map(service => [service, versions[service]])) : versions;
   // Preserve IMAGE_TAG as a fallback; explicit service tags carry the releases.
   changes.set(envPath, updateTags(original, selectedVersions));
+  const matrix = command === 'bump' ? renderReleaseMatrix(root, releaseInventory(root, { changes, versions })) : null;
   for (const path of changes.keys()) {
     const target = resolve(root, path);
     if (!existsSync(dirname(target))) throw new Error('An output parent directory does not exist.');
     if (existsSync(target) && statSync(target).isDirectory()) throw new Error('An output path is a directory.');
   }
   if (!values['dry-run']) for (const [path, content] of changes) writeFileSync(resolve(root, path), content, { mode: 0o600 });
+  if (matrix && !values['dry-run']) writeReleaseMatrix(root, matrix);
   console.log(`${values['dry-run'] ? 'Would prepare' : 'Prepared'} independent component versions:`);
   console.log((command === 'bump' ? summary : Object.entries(versions).map(([service, version]) => `${service}: v${version}`)).join('\n'));
   if (command === 'tags') console.log(`${values['dry-run'] ? 'Would save' : 'Saved'} ${Object.keys(selectedVersions).length} image-tag settings to ${envPath}.`);
+  if (matrix) console.log(`${values['dry-run'] ? 'Would update' : 'Updated'} ${releaseMatrixPath}.`);
   console.log('No images built or published.');
   }
 } catch (error) {

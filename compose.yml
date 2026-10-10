@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${WEB_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     environment:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
@@ -43,6 +44,7 @@ services:
       context: .
       dockerfile: services/worker-gateway/Dockerfile
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${WORKER_GATEWAY_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     environment:
       WORKER_GATEWAY_HOST: 0.0.0.0
@@ -87,6 +89,7 @@ services:
       context: .
       dockerfile: services/builder/Dockerfile.maintenance
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${MAINTENANCE_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     environment:
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
@@ -119,6 +122,7 @@ services:
       dockerfile: services/builder/Dockerfile
       target: desktop
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     env_file:
       - .env
@@ -144,6 +148,7 @@ services:
       dockerfile: services/builder/Dockerfile
       target: web
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${WEB_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     env_file:
       - .env
@@ -170,6 +175,7 @@ services:
       dockerfile: services/builder/Dockerfile
       target: android
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${ANDROID_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
     env_file:
       - .env
@@ -197,6 +203,7 @@ services:
       dockerfile: services/builder/Dockerfile
       target: macos
       args:
+        MINGD_IMAGE_SOURCE: ${MINGD_IMAGE_SOURCE:-https://github.com/sxmxc/mingd}
         MINGD_IMAGE_TAG: ${MACOS_BUILDER_IMAGE_TAG:-${IMAGE_TAG:-latest}}
         MACOS_TOOLCHAIN_SHA256: ${MACOS_TOOLCHAIN_SHA256:-}
     env_file:

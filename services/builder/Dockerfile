@@ -1,7 +1,8 @@
 # Debian Bookworm provides Python 3.11, GCC 12, and a glibc 2.36 baseline.
 # Keep BUILD_RECIPE_VERSION in sync with toolchain changes.
 FROM node:24-bookworm AS desktop
-LABEL org.opencontainers.image.source="https://github.com/sxmxc/mingd"
+ARG MINGD_IMAGE_SOURCE=https://github.com/sxmxc/mingd
+LABEL org.opencontainers.image.source=$MINGD_IMAGE_SOURCE
 
 ENV DEBIAN_FRONTEND=noninteractive
 
