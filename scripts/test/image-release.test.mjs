@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,9 +25,16 @@ test('image metadata preserves the original build tag, with explicit untagged bu
 });
 
 test('every Compose image build bakes its exact assigned tag, including independent builder tags', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'mingd-compose-image-release-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  writeFileSync(join(directory, 'compose.yml'), readFileSync(join(root, 'compose.yml')));
+  writeFileSync(join(directory, '.env.example'), readFileSync(join(root, '.env.example')));
+  // --env-file controls interpolation; worker env_file entries still require .env.
+  // Keep both in a fixture so clean checkouts work without local credentials.
+  writeFileSync(join(directory, '.env'), '');
   const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54321', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test', SUPABASE_SECRET_KEY: 'test', IMAGE_TAG: 'v0.9.0' };
   for (const [index, service] of Object.keys(imagePackages).entries()) env[tagVariable(service)] = `v0.3.${index}`;
-  const result = spawnSync('docker', ['compose', '--env-file', '.env.example', '--profile', '*', 'config', '--format', 'json', '--no-env-resolution'], { cwd: root, env, encoding: 'utf8' });
+  const result = spawnSync('docker', ['compose', '-f', 'compose.yml', '--env-file', '.env.example', '--profile', '*', 'config', '--format', 'json', '--no-env-resolution'], { cwd: directory, env, encoding: 'utf8' });
   if (result.error?.code === 'ENOENT') return t.skip('Docker Compose is not installed');
   assert.equal(result.status, 0, result.stderr);
   const services = JSON.parse(result.stdout).services;
