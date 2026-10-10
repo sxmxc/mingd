@@ -81,12 +81,12 @@ test("build source labels follow the configured registry or GitHub repository, w
   }
 });
 
-test("publishing one service builds only it and records its tag for the next publish all", () => {
+test("publishing existing images promotes their individual versions to latest and remembers tags", () => {
   const fixture = scenario();
   try {
     const single = fixture.run(["publish", "web", "--", "v0.2.5"]);
     assert.equal(single.status, 0, single.stderr);
-    assert.deepEqual(single.calls.filter(call => call.includes("build")), [["compose", "build", "web"]]);
+    assert.ok(!single.calls.some(call => call.includes("build")));
     assert.deepEqual(single.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"], ["push", "ghcr.io/example/mingd/web:latest"]]);
     assert.deepEqual(single.calls.filter(call => call[1] === "tag"), [["image", "tag", "sha256:fixture", "ghcr.io/example/mingd/web:latest"]]);
     assert.match(single.saved, /WEB_IMAGE_TAG=v0.2.5/);
@@ -94,10 +94,12 @@ test("publishing one service builds only it and records its tag for the next pub
     const all = fixture.run(["publish", "all"]);
     assert.equal(all.status, 0, all.stderr);
     const pushes = all.calls.filter(call => call[0] === "push").map(call => call[1]);
-    assert.deepEqual(new Set(pushes), new Set(applicationServices.map(service =>
-      `ghcr.io/example/mingd/${service}:${service === 'web' ? 'v0.2.5' : 'v0.2.2'}`)));
-    assert.equal(pushes.length, applicationServices.length);
-    assert.ok(!all.calls.some(call => call.includes("tag") || call.includes("build")));
+    assert.deepEqual(pushes, applicationServices.flatMap(service => [
+      `ghcr.io/example/mingd/${service}:${service === 'web' ? 'v0.2.5' : 'v0.2.2'}`,
+      `ghcr.io/example/mingd/${service}:latest`,
+    ]));
+    assert.equal(all.calls.filter(call => call[1] === "tag").length, applicationServices.length);
+    assert.ok(!all.calls.some(call => call.includes("build")));
   } finally { fixture.close(); }
 });
 
@@ -123,12 +125,15 @@ test("dry-run makes no build, push, tag, or configuration changes", () => {
 });
 
 test("all preflights required images before pushing and skips an unbuilt optional macOS image", () => {
-  const failure = run(["publish", "all"], { missingImage: "worker-gateway" });
-  assert.equal(failure.status, 1);
-  assert.ok(!failure.calls.some(call => call[0] === "push"));
+  for (const selection of ["all", "worker-gateway"]) {
+    const failure = run(["publish", selection, ...(selection === "all" ? [] : ["v0.2.5"])], { missingImage: "worker-gateway" });
+    assert.equal(failure.status, 1);
+    assert.ok(!failure.calls.some(call => call[0] === "push" || call.includes("tag") || call.includes("build")));
+  }
   const optional = run(["publish", "all"], { missingImage: "macos-builder" });
   assert.equal(optional.status, 0, optional.stderr);
-  assert.equal(optional.calls.filter(call => call[0] === "push").length, 6);
+  assert.equal(optional.calls.filter(call => call[0] === "push").length, 12);
+  assert.ok(!optional.calls.some(call => (call[0] === 'push' || call[1] === 'tag') && call.some(arg => arg.includes('/macos-builder:'))));
 });
 
 test("all rejects a shared version and unknown services never build or push", () => {
@@ -156,11 +161,11 @@ test("build all builds configured services without pushing or changing their tag
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
 });
 
-test("targeted push never builds and pushes the requested tag before latest", () => {
+test("targeted push sends only the requested version without building or promoting latest", () => {
   const result = run(["push", "web", "--", "v0.2.5"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"], ["push", "ghcr.io/example/mingd/web:latest"]]);
-  assert.ok(!result.calls.some(call => call.includes("build")));
+  assert.deepEqual(result.calls.filter(call => call[0] === "push"), [["push", "ghcr.io/example/mingd/web:v0.2.5"]]);
+  assert.ok(!result.calls.some(call => call.includes("build") || call.includes("tag")));
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.5/);
 });
 
@@ -169,6 +174,7 @@ test("a failed version publication neither pushes latest nor records the new tag
   const result = run(["publish", "web", "v0.2.5"], { failPush: true });
   assert.equal(result.status, 1);
   assert.ok(!result.calls.some(call => call[0] === "push" && call[1].endsWith(":latest")));
+  assert.ok(!result.calls.some(call => call.includes("tag") || call.includes("build")));
   assert.match(result.saved, /WEB_IMAGE_TAG=v0.2.4/);
 });
 
@@ -191,6 +197,13 @@ test("release builds and pushes preserve independent service versions", () => {
   assert.ok(pushed.calls.some(call=>call[0]==='push' && call[1]==='ghcr.io/example/mingd/web:v0.2.4'));
   assert.ok(pushed.calls.some(call=>call[0]==='push' && call[1]==='ghcr.io/example/mingd/worker-gateway:v0.2.3'));
   assert.ok(!pushed.calls.some(call=>call.includes('build') || call.includes('tag')));
+  const published = run(['publish', 'all', '--release']);
+  assert.equal(published.status, 0, published.stderr);
+  assert.deepEqual(published.calls.filter(call => call[0] === 'push'), applicationServices.flatMap(service => [
+    ['push', `ghcr.io/example/mingd/${service}:${service === 'web' ? 'v0.2.4' : 'v0.2.3'}`],
+    ['push', `ghcr.io/example/mingd/${service}:latest`],
+  ]));
+  assert.ok(!published.calls.some(call => call.includes('build')));
 });
 
 test("explicit macOS inclusion builds a new image and requires its toolchain archive", () => {

@@ -110,8 +110,11 @@ including the root; use explicit service selections for this separate-version wo
 `npm run build` without arguments validates/builds application workspaces;
 it does **not** build Docker images. `build -- <service> --release` builds one
 Docker image at its prepared tag. `push -- <service> --release` pushes that
-already-built image without rebuilding. Successful targeted pushes also update
-that image's `latest` alias, but production uses the explicit versioned tag.
+already-built image at its version tag. `publish -- <service> --release` pushes
+the already-built version and updates its `latest` alias. Neither command builds
+images. These meanings also apply to `all`: `push` sends version tags, while
+`publish` sends version tags and promotes each selected image to `latest`.
+Production uses explicit versioned tags.
 `--release` reads each service's production default and versioned build-checkout
 `.env` override, using the newer known version; exported shell image tags do not
 replace that selection. It does not query the registry or bump versions.
@@ -119,7 +122,7 @@ replace that selection. It does not query the registry or bump versions.
 ### Publish already-built compiler images
 
 If the release bump and Docker image builds have already succeeded, **start here**.
-Do not bump again or use `publish <service>`, which would build again. On the
+Do not bump or build again. On the
 build host, authenticate with `docker login ghcr.io`, then push only the images
 you rebuilt:
 
@@ -131,6 +134,11 @@ npm run push -- macos-builder --release
 npm run push -- web --release
 npm run push -- worker-gateway --release
 ```
+
+To also update `latest`, replace `push` with `publish`. For a complete locally
+built image set, use `npm run push -- all --release` for version tags or
+`npm run publish -- all --release` for version tags plus `latest`. Both commands
+preflight the selected local images; an unbuilt optional macOS image is skipped.
 
 Omit compiler targets you did not build/use. A recipe-version change requires
 new web, gateway and every deployed compiler image; gateway is required even
@@ -627,13 +635,15 @@ use Docker commands directly.
 | `npm run release -- bump patch --service web` | Advance only the web package/image release; keep the repo and other services' versions |
 | `npm run release -- tags [--env-file <file>]` | Optional local env-file editor; does not publish, deploy, or reach another host. Not a required release step |
 | `npm run build -- <service> -- <tag>` | Build one image and remember its tag |
-| `npm run push -- <service> -- <tag>` | Push one existing image as its version and latest; remember its version |
-| `npm run publish -- <service> -- <tag>` | Build/push one image as its version and latest; remember its version |
+| `npm run push -- <service> -- <tag>` | Push one existing image at its version tag; remember its version |
+| `npm run publish -- <service> -- <tag>` | Push one existing image at its version tag and update latest; remember its version |
 | `npm run build -- all` | Optional full-set build at configured tags; prepare new tags for every changed image first |
 | `npm run build -- <all\|service> --release` | Build using each selected service's prepared tag; build all accepts `--include-macos` |
-| `npm run push -- <service> --release` | Normal publication step: push one already-built image at its prepared tag; also update its latest alias |
+| `npm run push -- <service> --release` | Push one already-built image at its prepared version tag |
 | `npm run push -- all --release` | Optional full-set push, including unchanged services, without rebuilding or promoting latest |
-| `npm run push -- all` / `npm run publish -- all` | Push each service's configured image without rebuilding or retagging |
+| `npm run publish -- <all\|service> --release` | Push already-built images at their prepared version tags and update each latest alias |
+| `npm run push -- all` | Push each service's configured version tag without rebuilding or retagging |
+| `npm run publish -- all` | Push each service's configured version tag and update each latest alias without rebuilding |
 | `npm run compose -- up -d --build` | Build/start root Compose's default services |
 | `npm run compose -- up -d --build builder web-builder android-builder` | Build/start direct workers and their Redis dependency |
 | `npm run compose -- logs -f web` | Follow one service's logs |
