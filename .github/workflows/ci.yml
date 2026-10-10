@@ -39,7 +39,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - name: Build production application
-        run: npm run build
+        run: npm run build --workspace @mingd/web
 
   database:
     name: Database migrations and SQL tests

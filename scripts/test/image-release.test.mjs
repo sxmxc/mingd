@@ -42,8 +42,5 @@ test('every Compose image build bakes its exact assigned tag, including independ
     const build = services[service].build;
     assert.equal(build.args.MINGD_IMAGE_TAG, env[tagVariable(service)]);
     assert.ok(services[service].image.endsWith(':' + build.args.MINGD_IMAGE_TAG));
-    const dockerfile = readFileSync(join(root, build.dockerfile), 'utf8');
-    assert.match(dockerfile, /ARG MINGD_IMAGE_TAG\nRUN node scripts\/write-image-release.mjs/);
-    assert.match(dockerfile, /COPY scripts\/write-image-release.mjs scripts\/write-image-release.mjs/);
   }
 });

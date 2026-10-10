@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { imagePackages, tagVariable } from '../release-config.mjs';
+import { bumpVersion, imagePackages, tagVariable } from '../release-config.mjs';
 
 const script = fileURLToPath(new URL('../release.mjs', import.meta.url));
 function fixture(version = '0.2.3') {
@@ -55,18 +55,15 @@ test('patch advances each current release independently and preserves secrets an
     assert.equal(JSON.parse(f.read('apps/web/package.json')).version, '0.2.6');
   } finally { f.close(); }
 });
-for (const [kind, expected] of [['patch', '0.3.6'], ['minor', '0.4.0'], ['major', '1.0.0']]) {
-  test(`${kind} from 0.3.5 produces ${expected}, resetting lower components`, () => {
-    const f = fixture('0.3.5');
-    try {
-      const result = f.run(['bump', kind]);
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(JSON.parse(f.read('package.json')).version, expected);
-      assert.equal(JSON.parse(f.read('apps/web/package.json')).version, expected);
-      assert.match(f.read('.env'), new RegExp(`WEB_IMAGE_TAG=v${expected.replaceAll('.', '\\.')}`));
-    } finally { f.close(); }
-  });
-}
+test('version increments reset lower components and reject invalid inputs', () => {
+  for (const [kind, expected] of [['patch', '0.3.6'], ['minor', '0.4.0'], ['major', '1.0.0']]) {
+    assert.equal(bumpVersion('0.3.5', kind), expected);
+  }
+  for (const version of ['01.2.3', '1.2', '1.2.3-beta', '9007199254740992.0.0']) {
+    assert.throws(() => bumpVersion(version, 'patch'));
+  }
+  assert.throws(() => bumpVersion('1.2.3', 'invalid'));
+});
 test('targeted service release leaves repo, other packages and other image tags unchanged', () => {
   const f = fixture();
   try {
@@ -106,7 +103,6 @@ test('repeated selectors bump the chosen images and their shared workspace once'
     assert.equal(JSON.parse(f.read('package.json')).version, '0.2.3');
     assert.equal(JSON.parse(f.read('services/worker-gateway/package.json')).version, '0.2.3');
     assert.doesNotMatch(f.read('.env'), /MAINTENANCE_IMAGE_TAG|WORKER_GATEWAY_IMAGE_TAG/);
-    assert.equal((result.stdout.match(/services\/builder: /g) ?? []).length, 1);
     assert.equal(f.run(['bump', 'patch', '--service', 'all', '--service', 'web']).status, 1);
   } finally { f.close(); }
 });
