@@ -13,7 +13,7 @@
     "@mingd/build-config": "*",
     "@mingd/worker-protocol": "*",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/supabase-js": "^2.117.3",
     "bullmq": "^6.3.10",
     "clsx": "^2.1.1",
     "ioredis": "^6.0.0",

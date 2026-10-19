@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@mingd/worker-protocol": "*",
-    "@supabase/supabase-js": "2.117.2",
+    "@supabase/supabase-js": "2.117.3",
     "bullmq": "^6.3.10",
     "fastify": "5.12.5"
   },

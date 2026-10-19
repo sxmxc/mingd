@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@mingd/build-config": "*",
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/supabase-js": "^2.117.3",
     "bullmq": "^6.3.10",
     "ioredis": "^6.0.0",
     "@mingd/worker-protocol": "*"
