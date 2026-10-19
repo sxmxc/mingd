@@ -15,12 +15,12 @@
   "dependencies": {
     "@mingd/build-config": "*",
     "@supabase/supabase-js": "^2.117.2",
-    "bullmq": "^6.3.10",
+    "bullmq": "^6.3.13",
     "ioredis": "^6.0.0",
     "@mingd/worker-protocol": "*"
   },
   "devDependencies": {
-    "@types/node": "^24.19.1",
+    "@types/node": "^24.19.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
