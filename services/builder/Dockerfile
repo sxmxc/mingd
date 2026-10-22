@@ -42,7 +42,7 @@ ENV GODOT_CACHE_DIR=/cache/godot \
 CMD ["node", "--import", "tsx", "services/builder/src/entrypoint.ts"]
 
 # Isolated Web toolchain; recipe 10 accounts for the Emscripten 6 update.
-FROM emscripten/emsdk:6.0.11@sha256:cdefec943f04fd4b2b2fe23b0a1a346be9fc560ef5784a83faa27dd351381372 AS web-sdk
+FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS web-sdk
 FROM desktop AS web
 COPY --from=web-sdk /emsdk /emsdk
 ENV EMSDK=/emsdk \
