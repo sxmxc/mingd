@@ -16,7 +16,7 @@
     "@mingd/worker-protocol": "*",
     "@supabase/supabase-js": "2.117.2",
     "bullmq": "^6.3.10",
-    "fastify": "5.12.5"
+    "fastify": "5.12.6"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
